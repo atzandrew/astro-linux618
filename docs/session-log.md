@@ -748,3 +748,53 @@ escape with this image.
   (500 mA in, 500 mA to the battery). Whether the battery gains net
   charge under our load is not measured (gauge needs a PMIC write;
   MT6360 ADC needs a conversion start = a write).
+
+## 2026-11-25 — chg2: MT6360 on mainline drivers — PRE-FLASH CHECK
+
+- Direction (user): drivers as mainline-ready as possible; shell pokes are
+  for learning only. Vendor BSP = reference for values, not code.
+- Read-only audit on chg1 (i2ctransfer to 0x1a/0x64, 1-byte CRC reads;
+  enable = bit 6 of the CTRL register, vsel via mainline tables):
+  | rail | vendor name | en | vsel | V |
+  |---|---|---|---|---|
+  | BUCK1 | VMDLA | on (0xc4) | 0xa5 | 1.125 V |
+  | BUCK2 | VDRAM1 | on (0xc4) | 0x5a | 0.75 V |
+  | LDO6 | VMDDR | on (0xc4) | 0x25 | 0.75 V |
+  | LDO7 | VDRAM2 | on (0xc4) | 0x10 | 0.60 V |
+  | LDO1 | VFP | off (0x80) | 0x40 | 1.8 V |
+  | LDO2 | VTP | off (0x80) | 0x40 | 1.8 V |
+  | LDO3 | VMC | off (0x80) | 0xb0 | 3.0 V |
+  | LDO5 | VMCH | off (0x80) | 0x25 | 2.95 V |
+  DRAM rails live on the MT6360: they must stay always-on and in range.
+- GPIO24 (IRQB): mode 0, input, SMT, pull-up, **reads 0** (MT6360 holds
+  an unserviced interrupt). FOD_STAT 0xe7 = 0x94: CHRDET_EXT = VBUS on
+  the right port (vendor aeonusb.c: both ports charge).
+- DTS: `pmic@34` "mediatek,mt6360" (IRQB GPIO24 edge-falling as vendor
+  and mainline boards; pinctrl = the state LK leaves), `charger`
+  (vinovp 6.5 V = LK's CTRL19 value = driver default; OTG boost regulator
+  described, not enabled), `regulator` (vendor names/ranges, every range
+  contains LK's voltage; BUCK1/BUCK2/LDO6/LDO7 always-on). No adc node
+  (bound by MFD cell name; the MFD binding has no adc child). No TCPC,
+  no LEDs. Binding nit for upstream: mfd yaml says `regulators`, driver
+  and in-tree DTs use `regulator`.
+- Config: CHARGER_MT6360=y, MEDIATEK_MT6360_ADC=y (MFD/REGULATOR already
+  =y from defconfig), TYPEC_MT6360=n.
+- Image `boot-chg2.img` = `85613d6b…5542`; Image.gz `639597f3…`, DTB
+  `aebbc537…`; initramfs contents unchanged from chg1 (hash differs by
+  cpio mtimes only; init/astro-console/astro-disp compared).
+- Pre-flash check — what this kernel writes, all on the MT6360 (i2c5),
+  nothing on the MT6359P (pwrap still off, rule-5 checks pass):
+  - core: masks and acks all MT6360 interrupts (regmap-irq init).
+  - charger probe: CHG_CTRL19 VINOVP (same value), DEVICE_TYPE USBCHGEN
+    0 then 1 (BC1.2 detection runs on D+/D- once, VBUS present),
+    CHG_CTRL2 IINLMTSEL = AICR (same), CHG_CTRL3 ILIM_EN = 0 (same),
+    CHG_CTRL10 OTG OC = 3 A (OTG off). Charging stays enabled; AICR/ICHG
+    untouched (500 mA / 500 mA).
+  - regulators: no write (in range, always-on ones already on).
+  - MT6360 reset functions (QONB/MRSTB/AP-watchdog reset) not touched.
+  Risks: BC1.2 may drop the USB shell for a moment (host re-enumerates);
+  a regulator surprise could hang the board → watchdog/power-key escape,
+  then reflash chg1. New kernel → re-observe the power-key escape.
+- After boot: dmesg mt6360; /sys/class/power_supply/mt6360-chg*;
+  /sys/bus/iio (VBAT, IBAT); /sys/kernel/debug/regulator/summary; GPIO24
+  high again; IRQ count changes on unplug/replug.

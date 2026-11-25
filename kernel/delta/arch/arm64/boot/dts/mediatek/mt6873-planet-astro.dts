@@ -535,12 +535,110 @@
  * i2c5 bus scan, docs/p0-findings.md). Single-channel controller (vendor
  * mt6873.dts i2c5: reg size 0x1000, no ch_offset), so mainline's base.
  * SCL5/SDA5 = GPIO202/203 mode 1, already set by LK (GPIO MODE25
- * 0x11111111 on the running board). Bus only, no children: the MT6360 is
- * read from userspace (i2c-dev) until a charger driver is decided.
+ * 0x11111111 on the running board).
  */
 &i2c5 {
 	clock-frequency = <400000>;
 	status = "okay";
+
+	/*
+	 * MT6360 sub-PMIC: charger, ADC, regulators (mainline mt6360-core;
+	 * the ADC binds by MFD cell name, the binding has no adc child).
+	 * IRQB = GPIO24, active low (stock dtbo fragment@21 intr_gpio 24;
+	 * vendor mt6360_pmu_irq.c IRQF_TRIGGER_FALLING, as mainline boards).
+	 * Not described here, so their drivers stay off: TCPC (Type-C/PD,
+	 * later), flash/RGB LEDs.
+	 */
+	mt6360: pmic@34 {
+		compatible = "mediatek,mt6360";
+		reg = <0x34>;
+		interrupts-extended = <&pio 24 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "IRQB";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mt6360_int_pins>;
+		wakeup-source;
+
+		/*
+		 * Input OVP 6.5 V: the value LK leaves in CHG_CTRL19 (0x20,
+		 * 2026-11-25) and the driver default; 5 V USB only until PD.
+		 */
+		charger {
+			compatible = "mediatek,mt6360-chg";
+			richtek,vinovp-microvolt = <6500000>;
+
+			usb-otg-vbus-regulator {
+				regulator-name = "mt6360-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+			};
+		};
+
+		/*
+		 * Names and ranges from the vendor mt6360.dtsi. Every range
+		 * contains the voltage LK left (read 2026-11-25, session log),
+		 * so the regulator core changes nothing at probe. BUCK2, LDO6
+		 * and LDO7 feed the DRAM, BUCK1 the APU: always on, as stock.
+		 * LDO1/2/3/5 were off at boot and stay so until a consumer
+		 * (fingerprint, touch, SD card) claims them.
+		 */
+		regulator {
+			compatible = "mediatek,mt6360-regulator";
+
+			mt6360_buck1: buck1 {
+				regulator-name = "vmdla";	/* 1.125 V, on */
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-always-on;
+			};
+
+			mt6360_buck2: buck2 {
+				regulator-name = "vdram1";	/* 0.75 V, on */
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-always-on;
+			};
+
+			mt6360_ldo1: ldo1 {
+				regulator-name = "vfp";		/* 1.8 V, off */
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+			};
+
+			mt6360_ldo2: ldo2 {
+				regulator-name = "vtp";		/* 1.8 V, off */
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+			};
+
+			mt6360_ldo3: ldo3 {
+				regulator-name = "vmc";		/* 3.0 V, off */
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+			};
+
+			mt6360_ldo5: ldo5 {
+				regulator-name = "vmch";	/* 2.95 V, off */
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3600000>;
+			};
+
+			mt6360_ldo6: ldo6 {
+				regulator-name = "vmddr";	/* 0.75 V, on */
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-always-on;
+			};
+
+			mt6360_ldo7: ldo7 {
+				regulator-name = "vdram2";	/* 0.6 V, on */
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-always-on;
+			};
+		};
+	};
 };
 
 /*
@@ -653,6 +751,15 @@
 	aw9523_int_pins: aw9523-int-pins {
 		pins-int {
 			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+
+	/* Same as LK leaves it (mode 0, input, pull-up; 2026-11-25). */
+	mt6360_int_pins: mt6360-int-pins {
+		pins-int {
+			pinmux = <PINMUX_GPIO24__FUNC_GPIO24>;
 			input-enable;
 			bias-pull-up;
 		};
