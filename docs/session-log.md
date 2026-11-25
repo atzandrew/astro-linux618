@@ -965,3 +965,15 @@ escape with this image.
   21–22 °C for a 10 kΩ B≈3435 NTC (plausible room temperature; 3B input).
 - LK cmdline `has_battery_removed=1` this boot; also seen on earlier
   boots before any PMIC driver (usb1 logs), so not new.
+- Unplug test (user, 90 s off USB, typing; logger every 2 s in /tmp):
+  current_now **−187…−253 mA** (mean ≈ −200 mA) with status
+  Discharging; replug → **+273…+292 mA**, status Charging, charger
+  Charging (recharge after the dip). IBAT sign and scale confirmed.
+  Terminal V fell 4.273 → 4.194–4.216 V under load while voltage_ocv
+  moved only 4.2551 → 4.2523 V; capacity 91 → 90 → 91 %, no jumps.
+  Board stayed up through both unplugs (uptime vs Monolith USB log).
+  Idle draw on battery ≈ 200 mA (panel blanked, cpuidle.off=1).
+- Earlier "previous boot" ramoops was stale (kernel #10 pmicB wdtest).
+- To fix in the next image: stock IR compensation uses profile R +
+  R_FG 5 mΩ + FG_METER_RESISTANCE 10 mΩ (0.1 mΩ units, stock DTB 0x64);
+  factory-internal-resistance should be ~105 mΩ, not 90 mΩ.
