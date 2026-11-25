@@ -876,3 +876,6 @@ escape with this image.
   0x5930; all 10 IRQ-enable registers 0; TOP_INT_STATUS0 0; PMIF
   INIT_DONE 0x1 (no WDT_SRC write), TIMER_EN 3, INT_EN 0x30, IRQ_FLAG_3
   0. IRQ counts: pwrap (GIC 252) 0, mt6358-irq (EINT 214) 0.
+- Power-key escape **observed on pmicA** (kernel #9, pwrap + MT6359P core
+  running): user held the power/Esc key, board reset, next boot
+  `androidboot.bootreason=reboot_longkey`.
