@@ -1,7 +1,10 @@
 #!/bin/busybox sh
-# Astro Slide bring-up initramfs (P1, escape tests). Derived from
-# cosmo-linux618 initramfs/init. No root switch, no storage access, no
-# writes outside RAM.
+# Astro Slide bring-up initramfs. Derived from cosmo-linux618
+# initramfs/init. Boots Debian from `userdata` when it holds one (root
+# handoff below); otherwise, or after a boot that never confirmed itself,
+# it stays here as the rescue system (USB shell). The only storage it
+# ever writes is that userdata partition (every other UFS disk and
+# partition is set read-only).
 #
 # Signs of life without a display or USB: the keyboard backlight (open the
 # slider), driven by the gpio-leds node in the DTS.
@@ -127,6 +130,7 @@ if [ -e /sys/class/net/usb0 ]; then
 	udhcpd /tmp/udhcpd.conf && say "udhcpd on usb0"
 	telnetd -l /bin/sh && say "telnetd up: telnet 10.15.21.1"
 	nc -lk -p 2323 -e /bin/sh &
+	NCPID=$!
 	say "shell port up: socat - TCP:10.15.21.1:2323"
 else
 	say "no usb0 after 20 s; udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' ')"
@@ -227,6 +231,7 @@ if [ -n "$LED" ]; then
 		[ $CODE = 5 ] && break
 		sleep 2
 	done ) &
+	BLINKPID=$!
 fi
 # astro.logreset=1: log-channel test. Stop feeding the watchdog 30 s after
 # the diagnosis, so the board resets by itself (watchdog, not power key)
@@ -250,6 +255,70 @@ ufs_ro() {
 		[ "$(blockdev --getro "$d" 2>/dev/null)" = 1 ] || blockdev --setro "$d"
 	done
 }
+
+# ---- Root filesystem handoff (Debian on userdata, 2026-11-25) -------------
+# Boots /sbin/init from the ext4 on `userdata` (sdc56) when it looks like a
+# system. Only that partition and its disk are made writable; every other
+# UFS disk and partition stays read-only.
+# Tripwire: the Astro has no `cache` partition, so the flag is a file on
+# the root filesystem itself, /var/lib/astro-boot/state. Before the handoff
+# this writes TRY; the root system's astro-boot-ok.service writes OK once
+# multi-user.target is reached. A boot that finds TRY (the last handoff
+# never reported in, e.g. it hung and was reset by the power key or the
+# watchdog) writes RSC and stays here in the rescue initramfs; the next
+# boot tries again. astro.noroot on the cmdline always stays here.
+part() { # GPT name -> /dev/sdXN
+	for b in /sys/class/block/sd*; do
+		grep -qx "PARTNAME=$1" "$b/uevent" 2>/dev/null && { echo "/dev/${b##*/}"; return; }
+	done
+}
+STATE=/newroot/var/lib/astro-boot/state
+state_set() { mkdir -p "${STATE%/*}" && printf '%s\n' "$1" > "$STATE.new" && mv "$STATE.new" "$STATE"; sync; }
+root_abort() { umount /newroot 2>/dev/null; ufs_ro; say "$1: staying in the rescue initramfs"; }
+try_root() {
+	grep -qw astro.noroot /proc/cmdline && { say "astro.noroot: staying in the rescue initramfs"; return; }
+	n=0
+	while [ -z "$(part userdata)" ] && [ $n -lt 15 ]; do feed; sleep 1; n=$((n+1)); done
+	ROOTDEV=$(part userdata)
+	[ -n "$ROOTDEV" ] || { say "userdata not found: staying here"; return; }
+	ufs_ro	# everything read-only first, then open exactly userdata + its disk
+	DISK=/dev/$(basename "$(dirname "$(readlink -f /sys/class/block/${ROOTDEV#/dev/})")")
+	blockdev --setrw "$DISK" && blockdev --setrw "$ROOTDEV" || { root_abort "could not make $ROOTDEV writable"; return; }
+	mkdir -p /newroot
+	mount -t ext4 -o rw,noatime "$ROOTDEV" /newroot 2>/dev/null || { root_abort "no ext4 root on $ROOTDEV"; return; }
+	if [ ! -x /newroot/sbin/init ] || [ ! -f /newroot/etc/os-release ]; then
+		root_abort "$ROOTDEV has no /sbin/init or os-release"; return
+	fi
+	last=$(cat "$STATE" 2>/dev/null)
+	if [ "$last" = TRY ]; then
+		state_set RSC
+		root_abort "last root boot never reported in (RESCUE; next boot tries again)"
+		return
+	fi
+	state_set TRY
+	say "booting $(. /newroot/etc/os-release; echo "$PRETTY_NAME") from $ROOTDEV (last state: ${last:-none})"
+	feed
+	# Rescue helpers go; the root system has its own (astro-console.service).
+	# Pixels off until it starts (burn-in rule).
+	kill "$(cat /tmp/astro-console.pid 2>/dev/null)" ${BLINKPID:-} ${NCPID:-} 2>/dev/null
+	killall telnetd udhcpd 2>/dev/null
+	CONSOLE=0
+	usleep 400000	# let a frame kick the helper had started finish
+	/bin/astro-disp black >> /tmp/dispkick.txt 2>&1
+	[ -n "$LED" ] && echo 0 > "$LED/brightness"
+	ifconfig usb0 0.0.0.0 down 2>/dev/null
+	# Hand the watchdog to systemd (RuntimeWatchdogSec=30s): closing without
+	# the magic character leaves it running, so a hang before systemd opens
+	# it still resets the board.
+	feed
+	exec 3>&-
+	for m in /dev /proc /sys; do
+		mkdir -p "/newroot$m"
+		mount -o move "$m" "/newroot$m" 2>/dev/null || umount -l "$m" 2>/dev/null
+	done
+	exec switch_root /newroot /sbin/init
+}
+[ $LOGRESET = 1 ] || try_root
 
 i=0
 while true; do
