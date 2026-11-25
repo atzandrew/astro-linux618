@@ -915,3 +915,12 @@ escape with this image.
   Nothing else changes. Esc reaches the console; holding still resets
   the board at ~8–10 s (PMIC hardware). After boot, first: 0xa12 again.
   Escapes: power-key hold, watchdog (wdtest image). Rollback: pmicA.
+- Result (user flashed `boot-pmicB.img` `e5e1299e…`, kernel #10): boots;
+  `mtk-pmic-keys` = input0/event0 under 10026000.pwrap:pmic/mt6359-keys.
+  Read-only at 19 s: **0xa12 = 0x21e0** (driver wrote nothing), 0x14a
+  0x0225, 0x14c 0, PSC_TOP_INT_CON0 0x910 = 0x0005, TOPSTATUS 0x000e.
+- Key test (user: 3 taps + ~2 s hold, twice). Round 1: keys IRQ 48/50 =
+  4/4, EINT 214 = 24, pwrap IRQ 0 (busybox hexdump can't read evdev:
+  EINVAL on short reads). Round 2 (dd bs=24): EV_KEY **KEY_ESC** press/
+  release ×4, held 0.39 / 0.26 / 0.27 / **1.74 s**; IRQs 8/8; 0xa12 still
+  0x21e0.

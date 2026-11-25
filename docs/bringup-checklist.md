@@ -28,7 +28,7 @@ and needs a written pre-flash check and both escapes re-observed.
 | ✅ | USB device (gadget) | mtu3 `11201000`, t-phy, right-hand port | fix | U2 force bits (tphy delta); CDC-ECM + shell | — |
 | ✅ | Console | own buffer at 0x70000000 through LK's command-mode DSI path | — (interim) | `astro-disp` / `astro-console`, idle blank 60 s; replaced by the DSI driver | 6 |
 | ✅ | UFS | `11270000.ufshci`, SK hynix H9HQ15AFAMADAR | fix | G3B ×2, 991 MB/s read; legacy-IP and adapt-type guards; **read-only in init** | — |
-| ⬜ | Esc/power key | MT6359P PWRKEY (TOPSTATUS bit 1) | fix (`mtk-pmic-keys`) | **first PMIC step**: plan in AGENTS.md (Esc < 1.5 s, KEY_POWER longer; never touch reset regs; 0x14c is a SET alias). Cosmo: power key row | **1** rule 5 |
+| ✅ | Esc/power key | MT6359P PWRKEY (TOPSTATUS bit 1) | fix (`mtk-pmic-keys` MT6359P delta) | pmicB: KEY_ESC press/release; reset layout STRUP_CON12, stock one-key 8 s stated in DT, nothing written (docs/pmic-plan.md). Hold-for-power = rootfs userspace, as on the Cosmo | **1** rule 5 |
 | ⬜ | PMIC core (pwrap + MT6359P MFD) | `pwrap@10026000`, EINT 214 | yes | comes with the keys; regulator/RTC/ADC/codec drivers stay off until audited; pwrap probe writes at undefined mt6873 offsets (watch) | **1** rule 5 |
 | ⬜ | Volume keys | keypad `kp@10010000` (stock `kpd-hw-init-map` = VOLDOWN, VOLUP) | check (`mt6779-keypad`) | | 3 |
 | ⬜ | Slide sensor (hall) | vendor `drivers/input/hall/hall.c` EINT | yes (`gpio-keys` SW_LID) | pin to read from vendor DT; Cosmo: lid row | 3 |
