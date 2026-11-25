@@ -924,3 +924,5 @@ escape with this image.
   EINVAL on short reads). Round 2 (dd bs=24): EV_KEY **KEY_ESC** press/
   release ×4, held 0.39 / 0.26 / 0.27 / **1.74 s**; IRQs 8/8; 0xa12 still
   0x21e0.
+- Power-key escape **observed on pmicB** (kernel #10, keys driver bound):
+  user held the key, board reset, next boot `bootreason=reboot_longkey`.
