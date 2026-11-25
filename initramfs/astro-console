@@ -24,7 +24,9 @@ t=0
 while true; do
 	if [ $t -ge 5 ]; then	# once a second: look for activity
 		t=0
-		cur="$(dmesg | tail -n 1) $(grep -m1 '11d01100.i2c' /proc/interrupts)"
+		# init's 30 s "alive" heartbeat is not activity (it kept the
+		# panel lit forever, 2026-11-25).
+		cur="$(dmesg | grep -v 'astro-init: alive' | tail -n 1) $(grep -m1 '11d01100.i2c' /proc/interrupts)"
 		if [ -e /tmp/console-wake ] || [ "$cur" != "$last" ]; then
 			rm -f /tmp/console-wake
 			last="$cur"

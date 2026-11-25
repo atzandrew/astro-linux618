@@ -702,3 +702,29 @@ escape with this image.
   been lit all along on every image since console1. To fix first next
   session (AGENTS.md next candidates 00). Blanking the panel from here
   was refused by the session's permission check; handed to the user.
+
+## 2026-11-25 — chg1: i2c5 bus for the MT6360 charger; burn-in fix — PRE-FLASH CHECK
+
+- Goal: stop the battery draining under our kernel. First find out
+  whether the MT6360 charges at all with no Linux driver.
+- What we know without new writes: MT6359P `CHR_CON0` 0xa88 = 0x0001
+  (RGS_CHRDET: VBUS seen, Monolith port). Gauge `FGADC_CUR_CON0` 0xd8a =
+  0xfe50 and CAR 0xd16/0xd18 did not move in 5 s: latched values that
+  need a PMIC write (FG_SW_READ_PRE) to refresh, so not read further.
+- Vendor MT6360 charger DT (mt6360.dtsi): ichg 2.0 A, aicr 3.2 A, mivr
+  4.4 V, cv 4.4 V, ieoc 150 mA, safety timer 12 h, **en_wdt = 1** (the
+  vendor kernel kicks a charger watchdog; what the charger does when
+  nobody kicks it is what to read first).
+- DTS: `&i2c5` okay, 400 kHz, no children (single-channel controller,
+  vendor reg size 0x1000, no ch_offset). SCL5/SDA5 GPIO202/203 already
+  mode 1 (MODE25 0x11111111 read on the running board).
+- astro-console ignores init's "astro-init: alive" kmsg lines
+  (AGENTS.md item 00): the 60 s idle blank fires again.
+- Image `boot-chg1.img` = boot.img `d9df3c73…b06e`. Image.gz `4ebf0215…`
+  unchanged from fn1, DTB `ad6a9cfe…`, initramfs `7e27bde1…`.
+- Pre-flash check: no PMIC/pwrap/keys/watchdog/reset/display change
+  (rule-5 checks in build-boot-img.sh pass). i2c5 probe only resets the
+  AP I2C controller; nothing on the bus is written by the kernel.
+  Escapes as on fn1 (kernel identical). Plan after boot: read-only
+  `i2cget`/`i2cdump` of MT6360 PMU 0x34 (charger status, HZ/CHG_EN,
+  AICR/ICHG, watchdog) — no i2cset without a written check.

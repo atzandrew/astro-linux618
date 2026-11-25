@@ -531,6 +531,19 @@
 };
 
 /*
+ * i2c5: MT6360 (PMIC 0x1a, PMU/charger 0x34, TCPC 0x4e, LDO 0x64; stock
+ * i2c5 bus scan, docs/p0-findings.md). Single-channel controller (vendor
+ * mt6873.dts i2c5: reg size 0x1000, no ch_offset), so mainline's base.
+ * SCL5/SDA5 = GPIO202/203 mode 1, already set by LK (GPIO MODE25
+ * 0x11111111 on the running board). Bus only, no children: the MT6360 is
+ * read from userspace (i2c-dev) until a charger driver is decided.
+ */
+&i2c5 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+/*
  * Keyboard AW9523B on i2c8 (stock dtbo fragment@47: aw9523_key@5b, 400 kHz,
  * open drain). SCL8/SDA8 = GPIO122/123 mode 1, already set by LK (GPIO
  * MODE15 0x00111111 on the running board), so no pinctrl for the bus.
