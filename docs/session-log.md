@@ -977,3 +977,6 @@ escape with this image.
 - To fix in the next image: stock IR compensation uses profile R +
   R_FG 5 mΩ + FG_METER_RESISTANCE 10 mΩ (0.1 mΩ units, stock DTB 0x64);
   factory-internal-resistance should be ~105 mΩ, not 90 mΩ.
+- Power-key escape **observed on bat3a** (kernel #11, AUXADC +
+  adc-battery running): user held the key, board reset, next boot
+  `bootreason=reboot_longkey`; 0xa12 = 0x21e0; capacity 92 % at boot.
