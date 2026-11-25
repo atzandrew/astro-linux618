@@ -994,3 +994,9 @@ escape with this image.
   "Step 3B". Images `boot-bat3b.img` `9328ef42…2e27`,
   `boot-bat3b-wdtest.img` `dbca9572…a62e` (on Monolith). Guard re-pinned
   and re-tested (changed source refused). Not flashed yet.
+- Result (user flashed `boot-bat3b.img` `9328ef42…`, kernel #12): boots,
+  bootreason PowerKey, **0xa12 = 0x21e0**. `ntc-thermistor` probed
+  (iio:device2 ncp15xh103, hwmon1). batt_temp raw 814 × 1.0986 =
+  894.3 mV → 11262 Ω → 21.97 °C by hand; driver 21968 m°C (IIO), 21920
+  (hwmon), `adc-battery` TEMP **220** (22.0 °C, unit fix confirmed).
+  Capacity 92 %, OCV 4.274 V, I −2 mA, Not charging (charger Full).
