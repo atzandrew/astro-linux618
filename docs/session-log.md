@@ -1016,7 +1016,7 @@ escape with this image.
   `mediatek,mt6360_pmu_chg` and `battery_cv = <4400000>`.
 - Stock Android raises it: `mtk_charger` SW JEITA, normal band 10–45 °C
   → `sw_jeita.cv = 0` → `battery_cv` 4.40 V (`jeita_temp_t2_to_t3_cv`
-  4.34 V is never used in that band; 4.10 V above 45 °C and 10 °C and
-  below, 4.04 V below 0 °C).
+  4.34 V is never used in that band; 4.24 V above 45 °C and 0–10 °C,
+  4.04 V below 0 °C).
 - Mainline `mt6360_charger` never writes VOREG (no init, no
   monitored-battery), so LK's 4.35 V stays.
