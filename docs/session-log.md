@@ -986,3 +986,11 @@ escape with this image.
   (48–49 s each, preloader enumerates twice per reset, as on pmicA/B).
   **Step 3A done: battery percentage on mainline drivers (three
   upstreamable deltas), both escapes observed.**
+
+## 2026-11-25 — Step 3B: battery temperature — PRE-FLASH CHECK
+
+- Stock NTC = mainline NCP15XH103 table; formula = ntc_thermistor
+  connected-ground. Deltas, audit and images: `docs/pmic-plan.md`
+  "Step 3B". Images `boot-bat3b.img` `9328ef42…2e27`,
+  `boot-bat3b-wdtest.img` `dbca9572…a62e` (on Monolith). Guard re-pinned
+  and re-tested (changed source refused). Not flashed yet.

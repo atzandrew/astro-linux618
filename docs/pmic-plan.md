@@ -248,11 +248,42 @@ AUXADC driver only with that node and the audited source (sha256
   `/sys/class/power_supply/adc-battery/` capacity/voltage_ocv/status.
 - Escapes: power-key hold, watchdog (wdtest image). Rollback: pmicB.
 
-## Step 3B (next): battery temperature
+## Step 3B: battery temperature (image 3B built, not flashed)
 
-Stock NTC (`mtk_battery_table.h`, `BAT_NTC_10`): 10 kΩ NTC, pull-up
-24 kΩ to 2.8 V (RBAT_PULL_UP_R / RBAT_PULL_UP_VOLT), BIF_NTC_R 16 kΩ,
-`Fg_Temperature_Table[21]` R-vs-T. Read BAT_TEMP raw on 3A first to check
-the math; then wire it to the battery (temperature channel) and let the
-helper use the temperature instead of its fixed 25 °C for table choice
-and R scaling (helper delta). Coulomb counter: separate later driver.
+Stock NTC (`mtk_battery_table.h`, `BAT_NTC_10`; no DTB override): 10 kΩ
+NTC to ground, RBAT_PULL_UP_R 24 kΩ to RBAT_PULL_UP_VOLT 2.8 V
+(`RBAT_PULL_UP_VOLT_BY_BIF`: VBIF28, reads 2550 × 1.0986 = 2801 mV),
+`BattVoltToTemp`: R = Rpu·V/(Vpu − V) = mainline `ntc_thermistor`
+connected-ground with pulldown 0. `Fg_Temperature_Table[21]` equals
+mainline `ncpXXxh103` value for value → `murata,ncp15xh103`. BIF_NTC_R
+(16 kΩ) is subtracted only when a BIF battery exists (none). Check on 3A:
+BAT_TEMP 907 mV → 11.5 kΩ → 21.4 °C.
+
+Mainline has no IIO-level NTC converter (iio-rescale is linear), so:
+
+1. `mt6359-auxadc`: `batt_temp` is IIO_VOLTAGE (it is the NTC divider
+   voltage, scale in mV; `ntc_thermistor` only takes voltage channels).
+   All four PMICs' batt_temp entries; no write path changed (guard sha
+   re-pinned `1468d653…2675`).
+2. `ntc_thermistor` + binding: optional IIO provider when the node has
+   `#io-channel-cells = <0>` (one processed IIO_TEMP channel, m°C).
+3. `generic-adc-battery`: TEMP was processed × 1000 (m°C → wrong by
+   10⁴); now m°C / 100 = 0.1 °C. In helper mode the temperature is passed
+   to the helper.
+4. `adc-battery-helper`: optional `get_temp` (set before init): OCV table
+   by temperature instead of fixed 25 °C, initial R scaled by
+   `resistance-temp-table`. Existing users (ug3105, intel_dc_ti) leave it
+   NULL: unchanged.
+5. DTS: `factory-internal-resistance` 90 → 105 mΩ (profile R + R_FG 5 mΩ
+   + FG_METER_RESISTANCE 10 mΩ, as stock's IR compensation).
+
+Pre-flash check: `boot-bat3b.img` `9328ef42…2e27`,
+`boot-bat3b-wdtest.img` `dbca9572…a62e`; Image.gz `c8240682…1250`, DTB
+`04cf898c…427b`. PMIC writes: none new (BAT_TEMP reads use the audited
+RQST0 path). Power key, watchdog, reset path, display unchanged. After
+boot: 0xa12, then `in_voltage1` (batt_temp) ≈ 0.9 V, thermistor
+temperature ≈ room, `adc-battery/temp` in 0.1 °C, capacity as on 3A.
+Escapes: power key, wdtest. Rollback: bat3a.
+
+Later: coulomb-counter FG driver (vendor `mt6359_gauge.c` latch sequence,
+0.610 mA/LSB, CAR units); battery temperature protection for charging.

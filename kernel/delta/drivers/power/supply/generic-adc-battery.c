@@ -108,6 +108,30 @@ static int gab_read_channel(struct gab *adc_bat, enum gab_chan_type channel,
 	return ret;
 }
 
+/*
+ * IIO processed temperature is in milli-degrees Celsius, power-supply TEMP
+ * in tenths of a degree (the voltage/current/power x1000 scaling of
+ * gab_read_channel() does not apply).
+ */
+static int gab_read_temp(struct gab *adc_bat, int *result)
+{
+	int ret;
+
+	ret = iio_read_channel_processed(adc_bat->channel[GAB_TEMP], result);
+	if (ret < 0) {
+		dev_err(&adc_bat->psy->dev, "read channel error: %d\n", ret);
+		return ret;
+	}
+
+	*result = DIV_ROUND_CLOSEST(*result, 100);
+	return 0;
+}
+
+static int gab_get_temp(struct power_supply *psy, int *temp)
+{
+	return gab_read_temp(to_generic_bat(psy), temp);
+}
+
 static int gab_get_voltage_and_current_now(struct power_supply *psy,
 					   int *volt, int *curr)
 {
@@ -135,7 +159,7 @@ static int gab_get_property(struct power_supply *psy,
 		case POWER_SUPPLY_PROP_POWER_NOW:
 			return gab_read_channel(adc_bat, GAB_POWER, &val->intval);
 		case POWER_SUPPLY_PROP_TEMP:
-			return gab_read_channel(adc_bat, GAB_TEMP, &val->intval);
+			return gab_read_temp(adc_bat, &val->intval);
 		default:
 			return adc_battery_helper_get_property(psy, psp, val);
 		}
@@ -152,7 +176,7 @@ static int gab_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_POWER_NOW:
 		return gab_read_channel(adc_bat, GAB_POWER, &val->intval);
 	case POWER_SUPPLY_PROP_TEMP:
-		return gab_read_channel(adc_bat, GAB_TEMP, &val->intval);
+		return gab_read_temp(adc_bat, &val->intval);
 	default:
 		return -EINVAL;
 	}
@@ -301,6 +325,8 @@ static int gab_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, adc_bat);
 
 	if (adc_bat->use_helper) {
+		if (adc_bat->channel[GAB_TEMP])
+			adc_bat->helper.get_temp = gab_get_temp;
 		ret = adc_battery_helper_init(&adc_bat->helper, adc_bat->psy,
 					      gab_get_voltage_and_current_now,
 					      adc_bat->charge_finished);

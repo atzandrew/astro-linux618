@@ -63,7 +63,7 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # else) and the AUXADC driver, pinned by sha256 to the audited source
 # (docs/pmic-plan.md step 3: reset 0xf90 under key 0xfb4, requests
 # 0x1108/0x110a, IMP0 0x1208; no STRUP). Any change re-opens the audit.
-AUXADC_SHA=b6bbc80d0d84ff30164bde9f81895a25b4e6c219d32074559767f2a515fe43cb
+AUXADC_SHA=1468d6538002322c80f5847d45e656a728d64036522787d892d524c495342675
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
