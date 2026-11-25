@@ -1002,3 +1002,8 @@ escape with this image.
   Capacity 92 %, OCV 4.274 V, I −2 mA, Not charging (charger Full).
 - Power-key escape **observed on bat3b** (kernel #12): user held the key,
   board reset, next boot `bootreason=reboot_longkey`; 0xa12 = 0x21e0.
+- Watchdog escape **observed on bat3b** (user flashed
+  `boot-bat3b-wdtest.img` `dbca9572…`): Monolith USB log, gadget up
+  14:56:47 → reset 14:57:35; up 14:58:01 → reset 14:58:49; up 14:59:14
+  (48 s each). **Step 3B done: battery temperature on mainline drivers,
+  both escapes observed.**
