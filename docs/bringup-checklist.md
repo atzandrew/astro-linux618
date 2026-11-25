@@ -40,6 +40,7 @@ and needs a written pre-flash check and both escapes re-observed.
 | ⬜ | cpuidle / suspend | SPM, MCUPM / SSPM | port | Cosmo: deep-sleep row (vendor ATF/SPM quirks) | 8 |
 | ⬜ | Power off | MT6359P | new (Cosmo `mt6358-poweroff` pattern) | | 4 rule 5 |
 | ⬜ | Other multi-channel I2C | i2c2/4/9 (`ch_offset_default 0x100`) | yes (DT `reg` +0x100) | same fix as i2c8 | with each device |
+| ⬜ | microSD | msdc1, card-detect GPIO23 (active low, stock DTB) | yes (`mtk-sd`) | PMIC rails VMCH/VMC (rule 5); Cosmo: microSD row | 7 rule 5 |
 | ➖ | Debug UART | UART0 | yes | no pads known | — |
 
 ## Power and USB
