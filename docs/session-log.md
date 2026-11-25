@@ -1000,3 +1000,5 @@ escape with this image.
   894.3 mV → 11262 Ω → 21.97 °C by hand; driver 21968 m°C (IIO), 21920
   (hwmon), `adc-battery` TEMP **220** (22.0 °C, unit fix confirmed).
   Capacity 92 %, OCV 4.274 V, I −2 mA, Not charging (charger Full).
+- Power-key escape **observed on bat3b** (kernel #12): user held the key,
+  board reset, next boot `bootreason=reboot_longkey`; 0xa12 = 0x21e0.
