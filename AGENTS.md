@@ -12,7 +12,7 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 
 ## Status (2026-11-25)
 
-Bootloader **unlocked** 2026-11-25 (orange). try1c (2026-11-25): LK jumps to our 6.18 kernel; a watchdog reset with our kernel running is observed (boot reason 4). Display: LK logs a blind panel init (no vendor panel nodes in our DTB); what the glass shows is not yet reported.
+Bootloader **unlocked** 2026-11-25 (orange). Our 6.18 kernel boots to init from `boot_a` (both escapes observed). `dtbo_a` = `dtbo/astro-lk.dts` (LK applies dtbo to its own DTB and to ours; this overlay carries the stock display config and lands in `/lk-sink` on ours): LK brings the panel up as stock, and Linux then holds it in reset (GPIO42 hog) as a burn-in guard. No Linux display output yet (SH8802B command mode).
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`), same as the Cosmo.
 - Vendor source: Planet's 4.14.186 MTK BSP (`astro-kernel`, one commit
   `a79860700`), board = `k6873v1_64_defconfig` + `mt6873.dts` +

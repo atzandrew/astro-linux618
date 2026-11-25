@@ -193,6 +193,39 @@
 	};
 
 	/*
+	 * Landing area for LK's second `dtbo` pass (display test 1,
+	 * 2026-11-25). LK applies dtbo/astro-lk.dts to its own DTB, where it
+	 * feeds LK's panel, backlight and GPIO setup, and then to this DTB,
+	 * where a failure stops the boot. Its fragments target odm, pio,
+	 * mtkfb, dispsys_config, dsi0 and gpio. Here those symbols all point
+	 * into this node: bin/build-boot-img.sh rewrites __symbols__ pio and
+	 * dsi0 (mainline labels of the real pinctrl and DSI nodes) to
+	 * lk_pio / lk_dsi0. No compatible and disabled, so Linux never
+	 * creates a device for anything the overlay puts here.
+	 */
+	lk-sink {
+		status = "disabled";
+
+		odm: odm {
+		};
+
+		mtkfb: mtkfb {
+		};
+
+		dispsys_config: dispsys_config {
+		};
+
+		gpio: gpio {
+		};
+
+		lk_pio: pio {
+		};
+
+		lk_dsi0: dsi0 {
+		};
+	};
+
+	/*
 	 * Heartbeat on the keyboard backlight, the only light Linux can
 	 * drive without the PMIC: GPIO28, active high (vendor aeon_gpio.dtsi
 	 * keyboardlight_gpio_low = GPIO28 output-low = off;
@@ -395,4 +428,26 @@
 
 &larb20 {
 	status = "disabled";
+};
+
+/*
+ * Burn-in guard (2026-11-25): LK leaves the SH8802B (command mode) on its
+ * last frame, the orange-state warning at brightness 255, and nothing in
+ * Linux refreshes or dims it yet. Hold the panel in reset instead: GPIO42
+ * is its reset line (vendor dsi0 panel2 reset-gpios = <&pio 42 0>; LK's
+ * lcm_rst_out0/1 states, pinmux 0x2a00 = GPIO mode). Low is the vendor
+ * power-off's second step (panel-sh8802b-vdo.c lcm_unprepare: DCS 0x28,
+ * 0x10, then reset low) without the DCS commands, which need a DSI path we
+ * do not have; it is also the state LK starts every boot's panel init
+ * from. Bias GPIOs 87/88 are not touched (function 1 in the stock GPIO
+ * table; bias states empty on this AMOLED). Remove when a DSI driver
+ * blanks the panel properly.
+ */
+&pio {
+	panel-reset-hog {
+		gpio-hog;
+		gpios = <42 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "panel-reset-hold";
+	};
 };

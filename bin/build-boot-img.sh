@@ -51,8 +51,35 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # this PMIC. Until that is understood nothing may reach the PMIC: refuse a
 # DTB with an enabled pwrap, any mt6359 node, a keys node or a long-press
 # property, and a kernel built with the pwrap or PMIC keys driver.
-DTS_TEXT="$("$DTC" -q -I dtb -O dts "$DTB")"
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
+
+# LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
+# targets odm, pio, mtkfb, dispsys_config, dsi0, gpio. pio and dsi0 are
+# mainline labels of the real pinctrl and DSI nodes, so their __symbols__
+# entries are pointed at the inert /lk-sink stand-ins instead (Linux does
+# not read __symbols__; only overlay appliers do).
+BOOT_DTB="$OUT/mt6873-planet-astro.boot.dtb"
+"$DTC" -q -I dtb -O dts "$DTB" \
+	| sed -e 's|^\t\tpio = "/soc/pinctrl@10005000";|\t\tpio = "/lk-sink/pio";|' \
+	      -e 's|^\t\tdsi0 = "/soc/dsi@14010000";|\t\tdsi0 = "/lk-sink/dsi0";|' \
+	| "$DTC" -q -I dts -O dtb -o "$BOOT_DTB"
+DTS_TEXT="$("$DTC" -q -I dtb -O dts "$BOOT_DTB")"
+SYMS="$(awk '/__symbols__ \{/,/^\t\};/' <<<"$DTS_TEXT")"
+for s in odm pio mtkfb dispsys_config dsi0 gpio; do
+	grep -qE "^\s+$s = \"/lk-sink/" <<<"$SYMS" || refuse "__symbols__ $s does not point into /lk-sink"
+done
+# The LK overlay must apply to the boot DTB and land only in /lk-sink.
+LKDTBO="$OUT/astro-lk.dtbo"
+[[ -f "$LKDTBO" ]] || { echo "run bin/build-dtbo.sh first" >&2; exit 1; }
+"$ROOT/build/obj/scripts/dtc/fdtoverlay" -i "$BOOT_DTB" -o "$OUT/boot-overlay-check.dtb" "$LKDTBO" \
+	|| refuse "dtbo/astro-lk overlay does not apply to the boot DTB (LK would stop)"
+OV="$("$DTC" -q -I dtb -O dts "$OUT/boot-overlay-check.dtb")"
+REAL_DSI="$(awk '/^\t\tdsi@14010000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$OV")"
+grep -q 'panel' <<<"$REAL_DSI" && refuse "LK overlay landed on the real DSI node"
+grep -q 'status = "disabled"' <<<"$REAL_DSI" || refuse "real DSI node not disabled after the LK overlay"
+grep -q 'lcm_rst_out' <<<"$(awk '/^\t\tpinctrl@10005000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$OV")" \
+	&& refuse "LK overlay landed on the real pinctrl node"
+echo "LK overlay applies to the boot DTB and lands in /lk-sink only"
 PWRAP_NODE="$(awk '/compatible = "mediatek,mt6873-pwrap"/{f=1} f{print} f&&/^\t*};$/{exit}' <<<"$DTS_TEXT")"
 grep -q 'status = "disabled"' <<<"$PWRAP_NODE" || refuse "pwrap node not disabled"
 grep -qE '"mediatek,mt6359[^"]*"' <<<"$DTS_TEXT" && refuse "mt6359 node in DTB"
@@ -75,7 +102,7 @@ chmod 755 "$RD/init" "$RD/bin/busybox"
 	| gzip -9n > "$OUT/initramfs.cpio.gz"
 
 python3 -I "$ROOT/bin/mkbootimg.py" --kernel "$OUT/Image.gz" \
-	--ramdisk "$OUT/initramfs.cpio.gz" --dtb "$DTB" --cmdline "$CMDLINE" \
+	--ramdisk "$OUT/initramfs.cpio.gz" --dtb "$BOOT_DTB" --cmdline "$CMDLINE" \
 	-o "$OUT/$OUTNAME"
 SIZE=$(stat -c %s "$OUT/$OUTNAME")
 (( SIZE <= BOOT_PART_SIZE )) || { echo "$OUTNAME is $SIZE bytes, boot_a holds $BOOT_PART_SIZE" >&2; exit 1; }

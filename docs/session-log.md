@@ -207,3 +207,108 @@ timing tells.
   (try1c wdtest, boot reason 4) and power key (this boot). Screen: black
   throughout ("nothing on the screen"), as expected from LK's blind panel
   init.
+
+## 2026-11-25 — display: LK's board config comes from `dtbo` on LK's own DTB
+
+- Diff of LK-only display messages, stock vs our boots (try1c expdb):
+  stock finds `gpio_init_default` ("Found perperty … len 6020"), the
+  `/odm/led@0-6` nodes ("backlight hw mode is LCM", `SH8802B backlight:
+  level = 255`), the LCM pinctrl ("gpio set lcm rst pin"),
+  `/dsi/panel2/port/endpoint`, and reads panel status 0x0A = 156;
+  ours: "Fail to found property gpio_init_default", "Cannot find LED node",
+  "get idx fail. pinctrl_name:", "get panel node failed", 0x0A = 0.
+- All of these are in the **stock dtbo** (gpio_init_default, odm LEDs,
+  mtkfb/dispsys_config pinctrl, dsi0 panels), not in the stock base DTB.
+- LK applies `dtbo` once per boot at ~350 ms, right after
+  `load_lk_dtb(): load lk_main_dtb dtb_img_size=171401` (= the size of
+  stock's kernel DTB: LK carries its own copy in `lk`) and seconds before
+  the boot image is loaded; stock logs no second overlay pass. Our boots
+  log `Found /gpio@10005000 at offset 14984` although our kernel DTB has
+  no such node → these lookups run on LK's own DTB + dtbo. Our kernel
+  still receives our DTB (its gpio-leds node drives the keyboard light).
+- Hypothesis: the no-op dtbo removed LK's own board config. Test: stock
+  `dtbo_a` back, our boot.img unchanged.
+
+### display test 1 — PRE-FLASH CHECK
+
+- Change: `dtbo_a` = stock (`p0/dtbo_a.bin`, sha256 in p0/SHA256SUMS).
+  `boot_a` stays try1c `boot.img` (`a1dc4f5c…`).
+- Panel: LK runs its stock init with stock GPIO/LED config — the same
+  sequence every stock Android boot runs. Our kernel sends nothing to the
+  panel. Brightness: LK's stock 255 → keep the session short (burn-in).
+- Risk: if LK also overlays dtbo onto our kernel DTB, the stock overlay
+  cannot resolve its labels → "dconfig DT overlay failed, system not
+  bootable" / assert → LK panic → watchdog loop (observed escape).
+  Undo: `mtk w dtbo_a dtbo.img` (no-op).
+- Escapes: both observed with our kernel (unchanged kernel and config).
+- Expected: logo/orange screen visible as on stock; then our kernel; the
+  keyboard light blinks fast; the screen most likely freezes on LK's last
+  frame (SH8802B command mode, nothing triggers new frames yet).
+
+## 2026-11-25 — display test 1 result: LK applies dtbo twice
+
+- Flashed by the user: `dtbo_a` = stock (`p0/dtbo_a.bin`), `boot_a` =
+  try1c boot.img. User: **orange-state screen visible** (first time on
+  our boot chain). Then a reset loop (~26-32 s, Monolith USB log).
+- `mtk r expdb` (agent): LK's own pass works with the stock dtbo
+  (`read from lcm 0x0A: 156`, `SH8802B backlight: level = 255`), then
+  `ERROR: ufdt_overlay_do_fixups():Couldn't find 'reserved_memory' symbol
+  in main dtb`, `boot image dtb_overlay fail`, … `ASSERT at
+  (platform/common/boot/boot_info.c:61): g_boot_info.img_loaded`. So LK
+  applies `dtbo` to its own DTB (~350 ms) **and** to the kernel DTB
+  (~3 s); the second failure is fatal. Watchdog loop as expected.
+- Fix: `dtbo/astro-lk.dts`, the six stock fragments LK's display path
+  needs (odm LEDs, pio LCM states, mtkfb, dispsys_config, dsi0 panels,
+  gpio_init_default), on labels present in both DTBs. Our DTB gets an
+  inert `/lk-sink` (no compatible, disabled) with those labels;
+  `bin/build-boot-img.sh` points `__symbols__` pio/dsi0 there, so the
+  overlay never lands on the real mainline pinctrl/DSI nodes.
+- Offline: astro-lk applies to the stock base DTB (= LK's lk_main_dtb,
+  171401 bytes); result equals the stock overlay for led@6,
+  lcm_rst_out0_gpio, lcm_dsi_te, panel2@0 (phandles aside);
+  gpio_init_default identical (1505 cells). Applies to our boot DTB and
+  lands only in /lk-sink; real dsi@14010000 stays disabled, no panels.
+
+### display test 2 — PRE-FLASH CHECK
+
+- Images: `dtbo.img` = astro-lk `a86abc6d…a499`; `boot.img`
+  `7c8912d8…a58d` (kernel unchanged `5da8edab…`; DTB + /lk-sink, boot DTB
+  with redirected symbols); `boot-wdtest.img` `5cc815f6…0528` (spare).
+- Writes: `dtbo_a`, `boot_a`.
+- Panel: LK's stock panel/backlight/GPIO config (identical to stock's
+  fragments) → stock init sequence. No Linux display driver. Brightness
+  255, static frame after handoff → short session, burn-in.
+- gpio_init_default: LK now sets every pin to the vendor DWS defaults,
+  as on every stock boot (it did not with the no-op dtbo).
+- Escapes: kernel and config unchanged → both still observed. A failed
+  LK pass ends in LK panic → watchdog loop (observed). Undo:
+  `mtk w dtbo_a <no-op dtbo>` (`NOOP=1 bin/build-dtbo.sh`) or stock.
+- Expected: LK logo/orange screen, `lk finished --> jump`, keyboard light
+  fast blink, no reset loop; the screen most likely stays frozen on LK's
+  last frame (command-mode panel).
+
+## 2026-11-25 — display test 2 result; burn-in guard
+
+- Flashed by the user: `dtbo_a` = astro-lk (`a86abc6d…`), `boot_a` =
+  `7c8912d8…`. User: **keyboard light blinking fast, screen on the orange
+  warning**: LK's own overlay pass and the pass on our DTB both succeed,
+  LK runs its stock panel init and hands over; our init runs. The
+  command-mode panel keeps LK's last frame (orange warning, brightness
+  255) indefinitely.
+- Burn-in guard (user request): `gpio-hog` GPIO42 (panel reset) output
+  low at pinctrl probe. Vendor lcm_unprepare = DCS 0x28, 0x10, reset low,
+  bias low; we do only the reset step (no DSI path yet for DCS); reset
+  low is also the state LK's init starts from each boot. GPIO87/88 not
+  touched.
+
+### display test 3 (reset hold) — PRE-FLASH CHECK
+
+- `boot.img` / `boot-wdtest.img` with the hog (DTB only changed); dtbo
+  unchanged (astro-lk). Writes `boot_a`.
+- Panel: one GPIO (reset) driven low by Linux after LK's normal init; no
+  DSI, no DCS, no rail. Expected: orange screen during LK, then black
+  within ~1 s of the kernel starting. Next boot's LK reset+init restores.
+- Escapes: kernel/config unchanged → both still observed.
+- Result (user ran `mtk w boot_a boot.img`, `c3486e4c…`): **orange
+  warning during LK, then blanked**, no garbage or flicker; keyboard
+  light blinking fast (init feeding the watchdog). Burn-in guard works.
