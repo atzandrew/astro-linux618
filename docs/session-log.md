@@ -824,3 +824,6 @@ escape with this image.
   (vendor DT rgbled trigger "cc_mode"), no driver involved. When
   leds-mt6360 is enabled, LED1 must stay in hardware/CC mode or the
   charge light is lost.
+- Power-key escape **re-observed on chg2** (kernel #8): user held power
+  ~10 s, board reset, next boot `androidboot.bootreason=reboot_longkey`,
+  charger back to Charging. (Watchdog path unchanged; not re-run.)
