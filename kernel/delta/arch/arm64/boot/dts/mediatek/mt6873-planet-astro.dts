@@ -18,7 +18,8 @@
  *    TOP_RST_MISC register mainline mtk-pmic-keys writes).
  *  - Display pipeline (mmsys, OVL, RDMA, DSI, M4U): LK owns the SH8802B
  *    command-mode panel; Linux only reads its registers (initramfs).
- *  - UFS, SPMI/MT6315, SCP, GPU, everything else (USB: device port only, below).
+ *  - SPMI/MT6315, SCP, GPU, everything else (USB: device port only;
+ *    UFS without its VCC regulator; i2c8 for the keyboard only: below).
  *
  * LK contract (same LK family as the Cosmo, lk_a strings):
  *  - LK applies `dtbo` to this DTB and refuses to boot if that fails:
@@ -35,6 +36,8 @@
 
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/phy/phy.h>
 #include "mt8192.dtsi"
@@ -491,4 +494,154 @@
  */
 &u2port0 {
 	mediatek,force-vbus-valid;
+};
+
+/*
+ * UFS (stock: 11270000.ufshci, partitions on sdc; docs/p0-findings.md).
+ * Mainline mt8192.dtsi has no UFS node (Chromebooks boot eMMC); the IP is
+ * MediaTek's legacy UFS host (REG_UFS_MTK_IP_VER 0x20160706, read on the
+ * running board 2026-11-25 = mainline IP_LEGACY_VER_MT6893), UFSHCI 2.0,
+ * no MCQ (CAP 0x3587071F). Vendor node (mt6873.dts ufshci@11270000): SPI
+ * 105, 2 lanes, clocks UFS_CG / UNIPRO_SYSCLK_CG / UFS_MP_SAP_BCLK_CG /
+ * AES_UFSFDE_CG, which are mainline mt8192 infracfg INFRA2 bits 28/11/13/29
+ * (same bits as the vendor ufs-mtk-platform.h). The vendor driver does no
+ * M-PHY setup (ufs_mtk_init_mphy is empty), so no phys here.
+ *
+ * No vcc-supply: VCC is the MT6359P VEMC LDO and nothing in Linux may
+ * reach the PMIC (rule 5). LK/preloader boot from this UFS and leave VCC
+ * on; without a regulator the driver can never switch it off. Device
+ * reset and ref-clk go through ATF SiP 0x82000276 (mainline cmds 2 and 8
+ * = the vendor's MTK_SIP_KERNEL_UFS_CTL calls).
+ */
+&{/soc} {
+	ufshci: ufshci@11270000 {
+		compatible = "mediatek,mt8192-ufshci", "mediatek,mt8183-ufshci";
+		reg = <0 0x11270000 0 0x2300>;
+		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&infracfg CLK_INFRA_UFS>,
+			 <&infracfg CLK_INFRA_UNIPRO_SYS>,
+			 <&infracfg CLK_INFRA_UFS_MP_SAP_B>,
+			 <&infracfg CLK_INFRA_AES_UFSFDE>;
+		clock-names = "ufs", "unipro_sysclk", "unipro_mp_bclk",
+			      "ufs_aes";
+		freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>;
+		lanes-per-direction = <2>;
+		mediatek,ufs-disable-mcq;
+	};
+};
+
+/*
+ * Keyboard AW9523B on i2c8 (stock dtbo fragment@47: aw9523_key@5b, 400 kHz,
+ * open drain). SCL8/SDA8 = GPIO122/123 mode 1, already set by LK (GPIO
+ * MODE15 0x00111111 on the running board), so no pinctrl for the bus.
+ * Also on this bus (stock fragment@29): camera EEPROM 0x51, not described.
+ */
+&i2c8 {
+	/*
+	 * Multi-channel I2C (vendor mt6873.dts i2c8: ch_offset_default 0x100,
+	 * ch_offset_ccu 0x200; i2c-mtk.c programs transfers at base+0x100).
+	 * At base+0 (mainline) CONTROL/TIMING/START writes do not stick and
+	 * every transfer times out without an interrupt (ufskbd1,
+	 * 2026-11-25); the same mainline driver with its base at +0x100 reads
+	 * the AW9523 ID 0x23 with no other change (test module, shadow init
+	 * and multi-channel FIFO clear not needed). So the register window
+	 * starts at the AP channel; 0xf00 keeps it inside this controller
+	 * (mainline mt8192 regs used: up to 0xf8 + MULTI_DMA 0x8c; DCM 0xf88
+	 * is not written, dcm = 0). DMA window unchanged.
+	 */
+	reg = <0 0x11d01100 0 0xf00>,
+	      <0 0x10217780 0 0x180>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+	status = "okay";
+
+	/*
+	 * Same matrix as the Cosmo (vendor aw9523_key.c key_map[] identical:
+	 * rows P0_0..7, columns P1_0..6), so the Cosmo driver and keymap.
+	 * Fn: KEY_LEFTMETA as on the Cosmo (vendor: KEY_FN).
+	 * Stock: interrupt EINT2 level-low, GPIO2 pull-up (fragment@53,
+	 * aw9523pin); HWEN GPIO5, low = shutdown (aw9523_hwen_low; output
+	 * low on the running board before this driver).
+	 */
+	keyboard@5b {
+		compatible = "awinic,aw9523-keypad";
+		reg = <0x5b>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&aw9523_int_pins>;
+		interrupts-extended = <&pio 2 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&pio 5 GPIO_ACTIVE_LOW>;
+		keypad,num-rows = <8>;
+		keypad,num-columns = <7>;
+		linux,keymap = <
+			/* col 0 (P1_0) */
+			MATRIX_KEY(0, 0, KEY_1)
+			MATRIX_KEY(1, 0, KEY_U)
+			MATRIX_KEY(2, 0, KEY_S)
+			MATRIX_KEY(3, 0, KEY_Z)
+			MATRIX_KEY(4, 0, KEY_COMMA)
+			MATRIX_KEY(5, 0, KEY_APOSTROPHE)
+			MATRIX_KEY(6, 0, KEY_8)
+			MATRIX_KEY(7, 0, KEY_J)
+			/* col 1 (P1_1) */
+			MATRIX_KEY(0, 1, KEY_2)
+			MATRIX_KEY(1, 1, KEY_W)
+			MATRIX_KEY(2, 1, KEY_D)
+			MATRIX_KEY(3, 1, KEY_C)
+			MATRIX_KEY(4, 1, KEY_LEFTALT)
+			MATRIX_KEY(5, 1, KEY_LEFT)
+			MATRIX_KEY(6, 1, KEY_9)
+			MATRIX_KEY(7, 1, KEY_K)
+			/* col 2 (P1_2) */
+			MATRIX_KEY(0, 2, KEY_3)
+			MATRIX_KEY(1, 2, KEY_Y)
+			MATRIX_KEY(2, 2, KEY_TAB)
+			MATRIX_KEY(3, 2, KEY_N)
+			MATRIX_KEY(4, 2, KEY_M)
+			MATRIX_KEY(5, 2, KEY_DOWN)
+			MATRIX_KEY(6, 2, KEY_BACKSPACE)
+			MATRIX_KEY(7, 2, KEY_I)
+			/* col 3 (P1_3) */
+			MATRIX_KEY(0, 3, KEY_4)
+			MATRIX_KEY(1, 3, KEY_T)
+			MATRIX_KEY(2, 3, KEY_F)
+			MATRIX_KEY(3, 3, KEY_X)
+			MATRIX_KEY(4, 3, KEY_LEFTMETA)	/* Fn (stock KEY_FN), as the Cosmo */
+			MATRIX_KEY(5, 3, KEY_RIGHTSHIFT)
+			MATRIX_KEY(6, 3, KEY_P)
+			/* col 4 (P1_4) */
+			MATRIX_KEY(0, 4, KEY_5)
+			MATRIX_KEY(1, 4, KEY_E)
+			MATRIX_KEY(2, 4, KEY_G)
+			MATRIX_KEY(3, 4, KEY_V)
+			MATRIX_KEY(4, 4, KEY_SPACE)
+			MATRIX_KEY(5, 4, KEY_UP)
+			MATRIX_KEY(6, 4, KEY_O)
+			/* col 5 (P1_5) */
+			MATRIX_KEY(0, 5, KEY_6)
+			MATRIX_KEY(1, 5, KEY_Q)
+			MATRIX_KEY(2, 5, KEY_A)
+			MATRIX_KEY(3, 5, KEY_B)
+			MATRIX_KEY(4, 5, KEY_DOT)
+			MATRIX_KEY(5, 5, KEY_RIGHT)
+			MATRIX_KEY(6, 5, KEY_ENTER)
+			/* col 6 (P1_6) */
+			MATRIX_KEY(0, 6, KEY_7)
+			MATRIX_KEY(1, 6, KEY_R)
+			MATRIX_KEY(2, 6, KEY_H)
+			MATRIX_KEY(3, 6, KEY_LEFTSHIFT)
+			MATRIX_KEY(4, 6, KEY_LEFTCTRL)
+			MATRIX_KEY(5, 6, KEY_L)
+			MATRIX_KEY(6, 6, KEY_0)
+		>;
+	};
+};
+
+&pio {
+	aw9523_int_pins: aw9523-int-pins {
+		pins-int {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
 };

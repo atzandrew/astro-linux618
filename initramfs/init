@@ -209,6 +209,7 @@ diag() {
 	echo "--- udc"; for f in /sys/class/udc/*/*; do [ -f "$f" ] && echo "$f: $(cat $f 2>/dev/null)"; done
 	echo "--- gpio"; cat /sys/kernel/debug/gpio 2>/dev/null
 	echo "--- dmesg (usb/phy)"; dmesg | grep -iE "mtu3|usb|phy|udc|gadget|g_ether|astro"
+	echo "--- dmesg (ufs/scsi/i2c/keyboard)"; dmesg | grep -iE "ufs|scsi|sd[a-z]|i2c|aw9523|input"
 	echo "=== ASTRO-DIAG-END"
 }
 diag > /dev/pmsg0 2>/dev/null
@@ -231,9 +232,26 @@ fi
 LOGRESET=0
 grep -qw astro.logreset=1 /proc/cmdline && LOGRESET=1
 
+# UFS bring-up (2026-11-25): the UFS LUs hold the bootloaders, both slots
+# and the device-unique partitions. Until a write path is decided, every
+# SCSI disk and partition is set read-only as soon as it appears (the
+# UFS scan is asynchronous; the main loop checks every 5 s, and nothing
+# in this initramfs opens them for writing meanwhile).
+# astro.ufsrw=1 skips this.
+UFSRO=1
+grep -qw astro.ufsrw=1 /proc/cmdline && UFSRO=0
+ufs_ro() {
+	[ $UFSRO = 1 ] || return 0
+	for d in /dev/sd*; do
+		[ -b "$d" ] || continue
+		[ "$(blockdev --getro "$d" 2>/dev/null)" = 1 ] || blockdev --setro "$d"
+	done
+}
+
 i=0
 while true; do
 	console_check
+	ufs_ro
 	if [ $LOGRESET = 1 ] && [ $i -ge 6 ]; then
 		say "logreset: watchdog no longer fed; reset in ~31 s"
 		diag > /dev/pmsg0 2>/dev/null

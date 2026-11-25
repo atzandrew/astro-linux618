@@ -10,7 +10,7 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 - `atzandrew/gemini-debian` — Debian 13 + Plasma 6 rootfs builder
   (`DEVICE=cosmo` today; an Astro target will be added).
 
-## Status (2026-11-25, end of day 1)
+## Status (2026-11-25, day 1, late)
 
 Mainline 6.18.58-astro boots to our initramfs on the Astro from `boot_a`
 (bootloader unlocked, orange). Working: LK handover (AVB footer, LK vendor
@@ -19,18 +19,30 @@ USB device network + shell (`bin/astro-sh`), RAM log after a watchdog
 reset, visible framebuffer console (our buffer at 0x70000000 pushed
 through LK's command-mode DSI path by `initramfs/astro-disp` /
 `astro-console`, idle blank after 60 s, `fbcon=rotate:1`).
+- **UFS** (ufskbd1/2): mainline `ufs-mediatek` on the legacy MT6873 host
+  (delta: legacy-IP guards), no VCC regulator (rule 5). SK hynix
+  H9HQ15AFAMADAR: sda/sdb boot LUs, sdc 57 stock GPT partitions
+  (boot_a sdc30, super sdc55, userdata sdc56). Partition reads verified
+  against P0 backups. **Init sets every /dev/sd* read-only** unless
+  `astro.ufsrw=1`; no write path decided yet.
+- **Keyboard**: AW9523 at i2c8 0x5b, Cosmo driver and keymap, repeat
+  delay 500 ms. i2c8 is a multi-channel I2C: the AP channel is at
+  base+0x100 (`reg` in the DTS); mainline at base+0 times out.
+  Fn = KEY_LEFTMETA; the Fn layer is userspace (gemini-debian, Cosmo).
+- Power-key escape re-observed on this kernel (2026-11-25, reboot_longkey).
 History and receipts: `docs/session-log.md`.
 
-Next candidates (none started):
-1. UFS storage (`11270000.ufshci`, mainline `ufs-mediatek`) → root
-   filesystem on userdata → Debian like the Cosmo (gemini-debian).
-2. Keyboard: AW9523 at **i2c8 0x5b** (stock dtbo fragment@47; Cosmo
-   aw9523-keypad driver) — needs I2C (`I2C_MT65XX` currently off).
-3. Display: mainline mediatek DRM with command-mode DSI + SH8802B panel
+Next candidates:
+1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
+   (Astro target; check the Astro's key legends for the Fn layer). Needs
+   a decided write path and lifting the init read-only guard for that LU.
+2. Display: mainline mediatek DRM with command-mode DSI + SH8802B panel
    driver (vendor `panel-sh8802b-vdo.c`: mode flags LPM|EOT, timings,
    DCS 0x51 backlight, 0x28/0x10 off). Must keep the burn-in rules below.
-4. PMIC (MT6359P via pwrap): only after the power-key reset question in
+3. PMIC (MT6359P via pwrap): only after the power-key reset question in
    rule 5 is settled (STRUP_CON12 vs mainline's 0x14c).
+4. Other i2c buses (i2c2/4/9 are multi-channel too: vendor
+   ch_offset_default 0x100) — touch, charger.
 
 Display / burn-in rule (AMOLED): never leave a static frame lit for long.
 Default boot sends a black frame and the console blanks after 60 s idle;

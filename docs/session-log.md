@@ -507,3 +507,120 @@ timing tells.
   the screen ("fixed!") — the 2/5 was just short kernel lines.
 - `fbcon=rotate:1` now on the cmdline (build-boot-img.sh). Image includes
   the blink-code wait (configured) fix.
+
+## 2026-11-25 — ufskbd1: UFS and keyboard — PRE-FLASH CHECK
+
+Read only over the USB shell first (kernel `2ad23ce5…` running):
+- infracfg CG2_STA (0x100010ac) = 0x00000100, CG3_STA = 0x0800C800: UFS
+  gates (CG2 bits 11/12/13/28/29/30, CG3 bit 5) all ungated (LK uses UFS).
+- UFSHCI 0x11270000: CAP 0x3587071F (no MCQ), VER 0x200, HCE 1, HCS
+  0x10F, REG_UFS_MTK_IP_VER 0x20160706 = mainline `IP_LEGACY_VER_MT6893`.
+  0x144 (XOUFS/REFCLK_CTRL) = 3 (request+ack).
+- GPIO: MODE15 0x00111111 (GPIO122/123 = SCL8/SDA8 already), GPIO5 output
+  **low** (AW9523 HWEN: chip in shutdown), GPIO2 input high (INT idle).
+
+Vendor vs mainline:
+- UFS SiP: vendor `MTK_SIP_KERNEL_UFS_CTL` 0x82000276 with cmd 2 (device
+  reset, 0 then 1) and 8 (ref clk) = mainline `MTK_SIP_UFS_CONTROL`
+  BIT(1)/BIT(3). Mainline also sends BIT(2) crypto enable (failure only
+  clears the crypto cap). Vendor `ufs_mtk_init_mphy` is empty → no phys.
+- Mainline bug for legacy IPs: `ip_ver >= IP_VER_MT6989/MT6899` checks
+  match 0x20160706 (MMIO_OPT_CTRL_0 DDR_EN write, VS_DEBUGOMC 0x100).
+  Delta `drivers/ufs/host/ufs-mediatek.c` adds `!host->legacy_ip_ver`.
+- Keyboard: vendor `aw9523_key.c` key_map[] = the Cosmo's matrix exactly
+  (8 rows P0, 7 cols P1); Fn → KEY_LEFTMETA as on the Cosmo. Cosmo driver
+  `aw9523-keypad.c` + Kconfig/Makefile copied (they differ from base only
+  by the AW9523 entry). Stock: i2c8 400 kHz open-drain, EINT2 level-low
+  (GPIO2 pull-up), HWEN GPIO5 (driver: reset-gpios active low, same
+  5 ms low / 5 ms high pulse as vendor).
+
+Image `boot-ufskbd1.img` = `boot.img` `8d6ec3a0…0d90` (kernel Image.gz
+`05085538…`, DTB `c27311f1…`):
+- Config: +SCSI_UFS_MEDIATEK (selects PHY_MTK_UFS, RESET_TI_SYSCON; no
+  nodes for either), EFI_PARTITION, I2C_MT65XX, KEYBOARD_AW9523.
+  pwrap / PMIC keys / DRM_MEDIATEK still off (build-boot-img checks pass).
+- DTS: `ufshci@11270000` (4 vendor clocks, 2 lanes, no vcc-supply, no
+  phys, no resets), `&i2c8` okay with only keyboard@5b, GPIO2 pull-up.
+- Init: every /dev/sd* set read-only (blockdev --setro) in the main loop
+  unless `astro.ufsrw=1`; diag record gets ufs/i2c lines.
+
+Rule 5:
+- PMIC: unreachable as before (no pwrap). VEMC (UFS VCC) not described,
+  so Linux can never turn it off. i2c8 carries only AW9523 + a camera
+  EEPROM; the PMIC/charger are on pwrap / other buses.
+- Watchdog / power key: kernel config changed → re-observe. Expected
+  failure modes: UFS host/UIC hang or an ATF SMC that never returns →
+  watchdog (kernel stops feeding / init never starts) → reset; i2c hang →
+  only the keyboard. Power key ~10 s is PMIC hardware, unaffected.
+- UFS writes: Linux UFS init writes host registers, a device reset, and
+  volatile flags (WriteBooster enable); no `ref_clk` clock so bRefClkFreq
+  is never written. Nothing mounts or writes any LU; init marks them ro.
+- Worst case: board in a reset loop → `mtk w boot_a boot-dispkick.img`
+  (`a9765ff1…`, booted 2026-11-25) from download mode. Note: the board
+  runs `0df962b1…` (console1; cmdline has no `fbcon=rotate:1`), which is
+  not on Monolith; Monolith `boot.img` `836308e4…` (11:38, +rotate) was
+  never flashed.
+
+Test plan: shell: dmesg ufs/scsi, `/proc/partitions`, `blkid`-free GPT
+names via `/sys/block/sd*/sd*/uevent` (PARTNAME), read 4 KiB from a few
+partitions and compare with backup/ hashes; then evdev keypresses
+(`hexdump /dev/input/eventN`) while the user types. Then power-key 10 s
+escape with this image.
+- Result (user flashed `boot-ufskbd1.img` `8d6ec3a0…`): boots.
+  - **UFS works**: `ufshcd-mtk … legacy IP version - 0x20160706, is
+    legacy : 1`, device reset done, SK hynix H9HQ15AFAMADAR (A102); LU0
+    sda 4 MiB, LU1 sdb 4 MiB (preloader boot LUs), LU2 sdc 119 GiB with
+    57 GPT partitions, names = stock (boot_a sdc30, super sdc55, userdata
+    sdc56, …). One `dme-set: attr-id 0x15d4 val 0x3 failed 0 retries`
+    (harmless so far). All /dev/sd* read-only (init).
+  - Read check: full-partition sha256 of lk_a, lk_b, vbmeta_a, logo,
+    tee_a = the P0 backups (Monolith p0/); dtbo_a = out/dtbo.img
+    (`a86abc6d…`, our overlay).
+  - **Keyboard failed**: `aw9523-keypad 0-005b: chip id -110`; every
+    i2c8 transfer timed out, 0 interrupts. GPIO5 high after probe (HWEN
+    released).
+
+## 2026-11-25 — i2c8 is multi-channel: the AP channel is at +0x100
+
+- Hand-ungating i2c8 (topck CLK_CFG_10 bit 15 = i2c_sel gate, infra CG0
+  bit 11, imp_iic_wrap_s 0xe00 bit 1) before reading: with any of the
+  three gated the block reads 0. Note: mainline gates i2c_sel; the vendor
+  clock driver never does (INV_MUX_GATE).
+- With clocks on: at base+0 only SLAVE_ADDR/INTR_MASK keep writes;
+  CONTROL/TIMING/START read 0 mid-transfer while AP-DMA sits enabled.
+  At base+0x100 registers read back what is written; ch1 START = 0x2
+  (RESUME_ARBIT). Vendor (i2c-mtk.c, mt6873.dts i2c8 `ch_offset_default
+  = <0x100>`) inits on ch0 ("shadow") and programs every transfer on ch1;
+  it also asks ATF (SiP 0x820002A0) for MULTI_DMA shadow mode.
+- Test module (copy of mainline i2c-mt65xx with knobs, bound by
+  driver_override after unbinding the built-in): base+0x100 →
+  `input: Integrated keyboard`, IRQs. Knob sweep (chip ID read 0x23):
+  ch1 alone works; shadow init and MCH FIFO clear not needed; ch0 times
+  out even with them. No SMC needed.
+- User typed: **keymap correct, Shift works**, some letters doubled, Fn
+  does nothing. Capture (88 events): no phantom press/release; the
+  doubles are autorepeat (repeat events 250 ms after press: input-core
+  default delay; keystrokes here are held 200-250 ms). Fn = KEY_LEFTMETA
+  as on the Cosmo, whose Fn layer is userspace (gemini-debian xkb
+  `cosmo`, console remap.inc), so nothing in this initramfs.
+
+### ufskbd2 — PRE-FLASH CHECK
+
+- DTS: `&i2c8` reg = <0x11d01100 0xf00> (+ DMA window unchanged). No
+  driver change for I2C.
+- Keyboard driver (Astro delta copy): `input_enable_softrepeat(500, 33)`.
+- Image `boot-ufskbd2.img` = boot.img `da6b9665…d0da` (Image.gz
+  `8e983863…`, DTB `f5397256…`). Config unchanged from ufskbd1; rule 5
+  checks pass. Escapes: power key still to be re-observed on this
+  kernel family.
+- Result (user flashed `boot-ufskbd2.img` `da6b9665…`, kernel #5): boots;
+  `input: Integrated keyboard as …/11d01100.i2c/i2c-0/0-005b` at 0.64 s
+  with the built-in mainline I2C driver; UFS probes at 0.87 s (10.9 s on
+  ufskbd1, after the I2C timeouts). User typed: **no doubles**. Capture:
+  96 presses, 26 repeats (keys held > 500 ms only), one re-press 60 ms
+  after release (possible bounce, watch).
+- **Power key ~10 s: observed** on kernel #5 (ufskbd2): user held power
+  with the Astro booted normally, also with USB/power disconnected →
+  reset by itself, booted back; LK cmdline `androidboot.bootreason=
+  reboot_longkey`. (Watchdog escape not re-run on this kernel; the
+  watchdog path is unchanged.)
