@@ -58,8 +58,18 @@ Next candidates:
    observed on each): battery percentage from mt6359-auxadc VBAT/IBAT +
    generic-adc-battery/adc-battery-helper + stock OCV tables, temperature
    from the stock NCP15XH103 NTC via ntc_thermistor (`docs/pmic-plan.md`
-   "Step 3", "Step 3B"). Open: charge voltage 4.35 V (LK) vs stock
-   4.40 V (user decision); later a coulomb-counter FG driver.
+   "Step 3", "Step 3B"). Later: a coulomb-counter FG driver.
+0c. **To-do: charge voltage 4.40 V** (user, 2026-11-25: queued, not
+   urgent). LK sets CV 4.35 V every boot (`mt6360_set_cv: cv = 4350`);
+   stock Android raises it to `battery_cv` 4.40 V in 10–45 °C. Mainline
+   `mt6360_charger` never writes VOREG. Plan: upstreamable delta so it
+   reads `monitored-battery` (constant-charge-voltage-max) → battery
+   node 4400000 (also the helper's Full threshold). Charger write: needs
+   a pre-flash check; verify rest voltage after a full charge. Session
+   log "Why the charger stops at 4.35 V".
+0d. **Deferred: battery temperature protection while charging** (user,
+   2026-11-25: battery only gets slightly warm where it sits; circle back
+   later). Stock JEITA: 4.24 V above 45 °C and 0–10 °C, 4.04 V below 0 °C.
 1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
    (Astro target; check the Astro's key legends for the Fn layer). Needs
    a decided write path and lifting the init read-only guard for that LU.

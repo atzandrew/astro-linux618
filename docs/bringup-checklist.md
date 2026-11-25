@@ -47,8 +47,8 @@ and needs a written pre-flash check and both escapes re-observed.
 
 | | Block | Part / location | Mainline | Notes | Order |
 |---|---|---|---|---|---|
-| ✅ | Charger | MT6360 PMU `@34` (i2c5), INT GPIO24 (chg2: mainline mt6360-chg + adc, 500 mA SDP) | yes (`mt6360-charger`) | Cosmo used MT6370; BC1.2, input limits, temperature stop | 4 |
-| ⬜ | Battery level | MT6359P gauge | new (Cosmo `mt6358-gauge` pattern) | | 5 |
+| ✅ | Charger | MT6360 PMU `@34` (i2c5), INT GPIO24 (chg2: mainline mt6360-chg + adc, 500 mA SDP) | yes (`mt6360-charger`) | Cosmo used MT6370; BC1.2, input limits, temperature stop; **CV 4.35 V from LK, stock 4.40 V** (to-do: monitored-battery) | 4 |
+| ✅ | Battery level | MT6359P AUXADC VBAT/IBAT + BAT_TEMP NTC (bat3b: generic-adc-battery + adc-battery-helper, stock OCV tables) | yes + deltas (`docs/pmic-plan.md` step 3) | coulomb-counter FG driver later (new); 5–20 % band coarse | 5 |
 | ⬜ | Type-C / PD | MT6360 TCPC `@4e` (i2c5), INT GPIO25 | yes (`tcpci_mt6360`) | sink first | 5 |
 | ⬜ | Second USB-C port | FUSB301A `@25` (i2c6), vendor uswitch / aeonusb mux (GPIO13/127) | new (Cosmo `cosmo-fusb301a`) | left port; host mode | 7 |
 | ⬜ | USB host mode | SSUSB xhci | fix | VBUS source per port | 7 |
