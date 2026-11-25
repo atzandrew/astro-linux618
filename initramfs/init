@@ -248,12 +248,28 @@ grep -qw astro.logreset=1 /proc/cmdline && LOGRESET=1
 # astro.ufsrw=1 skips this.
 UFSRO=1
 grep -qw astro.ufsrw=1 /proc/cmdline && UFSRO=0
+# Walks sysfs, not /dev: devtmpfs creates the partition nodes a moment
+# after the partitions appear, and a /dev walk at the wrong moment missed
+# most of sdc (root1 boot, 2026-11-25). A missing node is made here.
+blknode() { # sysfs block name -> /dev node (created if devtmpfs lags)
+	[ -b "/dev/$1" ] || mknod "/dev/$1" b $(tr ':' ' ' < "/sys/class/block/$1/dev") 2>/dev/null
+	echo "/dev/$1"
+}
 ufs_ro() {
 	[ $UFSRO = 1 ] || return 0
-	for d in /dev/sd*; do
-		[ -b "$d" ] || continue
-		[ "$(blockdev --getro "$d" 2>/dev/null)" = 1 ] || blockdev --setro "$d"
+	for b in /sys/class/block/sd*; do
+		[ -e "$b/dev" ] || continue
+		[ "$(cat "$b/ro" 2>/dev/null)" = 1 ] || blockdev --setro "$(blknode "${b##*/}")"
 	done
+}
+# Every sd disk/partition except the named ones reads back read-only.
+ufs_ro_ok() { # ufs_ro_ok <allowed rw names...>
+	for b in /sys/class/block/sd*; do
+		n=${b##*/}
+		case " $* " in *" $n "*) continue ;; esac
+		[ "$(cat "$b/ro" 2>/dev/null)" = 1 ] || { echo "$n"; return 1; }
+	done
+	return 0
 }
 
 # ---- Root filesystem handoff (Debian on userdata, 2026-11-25) -------------
@@ -281,9 +297,18 @@ try_root() {
 	while [ -z "$(part userdata)" ] && [ $n -lt 15 ]; do feed; sleep 1; n=$((n+1)); done
 	ROOTDEV=$(part userdata)
 	[ -n "$ROOTDEV" ] || { say "userdata not found: staying here"; return; }
+	# Partitions appear together; give udev-less /dev and sysfs a moment.
+	sleep 1
 	ufs_ro	# everything read-only first, then open exactly userdata + its disk
-	DISK=/dev/$(basename "$(dirname "$(readlink -f /sys/class/block/${ROOTDEV#/dev/})")")
-	blockdev --setrw "$DISK" && blockdev --setrw "$ROOTDEV" || { root_abort "could not make $ROOTDEV writable"; return; }
+	DISKN=$(basename "$(dirname "$(readlink -f /sys/class/block/${ROOTDEV#/dev/})")")
+	ROOTN=${ROOTDEV#/dev/}
+	blockdev --setrw "$(blknode $DISKN)" && blockdev --setrw "$(blknode $ROOTN)" \
+		|| { root_abort "could not make $ROOTDEV writable"; return; }
+	# Gate: nothing but userdata and its disk may be writable.
+	if [ $UFSRO = 1 ] && ! bad=$(ufs_ro_ok $DISKN $ROOTN); then
+		root_abort "$bad is not read-only"; return
+	fi
+	say "UFS: only $DISKN + $ROOTN writable ($(ls -d /sys/class/block/sd* | wc -l) sd devices checked)"
 	mkdir -p /newroot
 	mount -t ext4 -o rw,noatime "$ROOTDEV" /newroot 2>/dev/null || { root_abort "no ext4 root on $ROOTDEV"; return; }
 	if [ ! -x /newroot/sbin/init ] || [ ! -f /newroot/etc/os-release ]; then

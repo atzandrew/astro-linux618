@@ -1020,3 +1020,23 @@ escape with this image.
   4.04 V below 0 °C).
 - Mainline `mt6360_charger` never writes VOREG (no init, no
   monitored-battery), so LK's 4.35 V stays.
+
+## 2026-11-25 — root1: Debian on userdata — first boot
+
+- User flashed `userdata` (`astro-debian-rootfs.img` `1d745041…`,
+  gemini-debian `7785797`) + `boot_a` (`boot-root1.img` `0f0fda93…`).
+  Booted to Debian 13 trixie, logged in on the panel; SSH from Hydra via
+  `-J` Monolith. Handoff `last state: none` → tripwire **OK** after
+  multi-user; `is-system-running` = running, no failed units; root
+  /dev/sdc56 grown to 111 GiB (growfs); RuntimeWatchdogUSec 30 s;
+  panic_on_oops 1; usb0 10.15.21.1 default via Monolith (NAT profile
+  `astro-usb` there, tested from rescue: ping + DNS ok). Battery 92 %.
+- **Bug: every sdc partition was writable** under Debian (sysfs `ro` = 0;
+  sda/sdb ro = 1). Cause: UFS came up late this boot (4.48 s); the handoff
+  found userdata in sysfs and ran 2 ms later, but `ufs_ro` walked /dev/sd*,
+  where devtmpfs had not made most sdc nodes yet. Nothing wrote them (no
+  tool in the image targets them). Fix (boot-root2): ufs_ro walks
+  /sys/class/block (mknod if a node lags), and a gate refuses the handoff
+  unless every sd device but sdc + sdc56 reads back ro. Gate dry-run on
+  the live system: "REFUSE (sdc1 not read-only)".
+- Image `boot-root2.img` `2739e141…153c` (kernel/DTB = bat3b).

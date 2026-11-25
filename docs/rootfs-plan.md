@@ -51,3 +51,11 @@ first (no Linux display driver yet), internet through Monolith (NAT).
   userdata: unchanged (mount fails → stays).
 - Order: flash `userdata` first (Android's userdata could otherwise be
   mounted read-write by the handoff check), then `boot_a`.
+
+## root2 fix (2026-11-25)
+
+root1 left every sdc partition writable when UFS came up late (session
+log). root2: read-only pass over /sys/class/block (mknod for lagging
+nodes), 1 s settle, and a gate: the handoff is refused unless every sd
+device except userdata and its disk reads back `ro` = 1.
+`boot-root2.img` `2739e141…153c`.
