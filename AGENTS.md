@@ -47,18 +47,12 @@ History and receipts: `docs/session-log.md`.
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
    lines; user saw the 60 s blank, 2026-11-25).
-0. **Esc/power key (planned, start here next session).** The key is the
-   MT6359P PWRKEY (TOPSTATUS 0x2a bit 1, 0 = pressed; read by hand via
-   pwrap WACS2, session log "Esc/power key"). Plan: pwrap + MT6359P MFD
-   with only the keys child (no regulator/RTC/ADC/codec drivers);
-   mtk-pmic-keys delta that never touches any reset register (mainline's
-   `MT6359_TOP_RST_MISC 0x14c` is the SET alias of 0x14a) and splits the
-   key: release < 1.5 s (DT value; a "2 s" hold measured 1.59 s) =
-   KEY_ESC, held longer = KEY_POWER once. Interrupt pio EINT 214
-   level-high. Then rule-5 guard in build-boot-img.sh narrowed to this
-   shape, written pre-flash check, and both escapes re-observed. Watch:
-   mainline pwrap probe writes WDT_SRC_EN/INT_FLG at undefined mt6873
-   offsets (0) and arms TIMER_EN.
+0. **Esc/power key = step 2: pwrap + MT6359P core + keys.** Full plan,
+   register audit and test order in `docs/pmic-plan.md` (for review,
+   2026-11-25). Two upstreamable deltas: pwrap mt6873 INT_FLG/INT_CLR
+   (0x450/0x454), mtk-pmic-keys MT6359P reset layout (STRUP_CON12 0xa12).
+   Esc/power split in userspace as on the Cosmo (kernel reports KEY_ESC).
+   Image A (pwrap + core) before image B (+ keys).
 1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
    (Astro target; check the Astro's key legends for the Fn layer). Needs
    a decided write path and lifting the init read-only guard for that LU.
