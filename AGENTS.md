@@ -32,7 +32,22 @@ through LK's command-mode DSI path by `initramfs/astro-disp` /
 - Power-key escape re-observed on this kernel (2026-11-25, reboot_longkey).
 History and receipts: `docs/session-log.md`.
 
+- **Console Fn layer** (kernel default keymap, Planet US layout =
+  gemini-debian `cosmo(us)`).
+
 Next candidates:
+0. **Esc/power key (planned, start here next session).** The key is the
+   MT6359P PWRKEY (TOPSTATUS 0x2a bit 1, 0 = pressed; read by hand via
+   pwrap WACS2, session log "Esc/power key"). Plan: pwrap + MT6359P MFD
+   with only the keys child (no regulator/RTC/ADC/codec drivers);
+   mtk-pmic-keys delta that never touches any reset register (mainline's
+   `MT6359_TOP_RST_MISC 0x14c` is the SET alias of 0x14a) and splits the
+   key: release < 1.5 s (DT value; a "2 s" hold measured 1.59 s) =
+   KEY_ESC, held longer = KEY_POWER once. Interrupt pio EINT 214
+   level-high. Then rule-5 guard in build-boot-img.sh narrowed to this
+   shape, written pre-flash check, and both escapes re-observed. Watch:
+   mainline pwrap probe writes WDT_SRC_EN/INT_FLG at undefined mt6873
+   offsets (0) and arms TIMER_EN.
 1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
    (Astro target; check the Astro's key legends for the Fn layer). Needs
    a decided write path and lifting the init read-only guard for that LU.
