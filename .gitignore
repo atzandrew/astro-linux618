@@ -1,0 +1,7 @@
+build/
+out/
+*.o
+# Local photo and screenshot originals (README copies are in readmeimages/)
+images/
+# Device-unique partition backups never go in git (IMEI, NVRAM, seccfg)
+backup/
