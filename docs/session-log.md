@@ -1007,3 +1007,16 @@ escape with this image.
   14:56:47 → reset 14:57:35; up 14:58:01 → reset 14:58:49; up 14:59:14
   (48 s each). **Step 3B done: battery temperature on mainline drivers,
   both escapes observed.**
+
+## 2026-11-25 — Why the charger stops at 4.35 V
+
+- LK sets it: every saved LK log has `mt6360_chg_init_setting: starts` →
+  `mt6360_set_cv: cv = 4350` (expdb/try1*, backup/). LK's built-in
+  value: its own embedded DTB (= stock DTB) says `cv = <4400000>` on
+  `mediatek,mt6360_pmu_chg` and `battery_cv = <4400000>`.
+- Stock Android raises it: `mtk_charger` SW JEITA, normal band 10–45 °C
+  → `sw_jeita.cv = 0` → `battery_cv` 4.40 V (`jeita_temp_t2_to_t3_cv`
+  4.34 V is never used in that band; 4.10 V above 45 °C and 10 °C and
+  below, 4.04 V below 0 °C).
+- Mainline `mt6360_charger` never writes VOREG (no init, no
+  monitored-battery), so LK's 4.35 V stays.
