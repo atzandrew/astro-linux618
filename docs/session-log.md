@@ -932,3 +932,4 @@ escape with this image.
   as on pmicA; each reset re-enumerates the preloader twice). **Step 2
   done: pwrap + MT6359P core + power key on mainline drivers (two
   upstreamable deltas), both escapes observed on A and B.**
+- Back on `boot-pmicB.img` (user), kernel #10, no wdtest, bootreason PowerKey, charger Full.
