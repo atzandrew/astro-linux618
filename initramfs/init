@@ -1,0 +1,93 @@
+#!/bin/busybox sh
+# Astro Slide bring-up initramfs (P1, escape tests). Derived from
+# cosmo-linux618 initramfs/init. No root switch, no storage access, no
+# writes outside RAM.
+#
+# Signs of life without a display or USB: the keyboard backlight (open the
+# slider), driven by the gpio-leds node in the DTS.
+#   heartbeat (thump-thump) = kernel running, init not reached
+#   fast blink (5 Hz)       = init running and feeding the watchdog
+#   solid on                = astro.wdtest=1: watchdog armed, NOT fed;
+#                             the board must reset by itself in ~31-62 s
+/bin/busybox --install -s /bin
+export PATH=/bin
+mkdir -p /proc /sys /dev /tmp
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+
+say() { echo "$*" > /dev/tty0 2>/dev/null; echo "astro-init: $*" > /dev/kmsg 2>/dev/null; }
+LED=$(ls -d /sys/class/leds/*kbd_backlight* 2>/dev/null | head -n1)
+led() { # led <trigger> [delay_on delay_off]
+	[ -n "$LED" ] || return
+	echo "$1" > "$LED/trigger" 2>/dev/null
+	if [ "$1" = timer ]; then
+		echo "$2" > "$LED/delay_on"; echo "$3" > "$LED/delay_off"
+	fi
+	if [ "$1" = none ]; then cat "$LED/max_brightness" > "$LED/brightness"; fi
+}
+
+say "===== Astro Slide mainline bring-up: initramfs reached ====="
+say "keyboard LED: ${LED:-not found}"
+
+# Watchdog failsafe (AGENTS.md rule 5): from here on only this init feeds
+# the SoC watchdog, so a stuck init or a hung kernel resets the board
+# within ~31 s. astro.wdtest=1: arm it and never feed (escape test).
+WDT=/dev/watchdog0
+[ -e $WDT ] || WDT=/dev/watchdog
+if exec 3>"$WDT"; then
+	say "watchdog $WDT owned by init (fed every 5 s)"
+else
+	say "WARNING: could not open $WDT - no timer failsafe"
+fi
+feed() { printf . >&3 2>/dev/null; }
+if grep -qw astro.wdtest=1 /proc/cmdline; then
+	led none
+	say "ESCAPE TEST: watchdog armed and NOT fed - board must reset in ~31-62 s"
+	while true; do sleep 60; done
+fi
+led timer 100 100
+
+say "$(uname -a)"
+say "cmdline: $(cat /proc/cmdline)"
+say "cpus online: $(cat /sys/devices/system/cpu/online)"
+say "mem: $(grep -E 'MemTotal' /proc/meminfo)"
+say "drm: $(ls /sys/class/drm 2>/dev/null | tr '\n' ' ')"
+say "pstore: $(ls /sys/fs/pstore 2>/dev/null | tr '\n' ' ')"
+dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/null
+dmesg > /dev/pmsg0 2>/dev/null
+
+# Step 1 of the display plan (docs/p0-findings.md, "Consequence for first
+# boot"): READ ONLY. Dumps the display registers LK left programmed, so a
+# later frame kick can be checked against them. Off by default: an MMIO
+# read of a clock-gated block can stall the bus (the watchdog would then
+# reset the board), so it gets its own boot with astro.dispdump=1.
+dump() { # dump <name> <base> <bytes>
+	o=0
+	while [ $o -lt $3 ]; do
+		a=$(printf '0x%x' $(( $2 + o )))
+		echo "astro-disp: $1+$(printf '%03x' $o) $(devmem $a 32)" > /dev/kmsg
+		o=$((o + 4))
+	done
+}
+if grep -qw astro.dispdump=1 /proc/cmdline; then
+	say "display register dump (read only) in 5 s"
+	feed; sleep 5; feed
+	dump mmsys  0x14000000 0x100
+	dump mutex  0x14001000 0x100
+	dump ovl0   0x14005000 0x100
+	dump ovl2l0 0x14006000 0x100
+	dump rdma0  0x14007000 0x100
+	dump dsi0   0x14010000 0x200
+	feed
+	say "display register dump done"
+	dmesg | grep astro-disp > /dev/pmsg0 2>/dev/null
+fi
+
+i=0
+while true; do
+	feed
+	sleep 5
+	i=$((i+1))
+	[ $((i % 6)) -eq 0 ] && echo "astro-init: alive, uptime $(cut -d' ' -f1 /proc/uptime) s" > /dev/kmsg
+done

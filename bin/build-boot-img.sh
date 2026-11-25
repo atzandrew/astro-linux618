@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Pack out/boot.img (for the `boot_a` partition): out/Image.gz +
+# out/mt6873-planet-astro.dtb (bin/build-kernel.sh) + a busybox initramfs
+# from initramfs/ + the boot cmdline below, as an Android boot header v2
+# image laid out like stock (bin/mkbootimg.py).
+#
+#   bin/build-boot-img.sh
+#   EXTRA_CMDLINE=astro.wdtest=1 OUTNAME=boot-wdtest.img bin/build-boot-img.sh
+#
+# BUSYBOX=/path/to/static/busybox overrides the host's /usr/bin/busybox
+# (must be a static aarch64 binary).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="$ROOT/out"
+BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
+DTB="$OUT/mt6873-planet-astro.dtb"
+DTC="$ROOT/build/obj/scripts/dtc/dtc"
+# boot_a is 0x2800000 bytes (GPT, docs/p0-findings.md). The image is padded
+# to the full partition so no stale stock data (its AVB vbmeta blob) is
+# left behind it.
+BOOT_PART_SIZE=$((0x2800000))
+
+# Header cmdline. LK puts its own arguments around it:
+#  - bootopt= is parsed by LK itself and must stay (Gemini lesson; stock
+#    Astro value).
+#  - console=tty0 again so the framebuffer is the preferred console.
+#  - *_ignore_unused: keep LK's display clocks, power and rails on.
+#  - cpuidle.off=1: mainline MT8192 idle states are unproven on the vendor
+#    ATF; WFI only until a CPU idle test.
+#  - panic=10 + oops=panic: an oops becomes a panic. PSCI reboot is not
+#    trusted (vendor ATF); the hardware watchdog, fed only while healthy,
+#    is what resets the board (AGENTS.md rule 5).
+#  - ramoops.*: the vendor pstore region LK reserves (mblock "pstore",
+#    0x4d010000 +0xe0000, map:0), Cosmo layout. Whether it survives a
+#    watchdog reset (LK sets ddr_rsv = yes) is still to be tested.
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=10 oops=panic ramoops.mem_address=0x4d010000 ramoops.mem_size=0xe0000 ramoops.record_size=0x1000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000"
+
+# EXTRA_CMDLINE is appended (astro.wdtest=1, astro.dispdump=1); OUTNAME
+# names the image (default boot.img).
+CMDLINE="$CMDLINE${EXTRA_CMDLINE:+ $EXTRA_CMDLINE}"
+OUTNAME="${OUTNAME:-boot.img}"
+
+file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
+	|| { echo "$BUSYBOX is not a static aarch64 binary" >&2; exit 1; }
+[[ -f "$OUT/Image.gz" && -f "$DTB" ]] || { echo "run bin/build-kernel.sh first" >&2; exit 1; }
+
+# AGENTS.md rule 5: never pack an image that can strand the device.
+# On the MT6359P the power-key reset lives in STRUP_CON12 (0xa12); mainline
+# mtk-pmic-keys does read-modify-write on 0x14c, a different register on
+# this PMIC. Until that is understood nothing may reach the PMIC: refuse a
+# DTB with an enabled pwrap, any mt6359 node, a keys node or a long-press
+# property, and a kernel built with the pwrap or PMIC keys driver.
+DTS_TEXT="$("$DTC" -q -I dtb -O dts "$DTB")"
+refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
+PWRAP_NODE="$(awk '/compatible = "mediatek,mt6873-pwrap"/{f=1} f{print} f&&/^\t*};$/{exit}' <<<"$DTS_TEXT")"
+grep -q 'status = "disabled"' <<<"$PWRAP_NODE" || refuse "pwrap node not disabled"
+grep -qE '"mediatek,mt6359[^"]*"' <<<"$DTS_TEXT" && refuse "mt6359 node in DTB"
+grep -qE 'mediatek,mt63[0-9]+-keys' <<<"$DTS_TEXT" && refuse "PMIC keys node in DTB"
+grep -q 'long-press-mode' <<<"$DTS_TEXT" && refuse "long-press-mode in DTB"
+KCONF="$ROOT/build/obj/.config"
+grep -qE '^CONFIG_(MTK_PMIC_WRAP|KEYBOARD_MTK_PMIC)=' "$KCONF" && refuse "pwrap/PMIC keys driver in kernel config"
+# Panel rule (AGENTS.md rule 3): no display driver in this kernel.
+grep -qE '^CONFIG_DRM_MEDIATEK=' "$KCONF" && refuse "DRM_MEDIATEK in kernel config (panel rule)"
+# LK applies the dtbo overlay: the base DTB needs __symbols__.
+grep -q '__symbols__' <<<"$DTS_TEXT" || refuse "DTB built without -@ (LK overlay would fail)"
+
+RD="$(mktemp -d)"
+trap 'rm -rf "$RD"' EXIT
+mkdir -p "$RD"/{bin,dev,proc,sys,tmp}
+cp "$BUSYBOX" "$RD/bin/busybox"
+cp "$ROOT/initramfs/init" "$RD/init"
+chmod 755 "$RD/init" "$RD/bin/busybox"
+( cd "$RD" && find . | LC_ALL=C sort | cpio -o -H newc --owner=0:0 --quiet ) \
+	| gzip -9n > "$OUT/initramfs.cpio.gz"
+
+python3 -I "$ROOT/bin/mkbootimg.py" --kernel "$OUT/Image.gz" \
+	--ramdisk "$OUT/initramfs.cpio.gz" --dtb "$DTB" --cmdline "$CMDLINE" \
+	-o "$OUT/$OUTNAME"
+SIZE=$(stat -c %s "$OUT/$OUTNAME")
+(( SIZE <= BOOT_PART_SIZE )) || { echo "$OUTNAME is $SIZE bytes, boot_a holds $BOOT_PART_SIZE" >&2; exit 1; }
+truncate -s "$BOOT_PART_SIZE" "$OUT/$OUTNAME"
+
+echo "busybox: $("$BUSYBOX" | head -1)"
+echo "cmdline: $CMDLINE"
+echo "$OUTNAME: $SIZE bytes used, padded to $BOOT_PART_SIZE"
+sha256sum "$OUT/initramfs.cpio.gz" "$OUT/$OUTNAME"

@@ -5,3 +5,4 @@ out/
 images/
 # Device-unique partition backups never go in git (IMEI, NVRAM, seccfg)
 backup/
+__pycache__/

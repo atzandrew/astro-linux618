@@ -1,0 +1,301 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Planet Computers Astro Slide 5G (MediaTek MT6873 / Dimensity 800)
+ *
+ * Phase P1 "escape test" skeleton: CPUs, GIC, timers, watchdog, UART0,
+ * LK's framebuffer (simpledrm) and the keyboard backlight as a heartbeat.
+ * Built on mt8192.dtsi: the MT6873 shares the MT8192 register map (97/102
+ * mt8192.dtsi addressed nodes at identical addresses) and pin table (228
+ * pins, identical mux functions). Receipts: docs/hardware-map.md.
+ *
+ * Board facts are from Planet's 4.14.186 BSP (astro-kernel a79860700:
+ * arch/arm64/boot/dts/mediatek/mt6873.dts + aeon_gpio.dtsi) and from the
+ * stock images dumped 2026-11-25 (docs/p0-findings.md).
+ *
+ * Deliberately NOT enabled (AGENTS.md rules 3 and 5):
+ *  - pwrap / MT6359P / mt6359-keys: nothing in Linux may touch the PMIC
+ *    until the power-key reset path is understood (STRUP_CON12 vs the
+ *    TOP_RST_MISC register mainline mtk-pmic-keys writes).
+ *  - Display pipeline (mmsys, OVL, RDMA, DSI, M4U): LK owns the SH8802B
+ *    command-mode panel; Linux only reads its registers (initramfs).
+ *  - UFS, USB, SPMI/MT6315, SCP, GPU, everything else.
+ *
+ * LK contract (same LK family as the Cosmo, lk_a strings):
+ *  - LK applies `dtbo` to this DTB and refuses to boot if that fails:
+ *    build with -@ and flash the no-op overlay (dtbo/astro-noop.dts).
+ *  - LK needs /chosen/bootargs (bootargs.c fdt_bootargs) and rewrites
+ *    the node at the exact path /memory ("ERROR: /memory node not exist,
+ *    while(1)").
+ *  - LK adds its own mblock-N-<name> no-map carve-outs to /reserved-memory
+ *    (ATF, TEE, SSPM, SPM, SCP, modem, framebuffer, ram_console, pstore):
+ *    none of them is declared here (a duplicate hung the Gemini).
+ */
+
+/dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+#include "mt8192.dtsi"
+
+/ {
+	model = "Planet Computers Astro Slide 5G";
+	chassis-type = "handset";
+	compatible = "planet,astro-slide", "mediatek,mt6873",
+		     "mediatek,mt8192";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* vendor: console=ttyS0,921600n1; no UART pad is known yet */
+		stdout-path = "serial0:921600n8";
+
+		/*
+		 * LK builds the kernel cmdline on top of this property and
+		 * asserts without it (Cosmo LK log 2026-10-25; the Astro LK
+		 * carries the same app/mt_boot/bootargs.c fdt_bootargs).
+		 * The boot.img header cmdline adds the rest.
+		 */
+		bootargs = "console=tty0 console=ttyS0,921600n1";
+
+		/*
+		 * LK's console framebuffer (expdb LK log, every boot):
+		 * "FB base = 0x7dd80000, FB size = 0x1d80000", OVL layer 0,
+		 * 1080x2340, pitch 4352 (1088 px), eBGRA8888 (B,G,R,A in
+		 * memory = a8r8g8b8, as proven on the Cosmo's LK; to verify
+		 * on glass). LK reserves 0x7dd80000 +0x1d80000 itself
+		 * (mblock "framebuffer", map:1). reg = one buffer.
+		 *
+		 * The SH8802B runs in DSI COMMAND mode: the panel shows what
+		 * was last pushed to its GRAM. Writes here most likely stay
+		 * invisible until something triggers a frame (open item,
+		 * docs/p0-findings.md).
+		 */
+		framebuffer@7dd80000 {
+			compatible = "simple-framebuffer";
+			reg = <0 0x7dd80000 0 0x9b6400>;
+			width = <1080>;
+			height = <2340>;
+			stride = <4352>;
+			format = "a8r8g8b8";
+		};
+	};
+
+	/*
+	 * 8 GiB at 0x40000000: DRAM rank0 0x100000000 + rank1 0x100000000
+	 * (preloader log in expdb). Named "memory" (not memory@40000000):
+	 * LK looks the node up by that exact path and rewrites it.
+	 */
+	memory {
+		device_type = "memory";
+		reg = <0 0x40000000 2 0x00000000>;
+	};
+
+	/*
+	 * Heartbeat on the keyboard backlight, the only light Linux can
+	 * drive without the PMIC: GPIO28, active high (vendor aeon_gpio.dtsi
+	 * keyboardlight_gpio_low = GPIO28 output-low = off;
+	 * aw9523_key.c drives it as PWM0 at 100 % for full on). Blinking =
+	 * the kernel is alive; steady/off after a while = it is not.
+	 */
+	leds {
+		compatible = "gpio-leds";
+
+		led-keyboard {
+			gpios = <&pio 28 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_KBD_BACKLIGHT;
+			color = <LED_COLOR_ID_WHITE>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * AGENTS.md rule 5: the only path to the MT6359P. Disabled here as well as
+ * in the config (CONFIG_MTK_PMIC_WRAP=n); bin/build-boot-img.sh refuses a
+ * DTB where it is enabled.
+ */
+&pwrap {
+	status = "disabled";
+};
+
+/*
+ * First-boot scope (docs/session-log.md 2026-11-25): mt8192.dtsi leaves
+ * these enabled, but none is wanted yet. Display, multimedia, IOMMU and
+ * GCE belong to LK's display path (panel rule); SPMI is the MT6315 path;
+ * performance-controller, SVS, LVTS, efuse and PCIe are MT8192 nodes the
+ * vendor MT6873 DT does not have (unverified on this SoC). Clock
+ * providers stay: they only register clocks (clk_ignore_unused).
+ */
+&performance {
+	status = "disabled";
+};
+
+&spmi {
+	status = "disabled";
+};
+
+&gce {
+	status = "disabled";
+};
+
+&lvts_ap {
+	status = "disabled";
+};
+
+&lvts_mcu {
+	status = "disabled";
+};
+
+&svs {
+	status = "disabled";
+};
+
+&pcie {
+	status = "disabled";
+};
+
+&efuse {
+	status = "disabled";
+};
+
+&u3phy0 {
+	status = "disabled";
+};
+
+&mmsys {
+	status = "disabled";
+};
+
+&mutex {
+	status = "disabled";
+};
+
+&smi_common {
+	status = "disabled";
+};
+
+&iommu0 {
+	status = "disabled";
+};
+
+&ovl0 {
+	status = "disabled";
+};
+
+&ovl_2l0 {
+	status = "disabled";
+};
+
+&ovl_2l2 {
+	status = "disabled";
+};
+
+&rdma0 {
+	status = "disabled";
+};
+
+&rdma4 {
+	status = "disabled";
+};
+
+&color0 {
+	status = "disabled";
+};
+
+&ccorr0 {
+	status = "disabled";
+};
+
+&aal0 {
+	status = "disabled";
+};
+
+&gamma0 {
+	status = "disabled";
+};
+
+&postmask0 {
+	status = "disabled";
+};
+
+&dither0 {
+	status = "disabled";
+};
+
+&vcodec_dec {
+	status = "disabled";
+};
+
+&vcodec_enc {
+	status = "disabled";
+};
+
+&larb0 {
+	status = "disabled";
+};
+
+&larb1 {
+	status = "disabled";
+};
+
+&larb2 {
+	status = "disabled";
+};
+
+&larb4 {
+	status = "disabled";
+};
+
+&larb5 {
+	status = "disabled";
+};
+
+&larb7 {
+	status = "disabled";
+};
+
+&larb9 {
+	status = "disabled";
+};
+
+&larb11 {
+	status = "disabled";
+};
+
+&larb13 {
+	status = "disabled";
+};
+
+&larb14 {
+	status = "disabled";
+};
+
+&larb16 {
+	status = "disabled";
+};
+
+&larb17 {
+	status = "disabled";
+};
+
+&larb18 {
+	status = "disabled";
+};
+
+&larb19 {
+	status = "disabled";
+};
+
+&larb20 {
+	status = "disabled";
+};

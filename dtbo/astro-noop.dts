@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * No-op DT overlay for the Astro's `dtbo_a` partition.
+ *
+ * LK applies the overlay in `dtbo` to the kernel DTB and refuses to boot
+ * when that fails ("dconfig DT overlay failed, system not bootable",
+ * lk_a strings; the Cosmo's LK asserted at fdt_op.c:212 for the same
+ * reason). The stock overlay targets 293 fragments of vendor labels our
+ * mainline DTB does not have, so `dtbo_a` holds this overlay instead: one
+ * fragment on "/" (no label fixups) that only adds a marker property. LK
+ * still needs /__symbols__ in the base DTB, hence -@ for the board DTB.
+ *
+ * Built and packed into a DT table by bin/build-dtbo.sh.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			planet,lk-dtbo = "astro-noop";
+		};
+	};
+};

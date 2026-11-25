@@ -12,7 +12,7 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 
 ## Status (2026-11-25)
 
-Day 0. No image has been built or flashed. The device runs stock Android.
+Bootloader **unlocked** 2026-11-25 (orange state, stock Android still boots). No image of ours flashed yet.
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`), same as the Cosmo.
 - Vendor source: Planet's 4.14.186 MTK BSP (`astro-kernel`, one commit
   `a79860700`), board = `k6873v1_64_defconfig` + `mt6873.dts` +

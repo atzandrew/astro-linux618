@@ -130,3 +130,14 @@ recovery / fastboot?) before relying on it.
 - Stock Android flips long-press to shutdown at runtime (`restore pmic
   long_press_mode = SHUTDOWN`); irrelevant to our kernel as long as nothing
   in Linux writes these registers.
+
+## A/B slot metadata (misc+0x800, from the P0 backup, 2026-11-25)
+
+AOSP `bootloader_control` (magic `BCAB`, version 1, nb_slot 2, CRC32
+valid): slot **a** = 0x9f → priority 15, tries_remaining 1,
+**successful_boot 1**; slot **b** = 0x9e → priority 14, tries 1,
+successful 1. Slot a is active and already marked successful, so the
+bootloader does not count down tries on our boots: failed or hung test
+boots should not flip the device to slot b. (If it ever did, slot b still
+holds stock boot_b + dtbo_b: it would boot stock Android, not strand.)
+Nothing in the bring-up procedure writes `misc`.

@@ -36,3 +36,16 @@
   DTB section, `bootopt=` cmdline, vendor_boot empty, dtbo panel list.
   Panel SH8802B **command mode**; LK FB 0x7dd80000 pitch 4352 BGRA8888.
   First-boot display plan needs a decision (cmd mode ≠ Cosmo).
+
+## 2026-11-25 — bootloader unlocked (stage A)
+
+- User ran `mtk da seccfg unlock` on Monolith: "Detected V4 Lockstate",
+  "SecCfgV4 - hwtype found: V4", "Successfully wrote seccfg."
+  (`~/Build/astro-backup/unlock.log`). Pre-unlock seccfg: `p0/seccfg.bin`.
+- After a power-key reset: LK orange-state warning, then stock Android
+  booted. **No userdata wipe** (the wipe belongs to `fastboot flashing
+  unlock`; mtkclient rewrites seccfg directly — same as the Cosmo).
+- adb: `ro.boot.verifiedbootstate=orange`, `ro.boot.flash.locked=0`,
+  `ro.boot.vbmeta.device_state=unlocked`.
+- A/B: misc+0x800 bootloader_control decoded (slot a active, successful)
+  — `docs/p0-findings.md`.
