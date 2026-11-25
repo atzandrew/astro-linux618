@@ -10,13 +10,39 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 - `atzandrew/gemini-debian` — Debian 13 + Plasma 6 rootfs builder
   (`DEVICE=cosmo` today; an Astro target will be added).
 
-## Status (2026-11-25)
+## Status (2026-11-25, end of day 1)
 
-Bootloader **unlocked** 2026-11-25 (orange). Our 6.18 kernel boots to init from `boot_a` (both escapes observed). `dtbo_a` = `dtbo/astro-lk.dts` (LK applies dtbo to its own DTB and to ours; this overlay carries the stock display config and lands in `/lk-sink` on ours): LK brings the panel up as stock, and Linux then holds it in reset (GPIO42 hog) as a burn-in guard. No Linux display output yet (SH8802B command mode).
+Mainline 6.18.58-astro boots to our initramfs on the Astro from `boot_a`
+(bootloader unlocked, orange). Working: LK handover (AVB footer, LK vendor
+nodes, `dtbo_a` = `dtbo/astro-lk.dts`), both reset escapes **observed**,
+USB device network + shell (`bin/astro-sh`), RAM log after a watchdog
+reset, visible framebuffer console (our buffer at 0x70000000 pushed
+through LK's command-mode DSI path by `initramfs/astro-disp` /
+`astro-console`, idle blank after 60 s, `fbcon=rotate:1`).
+History and receipts: `docs/session-log.md`.
+
+Next candidates (none started):
+1. UFS storage (`11270000.ufshci`, mainline `ufs-mediatek`) → root
+   filesystem on userdata → Debian like the Cosmo (gemini-debian).
+2. Keyboard: AW9523 at **i2c8 0x5b** (stock dtbo fragment@47; Cosmo
+   aw9523-keypad driver) — needs I2C (`I2C_MT65XX` currently off).
+3. Display: mainline mediatek DRM with command-mode DSI + SH8802B panel
+   driver (vendor `panel-sh8802b-vdo.c`: mode flags LPM|EOT, timings,
+   DCS 0x51 backlight, 0x28/0x10 off). Must keep the burn-in rules below.
+4. PMIC (MT6359P via pwrap): only after the power-key reset question in
+   rule 5 is settled (STRUP_CON12 vs mainline's 0x14c).
+
+Display / burn-in rule (AMOLED): never leave a static frame lit for long.
+Default boot sends a black frame and the console blanks after 60 s idle;
+display experiments must include their own blank-again path.
+
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`), same as the Cosmo.
 - Vendor source: Planet's 4.14.186 MTK BSP (`astro-kernel`, one commit
   `a79860700`), board = `k6873v1_64_defconfig` + `mt6873.dts` +
-  `aeon_gpio.dtsi`.
+  `aeon_gpio.dtsi`. Vendor drivers worth reading: `drivers/phy/mediatek/
+  phy-mtk-mt6873.c`, `drivers/gpu/drm/panel/panel-sh8802b-vdo.c`,
+  `drivers/misc/mediatek/aw9523/`, `drivers/input/aeonusb/` (USB mux:
+  right port = GPIO13 and GPIO127 low).
 
 ## Why this should work: MT6873 ≈ MT8192
 
