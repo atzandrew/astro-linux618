@@ -213,6 +213,8 @@ diag() {
 	echo "=== ASTRO-DIAG-END"
 }
 diag > /dev/pmsg0 2>/dev/null
+# Blink the code once, then leave the keyboard light off. Only a USB
+# failure (code 1-4: no shell to ask) keeps repeating it.
 if [ -n "$LED" ]; then
 	echo none > "$LED/trigger"
 	( while true; do
@@ -222,6 +224,7 @@ if [ -n "$LED" ]; then
 			echo 0 > "$LED/brightness"; usleep 350000
 			k=$((k+1))
 		done
+		[ $CODE = 5 ] && break
 		sleep 2
 	done ) &
 fi

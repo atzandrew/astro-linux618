@@ -624,3 +624,23 @@ escape with this image.
   reset by itself, booted back; LK cmdline `androidboot.bootreason=
   reboot_longkey`. (Watchdog escape not re-run on this kernel; the
   watchdog path is unchanged.)
+
+## 2026-11-25 — ufskbd3: UFS adapt-type fix, blink code once — PRE-FLASH CHECK
+
+- UFS on kernel #5: link HS_GEAR3 / HS_RATE_B / 2 lanes / FAST_MODE,
+  idle HIBERN8 (`power_info`). The one error, `dme-set: attr-id 0x15d4
+  val 0x3 failed`, is PA_TXHSADAPTTYPE (UniPro 1.8, HS-G4 only) written
+  unconditionally by mainline `ufs_mtk_pre_pwr_change`; the vendor
+  writes it only on G4 hosts. The failure made the hook return an error
+  and ufshcd fell back to the desired mode (same result). Delta: skip it
+  on legacy IPs.
+- Init: the USB code blinks once, then the keyboard light stays off; a
+  USB failure (code 1-4) keeps repeating.
+- Image `boot-ufskbd3.img` = boot.img `8c078f41…225f` (Image.gz
+  `ccdb8689…`, DTB `f5397256…` unchanged). Config unchanged; rule 5 checks
+  pass. UFS power-mode change only; escapes as on ufskbd2.
+- Result (user flashed `boot-ufskbd3.img` `8c078f41…`, kernel #6): no
+  0x15d4 error; link still HS_GEAR3 / RATE_B / 2 lanes / FAST_MODE. LED:
+  user saw ~2 s of rapid blinking (init's fast-feed timer while waiting
+  for USB, then the code), then off (brightness 0, diag code 5).
+  "Acceptable for now."

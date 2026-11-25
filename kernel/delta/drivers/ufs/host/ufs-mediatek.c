@@ -1417,6 +1417,16 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 		return ret;
 	}
 
+	/*
+	 * astro-linux618: PA_TXHSADAPTTYPE (0x15d4) is a UniPro 1.8 / HS-G4
+	 * attribute; the legacy MT6873 host (G3) rejects it ("dme-set:
+	 * attr-id 0x15d4 val 0x3 failed") and the error made this hook fail
+	 * (ufshcd then fell back to the requested mode). The vendor driver
+	 * writes it only on G4 hosts.
+	 */
+	if (host->legacy_ip_ver)
+		return ret;
+
 	if (dev_req_params->pwr_rx == FAST_MODE ||
 	    dev_req_params->pwr_rx == FASTAUTO_MODE) {
 		if (host->hw_ver.major >= 3) {
