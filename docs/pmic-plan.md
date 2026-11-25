@@ -166,3 +166,93 @@ delta present (a marker string in the built driver).
 If image A or B ever reads 0xa12 with bit 13 clear: stop, don't power off.
 Rewrite it from the running shell (stock value 0x21e0, one written
 command for the user), then re-check before any reset.
+
+---
+
+# Step 3 plan: battery percentage (AUXADC + adc-battery + stock battery data)
+
+Status 2026-11-25: image 3A built, **not flashed** (pre-flash check below).
+
+## Route
+
+MT6359P fuel gauge hardware is on (LK sets FG_ON, 0xd08 bit 0 = 1), but
+its CAR/current registers only refresh after a latch write (five reads
+over 20 s gave the same 0xfe4c / 0x0113776f: LK's last latch), so a raw
+coulomb counter needs a real FG driver (later step). Step 3 instead uses
+what mainline already has:
+
+- `mt6359-auxadc` (iio): VBAT = IMP3 (impedance measurement voltage),
+  IBAT = FG_R_CURR 0xd88 (fuel gauge current latched by the same IMP
+  conversion; vendor `fgauge_get_ptim_current` reads it the same way).
+- `generic-adc-battery` (`adc-battery`) + `adc-battery-helper` (6.18,
+  used by ug3105/intel_dc_ti): OCV = V − I·R with R learnt from load
+  steps, capacity from the `simple-battery` OCV table, status.
+- `simple-battery` data from the stock DTB `bat_gm30` (identical to the
+  vendor `mt6873_battery_table.dtsi`): five profiles 50/25/10/0/−10 °C,
+  each resampled to 5 % steps (1 % below 5 %) of its own Qmax down to
+  SHUTDOWN_GAUGE0_VOLTAGE 3.40 V; R = median of the 25 °C column
+  (90 mΩ), `resistance-temp-table` from the per-table medians (0 °C:
+  566 %, −10 °C: 1024 %). Generator: stock `battery0_profile_tN`, rows
+  {0.1 mAh, 0.1 mV, 0.1 mΩ}.
+
+The MT6360 cannot do it alone: its IBAT ADC is charge-only (0 at Full).
+
+## Deltas (all upstreamable)
+
+1. `drivers/iio/adc/mt6359-auxadc.c`:
+   - scale = vref·ratio / 2^realbits (mainline returned vref·ratio: every
+     processed value was 2^bits too big; no in-tree consumer yet);
+   - IBAT signed (s16, sign-extended; vendor: positive = charging), scale
+     from the sense resistor: 100 mV full scale per 2^15 LSB →
+     mA = raw·10^8 / (2^15·R_µΩ) (= vendor 0.610352 mA/LSB at 5 mΩ);
+   - VBAT masked to its 15 bits.
+2. Binding `mediatek,mt6359-auxadc.yaml`: optional standard
+   `shunt-resistor-micro-ohms` (default 5000, MediaTek reference).
+3. `drivers/power/supply/generic-adc-battery.c` (+ Kconfig select): with
+   voltage and current channels and a `monitored-battery`, use
+   adc-battery-helper (capacity, voltage_ocv, status); power/temp stay
+   plain channel reads. Also checks the `charged` GPIO for errors.
+
+## Register audit (writes by the new driver; all MT6359P)
+
+| When | Register | Write | Stock does it? |
+|---|---|---|---|
+| probe | 0xfb4 HK_TOP_WKEY | 0x6359, later 0 | yes (`wk_auxadc_reset`) |
+| probe | 0xf90 HK_TOP_RST_CON0 | set+clear bits 0 (AUXADC_RST), 3 (BANK_AUXADC_SWRST) | yes, but only to recover a stuck ADC |
+| each ADC read | 0x1108/0x110a AUXADC_RQST0/1 | request bit, then 0 | yes (request) |
+| each VBAT/IBAT read | 0x1208 AUXADC_IMP0 | 1 (IMP_CONV_EN), then 0 | yes (PTIM) |
+
+Nothing in STRUP (0xa12) or TOP_RST. The reset does not touch the
+DIG_1..3 banks (bits 4–6), where the eFuse-loaded trims (DIG_3_ELR*)
+live. Snapshot of 0xf80–0xfbe and 0x1000–0x12fe before the flash:
+`backup/pre-bat3a-auxadc-regs.txt` (gitignored); diff after boot. After
+its reset the vendor re-requests ch7 and DCXO-by-GPS for the modem/GPS:
+there is no modem/GPS in our kernel.
+
+Guard (`bin/build-boot-img.sh`): PMIC children `adc`/`keys` only; `adc`
+exactly compatible + `#io-channel-cells` + shunt 5000 (+ phandle); the
+AUXADC driver only with that node and the audited source (sha256
+`b6bbc80d…43cb`). Negative tests: extra adc property, shunt 10000, extra
+`rtc` child, mt6358 compatible, changed driver source → all refused.
+
+## Image 3A pre-flash check
+
+- `out/boot-bat3a.img` `b812f105…0b97` (rebuilt after the guard tests),
+  `out/boot-bat3a-wdtest.img` `7d04e984…b4fe`; Image.gz `98b13ee0…410a`,
+  DTB `1d63b298…597e`.
+- New vs pmicB: the writes in the table above. Power key, watchdog,
+  reset path, display: unchanged (keys driver and node identical).
+- After boot, first: 0xa12 (expect 0x21e0); then the register diff;
+  `/sys/bus/iio/devices/*mt6359*` VBAT/IBAT raw + scale (VBAT should match
+  the MT6360 VBAT within ~20 mV; IBAT sign: negative on battery); then
+  `/sys/class/power_supply/adc-battery/` capacity/voltage_ocv/status.
+- Escapes: power-key hold, watchdog (wdtest image). Rollback: pmicB.
+
+## Step 3B (next): battery temperature
+
+Stock NTC (`mtk_battery_table.h`, `BAT_NTC_10`): 10 kΩ NTC, pull-up
+24 kΩ to 2.8 V (RBAT_PULL_UP_R / RBAT_PULL_UP_VOLT), BIF_NTC_R 16 kΩ,
+`Fg_Temperature_Table[21]` R-vs-T. Read BAT_TEMP raw on 3A first to check
+the math; then wire it to the battery (temperature channel) and let the
+helper use the temperature instead of its fixed 25 °C for table choice
+and R scaling (helper delta). Coulomb counter: separate later driver.

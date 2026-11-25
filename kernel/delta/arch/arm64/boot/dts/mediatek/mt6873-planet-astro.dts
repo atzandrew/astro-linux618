@@ -36,6 +36,7 @@
 
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/mediatek,mt6359-auxadc.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
@@ -257,6 +258,80 @@
 			default-state = "off";
 		};
 	};
+
+	/*
+	 * Battery data from the stock DTB (bat_gm30, boot_a dumped
+	 * 2026-11-25; identical to the vendor mt6873_battery_table.dtsi):
+	 * battery0_profile_t0..t4 (50/25/10/0/-10 C, 100 rows of
+	 * {0.1 mAh, 0.1 mV, 0.1 mOhm}) resampled to capacity percent of each
+	 * table's own Qmax down to SHUTDOWN_GAUGE0_VOLTAGE 3.40 V; internal
+	 * resistance = median of the 25 C resistance column, temperature
+	 * scaling = median per table. The charger runs CV 4.35 V (LK's
+	 * setting, mt6360-chg); stock battery_cv is 4.40 V.
+	 */
+	battery: battery {
+		compatible = "simple-battery";
+		voltage-min-design-microvolt = <3400000>;
+		constant-charge-voltage-max-microvolt = <4350000>;
+		factory-internal-resistance-micro-ohms = <90000>;
+		resistance-temp-table = <50 60>, <25 100>, <10 100>, <0 566>, <(-10) 1024>;
+		ocv-capacity-celsius = <25 50 10 0 (-10)>;
+		/* 25 C: Qmax 4593.7 mAh to 3.40 V, median R 90 mOhm */
+		ocv-capacity-table-0 = <4378700 100>, <4311104 95>, <4245028 90>, <4180598 85>,
+					<4118212 80>, <4059719 75>, <4000408 70>, <3955341 65>,
+					<3892230 60>, <3850965 55>, <3822506 50>, <3799880 45>,
+					<3782051 40>, <3761540 35>, <3738252 30>, <3727280 25>,
+					<3698184 20>, <3681272 15>, <3679895 10>, <3670013 5>,
+					<3633326 4>, <3589537 3>, <3506523 2>, <3452426 1>,
+					<3400000 0>;
+		/* 50 C: Qmax 4575.0 mAh to 3.40 V, median R 54 mOhm */
+		ocv-capacity-table-1 = <4375000 100>, <4308978 95>, <4244512 90>, <4180937 85>,
+					<4119412 80>, <4061913 75>, <4008866 70>, <3961885 65>,
+					<3902399 60>, <3857622 55>, <3827781 50>, <3803997 45>,
+					<3785460 40>, <3761608 35>, <3731165 30>, <3717634 25>,
+					<3708163 20>, <3686832 15>, <3669182 10>, <3653091 5>,
+					<3619440 4>, <3569195 3>, <3499717 2>, <3443580 1>,
+					<3400000 0>;
+		/* 10 C: Qmax 4593.7 mAh to 3.40 V, median R 90 mOhm */
+		ocv-capacity-table-2 = <4378700 100>, <4311104 95>, <4245028 90>, <4180598 85>,
+					<4118212 80>, <4059719 75>, <4000408 70>, <3955341 65>,
+					<3892230 60>, <3850965 55>, <3822506 50>, <3799880 45>,
+					<3782051 40>, <3761540 35>, <3738252 30>, <3713958 25>,
+					<3693538 20>, <3680753 15>, <3679650 10>, <3670696 5>,
+					<3647727 4>, <3602510 3>, <3550219 2>, <3494452 1>,
+					<3400000 0>;
+		/* 0 C: Qmax 4566.0 mAh to 3.40 V, median R 509 mOhm */
+		ocv-capacity-table-3 = <4395400 100>, <4317019 95>, <4250195 90>, <4186618 85>,
+					<4126582 80>, <4070805 75>, <3999152 70>, <3940020 65>,
+					<3896736 60>, <3857790 55>, <3828199 50>, <3804765 45>,
+					<3786148 40>, <3773212 35>, <3770481 30>, <3733814 25>,
+					<3694252 20>, <3655631 15>, <3465239 10>, <3444633 5>,
+					<3441220 4>, <3437912 3>, <3428367 2>, <3414184 1>,
+					<3400000 0>;
+		/* -10 C: Qmax 2745.1 mAh to 3.40 V, median R 922 mOhm */
+		ocv-capacity-table-4 = <4390100 100>, <4331464 95>, <4284580 90>, <4241603 85>,
+					<4200695 80>, <4162661 75>, <4124578 70>, <4086793 65>,
+					<4054362 60>, <4006918 55>, <3962901 50>, <3931323 45>,
+					<3909276 40>, <3886207 35>, <3863672 30>, <3843448 25>,
+					<3825581 20>, <3810172 15>, <3797309 10>, <3786565 5>,
+					<3784837 4>, <3781620 3>, <3711396 2>, <3551603 1>,
+					<3400000 0>;
+	};
+
+	/*
+	 * Battery voltage and current from the MT6359P AUXADC impedance
+	 * measurement (IMP: VBAT and the fuel gauge FG_R_CURR); capacity by
+	 * adc-battery-helper (OCV = V - I*R, R learnt from load steps).
+	 * Temperature is not wired yet (BAT_TEMP NTC: step 3B).
+	 */
+	adc-battery {
+		compatible = "adc-battery";
+		io-channels = <&pmic_adc MT6359_AUXADC_VBAT>,
+			      <&pmic_adc MT6359_AUXADC_IBAT>;
+		io-channel-names = "voltage", "current";
+		monitored-battery = <&battery>;
+		power-supplies = <&mt6360_chg>;
+	};
 };
 
 &uart0 {
@@ -289,6 +364,18 @@
 		 * driver (MT6359P delta) finds it set and writes nothing.
 		 * No home key on the Astro.
 		 */
+		/*
+		 * AUXADC (step 3A). Probe resets the AUXADC (HK_TOP_RST_CON0
+		 * 0xf90 bits 0/3 under the 0xfb4 key); reads write the request
+		 * registers (0x1108/0x110a) and IMP0 (0x1208). Nothing in STRUP.
+		 * Sense resistor: stock R_FG_VALUE 5 mOhm, CAR_TUNE 100 (1.0).
+		 */
+		pmic_adc: adc {
+			compatible = "mediatek,mt6359-auxadc";
+			#io-channel-cells = <1>;
+			shunt-resistor-micro-ohms = <5000>;
+		};
+
 		keys {
 			compatible = "mediatek,mt6359-keys";
 			mediatek,long-press-mode = <1>;
@@ -594,7 +681,7 @@
 		 * Input OVP 6.5 V: the value LK leaves in CHG_CTRL19 (0x20,
 		 * 2026-11-25) and the driver default; 5 V USB only until PD.
 		 */
-		charger {
+		mt6360_chg: charger {
 			compatible = "mediatek,mt6360-chg";
 			richtek,vinovp-microvolt = <6500000>;
 

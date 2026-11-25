@@ -933,3 +933,17 @@ escape with this image.
   done: pwrap + MT6359P core + power key on mainline drivers (two
   upstreamable deltas), both escapes observed on A and B.**
 - Back on `boot-pmicB.img` (user), kernel #10, no wdtest, bootreason PowerKey, charger Full.
+
+## 2026-11-25 — Step 3A: battery percentage (AUXADC + adc-battery) — PRE-FLASH CHECK
+
+- Read-only look (kernel #10): MT6360 VBAT 4.27 V, IBAT 0 at Full
+  (charge-only). MT6359P FG on (0xd08 = 0x2359, FG_ON); FG_CURRENT_OUT
+  0xd8a = 0xfe4c (−266 mA) and CAR 0x0113776f frozen over 20 s: LK's last
+  latch, not a live drain. LK /chosen: boot_voltage 4230, fg_swocv_v
+  42089 (4.2089 V), fg_swocv_i −2630 (−263 mA), imix_r 214.
+- Stock DTB battery profiles = vendor source tables (all five equal).
+- Plan, deltas, register audit, guard and images: `docs/pmic-plan.md`
+  "Step 3". Guard negative tests: 5/5 refused, control passes.
+- Images: `boot-bat3a.img` `b812f105…0b97`, `boot-bat3a-wdtest.img`
+  `7d04e984…b4fe`. Pre-flash register snapshot
+  `backup/pre-bat3a-auxadc-regs.txt` (0xa12 = 0x21e0). Not flashed yet.

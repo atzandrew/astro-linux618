@@ -54,6 +54,11 @@ Next candidates:
    STRUP_CON12). 0xa12 stays 0x21e0; both escapes observed on A and B.
    Plan/audit: `docs/pmic-plan.md`. Next PMIC users: mt6359-auxadc +
    battery gauge (step 3), each through the narrowed rule-5 guard.
+0b. **Step 3A built, awaiting flash** (2026-11-25): battery percentage
+   from mt6359-auxadc VBAT/IBAT + generic-adc-battery/adc-battery-helper
+   + stock OCV tables (`docs/pmic-plan.md` "Step 3"). Next: 3B battery
+   temperature (stock 10 kΩ NTC, 24 kΩ to 2.8 V), later a coulomb-counter
+   FG driver.
 1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
    (Astro target; check the Astro's key legends for the Fn layer). Needs
    a decided write path and lifting the init read-only guard for that LU.

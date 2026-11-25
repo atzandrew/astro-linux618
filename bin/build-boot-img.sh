@@ -59,6 +59,11 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # (mediatek,mt6359-keys, only a "power" key, long-press mode 1 = stock,
 # 8 s), the keys driver only with our MT6359P delta, and no other MT6359
 # function driver in the kernel.
+# Step 3 image A adds "adc" (mediatek,mt6359-auxadc, shunt 5 mOhm, nothing
+# else) and the AUXADC driver, pinned by sha256 to the audited source
+# (docs/pmic-plan.md step 3: reset 0xf90 under key 0xfb4, requests
+# 0x1108/0x110a, IMP0 0x1208; no STRUP). Any change re-opens the audit.
+AUXADC_SHA=b6bbc80d0d84ff30164bde9f81895a25b4e6c219d32074559767f2a515fe43cb
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -104,10 +109,22 @@ else
 	[[ "$(grep -cP '^\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE")" == 1 ]] || refuse "pwrap has other than one child"
 	grep -qP '^\t\t\tpmic \{$' <<<"$PWRAP_NODE" || refuse "pwrap child is not pmic"
 	grep -q 'compatible = "mediatek,mt6359";' <<<"$PWRAP_NODE" || refuse "pwrap child is not mediatek,mt6359"
-	# PMIC children: none, or exactly "keys" with exactly "power" below.
-	KIDS="$(grep -P '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" | tr -d '\t')"
-	if [[ -n "$KIDS" ]]; then
-		[[ "$KIDS" == "keys {" ]] || refuse "mt6359 node has children other than keys"
+	# PMIC children: none, "keys", "adc", or both.
+	KIDS="$(grep -P '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" | tr -d '\t' | sort | tr '\n' ' ')"
+	case "$KIDS" in
+	""|"keys { "|"adc { "|"adc { keys { ") ;;
+	*) refuse "mt6359 node has children other than adc/keys: $KIDS" ;;
+	esac
+	if [[ "$KIDS" == *"adc {"* ]]; then
+		ADC_NODE="$(awk '/^\t\t\t\tadc \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
+		[[ "$(grep -cP '^\t\t\t\t\t' <<<"$ADC_NODE")" == 4 ]] \
+			&& grep -q 'compatible = "mediatek,mt6359-auxadc";' <<<"$ADC_NODE" \
+			&& grep -q '#io-channel-cells = <0x01>;' <<<"$ADC_NODE" \
+			&& grep -q 'shunt-resistor-micro-ohms = <0x1388>;' <<<"$ADC_NODE" \
+			&& grep -qP '^\t\t\t\t\tphandle = ' <<<"$ADC_NODE" \
+			|| refuse "adc node is not exactly the step 3A auxadc"
+	fi
+	if [[ "$KIDS" == *"keys {"* ]]; then
 		KEYS_NODE="$(awk '/^\t\t\t\tkeys \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
 		grep -q 'compatible = "mediatek,mt6359-keys";' <<<"$KEYS_NODE" || refuse "keys is not mediatek,mt6359-keys"
 		[[ "$(grep -P '^\t\t\t\t\t[a-z][^ ]* \{$' <<<"$KEYS_NODE" | tr -d '\t')" == "power {" ]] \
@@ -126,7 +143,14 @@ if grep -qE '^CONFIG_KEYBOARD_MTK_PMIC=' "$KCONF"; then
 		&& grep -q 'mtk_pmic_regs = &mt6359p_regs;' "$KEYS_SRC" \
 		|| refuse "PMIC keys driver without the MT6359P delta"
 fi
-for c in REGULATOR_MT6359 RTC_DRV_MT6397 MEDIATEK_MT6359_AUXADC SND_SOC_MT6359 \
+if grep -qE '^CONFIG_MEDIATEK_MT6359_AUXADC=' "$KCONF"; then
+	[[ -n "${ADC_NODE:-}" ]] || refuse "AUXADC driver without the checked adc node"
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/iio/adc/mt6359-auxadc.c" | cut -d' ' -f1)" == "$AUXADC_SHA" ]] \
+		|| refuse "mt6359-auxadc.c is not the audited step 3A source"
+fi
+grep -qE 'mediatek,mt63[0-9]+-auxadc' <<<"$DTS_TEXT" && [[ -z "${ADC_NODE:-}" ]] \
+	&& refuse "PMIC auxadc outside the checked adc node"
+for c in REGULATOR_MT6359 RTC_DRV_MT6397 SND_SOC_MT6359 \
 	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
 done
