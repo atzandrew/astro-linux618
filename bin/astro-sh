@@ -13,7 +13,7 @@ set -euo pipefail
 FLASH_HOST="${FLASH_HOST:-atzero@192.168.0.235}"
 ASTRO="${ASTRO:-10.15.21.1}"
 if [[ $# -gt 0 ]]; then
-	printf '%s\n' "$*" | ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t 5 - TCP:$ASTRO:2323"
+	printf '%s\n' "$*" | ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t ${TIMEOUT:-30} - TCP:$ASTRO:2323"
 else
-	ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t 5 - TCP:$ASTRO:2323"
+	ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t ${TIMEOUT:-30} - TCP:$ASTRO:2323"
 fi

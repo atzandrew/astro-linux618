@@ -99,7 +99,8 @@ trap 'rm -rf "$RD"' EXIT
 mkdir -p "$RD"/{bin,dev,proc,sys,tmp}
 cp "$BUSYBOX" "$RD/bin/busybox"
 cp "$ROOT/initramfs/init" "$RD/init"
-chmod 755 "$RD/init" "$RD/bin/busybox"
+cp "$ROOT/initramfs/astro-disp" "$RD/bin/astro-disp"
+chmod 755 "$RD/init" "$RD/bin/busybox" "$RD/bin/astro-disp"
 ( cd "$RD" && find . | LC_ALL=C sort | cpio -o -H newc --owner=0:0 --quiet ) \
 	| gzip -9n > "$OUT/initramfs.cpio.gz"
 

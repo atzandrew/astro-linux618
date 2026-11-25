@@ -428,26 +428,13 @@
 };
 
 /*
- * Burn-in guard (2026-11-25): LK leaves the SH8802B (command mode) on its
- * last frame, the orange-state warning at brightness 255, and nothing in
- * Linux refreshes or dims it yet. Hold the panel in reset instead: GPIO42
- * is its reset line (vendor dsi0 panel2 reset-gpios = <&pio 42 0>; LK's
- * lcm_rst_out0/1 states, pinmux 0x2a00 = GPIO mode). Low is the vendor
- * power-off's second step (panel-sh8802b-vdo.c lcm_unprepare: DCS 0x28,
- * 0x10, then reset low) without the DCS commands, which need a DSI path we
- * do not have; it is also the state LK starts every boot's panel init
- * from. Bias GPIOs 87/88 are not touched (function 1 in the stock GPIO
- * table; bias states empty on this AMOLED). Remove when a DSI driver
- * blanks the panel properly.
+ * Burn-in guard: initramfs/init holds the panel in reset (GPIO42 low via
+ * /bin/astro-disp, first thing init does), or with astro.dispkick=1 pushes
+ * a black frame through LK's display path instead. It was a gpio-hog here
+ * until 2026-11-25; init needs the pin free to keep the panel initialised
+ * for display tests. GPIO42 = panel reset (vendor dsi0 panel2 reset-gpios;
+ * LK lcm_rst_out states, GPIO mode, output high at handoff).
  */
-&pio {
-	panel-reset-hog {
-		gpio-hog;
-		gpios = <42 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "panel-reset-hold";
-	};
-};
 
 /*
  * USB device port (right-hand USB-C): the SSUSB controller as mtu3, for a

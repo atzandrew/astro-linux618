@@ -27,7 +27,25 @@ led() { # led <trigger> [delay_on delay_off]
 	if [ "$1" = none ]; then cat "$LED/max_brightness" > "$LED/brightness"; fi
 }
 
+# Burn-in guard first (AMOLED; docs/session-log.md 2026-11-25): LK leaves
+# its last frame (orange warning, brightness 255) on the command-mode panel.
+# Default: hold the panel in reset (GPIO42 low; was a DT gpio-hog).
+# astro.dispkick=1: instead push one black frame through LK's display path
+# (pixels off, panel stays initialised for display tests over the shell);
+# if no frame completes, fall back to the reset hold. A live panel is
+# blanked again after 10 minutes regardless.
+if grep -qw astro.dispkick=1 /proc/cmdline; then
+	if /bin/astro-disp black > /tmp/dispkick.txt 2>&1; then
+		( sleep 600; /bin/astro-disp blank > /tmp/dispkick-timeout.txt 2>&1 ) &
+	else
+		/bin/astro-disp reset-hold >> /tmp/dispkick.txt 2>&1
+	fi
+else
+	/bin/astro-disp reset-hold > /tmp/dispkick.txt 2>&1
+fi
+
 say "===== Astro Slide mainline bring-up: initramfs reached ====="
+say "display: $(tr '\n' ' ' < /tmp/dispkick.txt)"
 say "keyboard LED: ${LED:-not found}"
 
 # Watchdog failsafe (AGENTS.md rule 5): from here on only this init feeds
@@ -64,7 +82,7 @@ dmesg > /dev/pmsg0 2>/dev/null
 # reset the board), so it gets its own boot with astro.dispdump=1.
 dump() { # dump <name> <base> <bytes>
 	o=0
-	while [ $o -lt $3 ]; do
+	while [ $o -lt $(( $3 )) ]; do
 		a=$(printf '0x%x' $(( $2 + o )))
 		echo "astro-disp: $1+$(printf '%03x' $o) $(devmem $a 32)" > /dev/kmsg
 		o=$((o + 4))
@@ -117,7 +135,7 @@ dmesg > /dev/pmsg0 2>/dev/null
 rd() { devmem "$1" 32 2>/dev/null; }
 regdump() { # regdump <name> <base> <bytes>
 	o=0
-	while [ $o -lt $3 ]; do
+	while [ $o -lt $(( $3 )) ]; do
 		a=$(( $2 + o ))
 		echo "reg $1+$(printf '%03x' $o) @$(printf '0x%08x' $a) = $(rd $(printf '0x%x' $a))"
 		o=$((o + 4))

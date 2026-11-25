@@ -405,3 +405,51 @@ timing tells.
   from the kernel alone.**
 - The blink code (3) was a race: init read the state at 0.67 s, before
   the host enumerated. Init now waits up to 10 s for "configured".
+
+## 2026-11-25 — display: LK's path read back; frame-kick test — PRE-FLASH CHECK
+
+- Read-only over the USB shell (`backup/disp-regs-lk.txt`), after checking
+  the mmsys clock gates first (CG0 0xF7FC40E0: mutex0/ovl0/rdma0/ovl0_2l
+  and dsi0 ungated; CG2 bit0 ungated):
+  - DSI0: START 1, MODE_CTRL 0 (command mode), INTSTA 0x4 (TE_RDY),
+    PSCTRL 0x2C030CA8, MEM_CONTI 0x3C, CMDQ_SIZE 1, **CMDQ0 0x002C3909**
+    (DCS long write 0x2C write_memory_start).
+  - MUTEX0: EN 0, SOF 0, MOD0 0x93F7.
+  - OVL0_2L (0x14006000) layer 0 addr **0x7DD80000** (console fb);
+    OVL0 (0x14005000) layer 1 addr **0x7E754000** (LK logo/warning,
+    pitch 4320) on top; OVL0 DATAPATH_CON BGCLR_SEL_IN (background from
+    OVL0_2L). RDMA0 1080x2340.
+- simpledrm -12: LK's framebuffer mblock is map:1 (in the linear map);
+  arm64 refuses ioremap/WC of mapped RAM, so neither `reg` nor
+  `memory-region` works as is; a second reservation over LK's mblock is
+  what made the Cosmo's LK refuse to boot. Console fb deferred to a real
+  driver (mediatek DRM, command-mode DSI).
+- Tooling: `bin/astro-sh` waits for the command's own timeout (socat -t);
+  init's regdump loop compared against hex (busybox `[` takes decimal
+  only) and printed nothing — fixed.
+
+### dispkick1 — PRE-FLASH CHECK
+
+- DTS: GPIO42 gpio-hog removed; `initramfs/init` blanks first thing via
+  `/bin/astro-disp reset-hold` (read-modify-write of GPIO DO1 0x10005110
+  bit 10; no SET/CLR alias assumed). Kernel unchanged (`2ad23ce5…`).
+- `boot-dispkick.img` (`4b2bb7ac…`, `astro.dispkick=1`): init instead runs
+  `astro-disp black`: both OVLs SRC_CON=0, ROI_BGCLR=0xff000000, then one
+  frame (DSI INTSTA cleared, MUTEX0_EN=1, DSI_START 0→1, wait CMD_DONE,
+  MUTEX0_EN=0). No frame → reset hold. Live panel: blank after 600 s.
+  `boot.img` (`79cc1fde…`): default reset hold.
+- Panel: register writes to LK's already-running path only; the one DCS
+  sent is the write_memory_start LK queued itself; black pixels = OLED
+  off. No panel init, no rail.
+- Escapes: kernel/config unchanged → both stand. A bus stall from a
+  register access → kernel hang → watchdog (kernel worker stops feeding).
+- Expected: orange (LK) → **black** within ~1 s of the kernel; then colour
+  tests over the shell, each ending in `astro-disp black`.
+- Result (user flashed `boot-dispkick.img`): screen orange → black as
+  before, but now from **our black frame** (`/tmp/dispkick.txt`: "frame
+  done (5 ms, INTSTA 0x00000016)"; GPIO42 still high, `0x10005110 =
+  0x400`: panel live, not in reset).
+- `astro-disp color 0xff000060` (11:23:08) → user: **"blue!"**; 20 s
+  later `astro-disp black` → frame done. **Linux drives the SH8802B
+  through LK's command-mode path**: OVL background + MUTEX0_EN +
+  DSI_START, CMD_DONE in 5 ms.

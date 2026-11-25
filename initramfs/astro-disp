@@ -1,0 +1,63 @@
+#!/bin/busybox sh
+# astro-disp: drive the display path LK leaves programmed (SH8802B, DSI
+# command mode). Register-only: no RAM writes, no panel init, no DCS other
+# than the write_memory_start LK already queued (DSI_CMDQ0 = 0x002C3909).
+#
+#   astro-disp regs          dump the trigger-relevant registers
+#   astro-disp color ARGB    all OVL layers off, background ARGB, one frame
+#   astro-disp black         = color 0xff000000 (AMOLED pixels off)
+#   astro-disp blank         black frame, then hold the panel in reset
+#   astro-disp reset-hold    GPIO42 low only (no frame)
+#
+# Path (read from LK's registers 2026-11-25): OVL0_2L (0x14006000, fb layer)
+# -> OVL0 (0x14005000, LK logo layer; DATAPATH_CON BGCLR_SEL_IN = background
+# from OVL0_2L) -> RDMA0 (0x14007000) -> DSI0 (0x14010000), MUTEX0
+# (0x14001000). Frame trigger as LK's __primary_display_trigger: MUTEX0_EN=1,
+# then DSI_START 0 -> 1; done = DSI_INTSTA CMD_DONE (bit 1, write 0 to clear).
+OVL2L=0x14006000; OVL0=0x14005000; MUTEX=0x14001000; DSI=0x14010000
+GPIO_DO1=0x10005110   # GPIO42 = bit 10 (pinctrl-mt6873.c do_range: pins 32-63 at 0x110)
+
+r() { devmem $1 32; }
+w() { devmem $1 32 $2; }
+reset_low() { w $GPIO_DO1 $(( $(r $GPIO_DO1) & ~(1<<10) )); }  # no SET/CLR alias assumed
+
+regs() {
+	for a in $((DSI+0x00)) $((DSI+0x04)) $((DSI+0x0c)) $((DSI+0x14)) $((DSI+0x60)) $((DSI+0x200)) \
+		$((MUTEX+0x20)) $((MUTEX+0x2c)) $((MUTEX+0x30)) \
+		$((OVL0+0x24)) $((OVL0+0x28)) $((OVL0+0x2c)) $((OVL2L+0x24)) $((OVL2L+0x28)) $((OVL2L+0x2c)) \
+		0x10005010 0x10005110 0x10005350; do
+		printf '0x%08x = %s\n' $a $(r $a)
+	done
+}
+
+frame() { # one command-mode frame through LK's path; prints the result
+	n=0
+	while [ $(( $(r $((DSI+0x0c))) & 0x80000000 )) -ne 0 ] && [ $n -lt 100 ]; do usleep 1000; n=$((n+1)); done
+	w $((DSI+0x0c)) 0
+	w $((MUTEX+0x20)) 1
+	w $((DSI+0x00)) 0
+	w $((DSI+0x00)) 1
+	n=0
+	while [ $(( $(r $((DSI+0x0c))) & 2 )) -eq 0 ] && [ $n -lt 200 ]; do usleep 1000; n=$((n+1)); done
+	st=$(r $((DSI+0x0c)))
+	w $((MUTEX+0x20)) 0
+	if [ $(( st & 2 )) -ne 0 ]; then echo "frame done ($n ms, INTSTA $st)"; return 0; fi
+	echo "frame NOT done after 200 ms (INTSTA $st)"; return 1
+}
+
+color() {
+	for o in $OVL2L $OVL0; do
+		w $((o+0x2c)) 0          # SRC_CON: all layers off
+		w $((o+0x28)) $1         # ROI_BGCLR
+	done
+	frame
+}
+
+case "$1" in
+	regs) regs ;;
+	color) color "${2:?ARGB}" ;;
+	black) color 0xff000000 ;;
+	blank) color 0xff000000; reset_low; echo "panel reset held" ;;
+	reset-hold) reset_low; echo "panel reset held" ;;
+	*) sed -n '2,13p' "$0"; exit 1 ;;
+esac
