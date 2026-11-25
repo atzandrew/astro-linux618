@@ -8,6 +8,11 @@
 #   astro-disp black         = color 0xff000000 (AMOLED pixels off)
 #   astro-disp blank         black frame, then hold the panel in reset
 #   astro-disp reset-hold    GPIO42 low only (no frame)
+#   astro-disp fb            scan out our framebuffer (0x70000000, simpledrm
+#                            /dev/fb0): OVL0_2L layer 0 -> it, LK's OVL0
+#                            logo layer off, one frame
+#   astro-disp kick          one more frame (command mode: the panel only
+#                            changes when a frame is sent)
 #
 # Path (read from LK's registers 2026-11-25): OVL0_2L (0x14006000, fb layer)
 # -> OVL0 (0x14005000, LK logo layer; DATAPATH_CON BGCLR_SEL_IN = background
@@ -45,6 +50,17 @@ frame() { # one command-mode frame through LK's path; prints the result
 	echo "frame NOT done after 200 ms (INTSTA $st)"; return 1
 }
 
+FB=0x70000000   # DTS chosen/framebuffer@70000000 (astro_fb_mem, no-map)
+
+fb() {
+	w $((OVL0+0x2c)) 0               # OVL0: LK's logo layer (L1) off
+	w $((OVL0+0x28)) 0xff000000
+	w $((OVL2L+0x28)) 0xff000000
+	w $((OVL2L+0xf40)) $FB           # OVL0_2L L0 address (LK: 0x7dd80000)
+	w $((OVL2L+0x2c)) 1              # OVL0_2L: layer 0 only
+	frame
+}
+
 color() {
 	for o in $OVL2L $OVL0; do
 		w $((o+0x2c)) 0          # SRC_CON: all layers off
@@ -59,5 +75,7 @@ case "$1" in
 	black) color 0xff000000 ;;
 	blank) color 0xff000000; reset_low; echo "panel reset held" ;;
 	reset-hold) reset_low; echo "panel reset held" ;;
-	*) sed -n '2,13p' "$0"; exit 1 ;;
+	fb) fb ;;
+	kick) frame ;;
+	*) sed -n '2,18p' "$0"; exit 1 ;;
 esac

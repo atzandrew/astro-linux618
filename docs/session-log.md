@@ -453,3 +453,35 @@ timing tells.
   later `astro-disp black` → frame done. **Linux drives the SH8802B
   through LK's command-mode path**: OVL background + MUTEX0_EN +
   DSI_START, CMD_DONE in 5 ms.
+
+### dispfb1 — PRE-FLASH CHECK
+
+- DTS: `/reserved-memory/astro-fb@70000000` (10 MiB, no-map) and
+  `chosen/framebuffer@70000000` (simple-framebuffer 1080x2340, stride
+  4352, a8r8g8b8) replacing the node on LK's framebuffer. Range checked
+  free on the running kernel: `/proc/iomem` 4d100000-77feffff System RAM,
+  only 5feff000 reserved inside; LK's mblocks (DT) none near it.
+- `astro-disp fb`: OVL0 SRC_CON 0 (LK logo layer off), both BGCLR black,
+  OVL0_2L L0 address = 0x70000000 (LK's layer setup otherwise kept: pitch
+  0x1100, L0_CON 0x21FF), OVL0_2L SRC_CON 1, one frame. `kick`: frame only.
+- Images: `boot-dispkick.img` `a9765ff1…` (dispkick: black frame at
+  init), `boot.img` `562f3bb2…` (reset hold). Kernel unchanged.
+- Risk: a reservation LK does not know about (non-overlapping; the Cosmo's
+  no-map scp_fw_mem at 0x50000000 was accepted). If LK refused it: LK
+  panic → watchdog loop (observed escape) → reflash.
+- Test plan (shell): write bands with alpha 0xff into /dev/fb0, `astro-disp
+  fb`, ~10 s, `astro-disp black`.
+- Result (user flashed `boot-dispkick.img` `a9765ff1…`): boots black as
+  before; LK accepted the new no-map reservation; `[drm] Initialized
+  simpledrm 1.0.0 for 70000000.framebuffer`, `fb0: simpledrmdrmfb` (fbdev
+  shadow stride 4320; simpledrm blits to the 4352-stride buffer).
+- `astro-disp fb` after writing test bands to /dev/fb0 → user: **the
+  kernel boot console with accurately coloured penguins** (fbcon had been
+  drawing into our buffer all along; command mode shows it only on a
+  frame). First attempt's bands were broken (shell variables drop NUL
+  bytes: rows of 2160 bytes); fixed with printf-to-file rows (4320 bytes,
+  verified with od).
+- With fbcon unbound (`vtcon1/bind = 0`): user sees **white, red, green
+  stripes** (bytes ff ff ff ff / 00 00 ff ff / 00 ff 00 ff) with leftover
+  console text: **format a8r8g8b8 (BGRA in memory) and stride 4352
+  confirmed on glass.** Each exposure ~10 s, then `astro-disp black`.

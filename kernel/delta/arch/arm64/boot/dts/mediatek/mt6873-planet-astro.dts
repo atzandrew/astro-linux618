@@ -66,21 +66,20 @@
 		bootargs = "console=tty0 console=ttyS0,921600n1";
 
 		/*
-		 * LK's console framebuffer (expdb LK log, every boot):
-		 * "FB base = 0x7dd80000, FB size = 0x1d80000", OVL layer 0,
-		 * 1080x2340, pitch 4352 (1088 px), eBGRA8888 (B,G,R,A in
-		 * memory = a8r8g8b8, as proven on the Cosmo's LK; to verify
-		 * on glass). LK reserves 0x7dd80000 +0x1d80000 itself
-		 * (mblock "framebuffer", map:1). reg = one buffer.
-		 *
-		 * The SH8802B runs in DSI COMMAND mode: the panel shows what
-		 * was last pushed to its GRAM. Writes here most likely stay
-		 * invisible until something triggers a frame (open item,
-		 * docs/p0-findings.md).
+		 * Console framebuffer: our own buffer (astro_fb_mem below), not
+		 * LK's. LK's framebuffer (0x7dd80000, OVL0_2L layer 0) sits in a
+		 * mapped mblock (map:1): arm64 refuses ioremap/WC of mapped RAM
+		 * (simpledrm -12, usb2 dmesg), and a second reservation over an LK
+		 * mblock made the Cosmo's LK refuse to boot. The display path is
+		 * pointed at this buffer by /bin/astro-disp fb (OVL0_2L layer 0
+		 * address), keeping LK's layer setup: 1080x2340, pitch 4352,
+		 * eBGRA8888 (B,G,R,A in memory = a8r8g8b8, Cosmo-proven).
+		 * The panel is command mode: nothing appears until astro-disp
+		 * sends a frame.
 		 */
-		framebuffer@7dd80000 {
+		framebuffer@70000000 {
 			compatible = "simple-framebuffer";
-			reg = <0 0x7dd80000 0 0x9b6400>;
+			reg = <0 0x70000000 0 0x9b6400>;
 			width = <1080>;
 			height = <2340>;
 			stride = <4352>;
@@ -115,6 +114,17 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		/*
+		 * Console framebuffer (chosen/framebuffer@70000000). Free RAM in
+		 * LK's map (its mblock/reserve list, docs/p0-findings.md: nothing
+		 * between 0x60000000 and 0x77ff0000). no-map so simpledrm's
+		 * ioremap path works and the display engine reads uncached data.
+		 */
+		astro_fb_mem: astro-fb@70000000 {
+			reg = <0 0x70000000 0 0xa00000>;
+			no-map;
+		};
 
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
