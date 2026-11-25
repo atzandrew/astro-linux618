@@ -40,6 +40,7 @@ History and receipts: `docs/session-log.md`.
   charging at LK's 500 mA / 500 mA), iio VBAT/IBAT/IBUS/VBUS. DRAM rails
   (BUCK2, LDO6, LDO7) and BUCK1 are MT6360 rails: always-on in the DTS,
   ranges audited against LK's voltages (session log "chg2").
+- **pwrap + MT6359P + Esc key** (pmicB): see next candidates 0.
 - **Driver policy (user, 2026-11-25):** mainline drivers and bindings,
   small upstreamable deltas; vendor BSP is a reference for values only;
   shell register pokes are for learning, never the fix.
@@ -47,12 +48,12 @@ History and receipts: `docs/session-log.md`.
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
    lines; user saw the 60 s blank, 2026-11-25).
-0. **Esc/power key = step 2: pwrap + MT6359P core + keys.** Full plan,
-   register audit and test order in `docs/pmic-plan.md` (for review,
-   2026-11-25). Two upstreamable deltas: pwrap mt6873 INT_FLG/INT_CLR
-   (0x450/0x454), mtk-pmic-keys MT6359P reset layout (STRUP_CON12 0xa12).
-   Esc/power split in userspace as on the Cosmo (kernel reports KEY_ESC).
-   Image A (pwrap + core) before image B (+ keys).
+0. ~~Step 2~~ **done** (pmicB, 2026-11-25): pwrap + MT6359P MFD core +
+   `mtk-pmic-keys` (KEY_ESC) on mainline, two upstreamable deltas (pwrap
+   mt6873 INT_FLG/INT_CLR + no WDT_SRC write; keys MT6359P reset layout in
+   STRUP_CON12). 0xa12 stays 0x21e0; both escapes observed on A and B.
+   Plan/audit: `docs/pmic-plan.md`. Next PMIC users: mt6359-auxadc +
+   battery gauge (step 3), each through the narrowed rule-5 guard.
 1. Root filesystem on UFS (userdata or super) → Debian via gemini-debian
    (Astro target; check the Astro's key legends for the Fn layer). Needs
    a decided write path and lifting the init read-only guard for that LU.
