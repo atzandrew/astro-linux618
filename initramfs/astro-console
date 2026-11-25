@@ -4,8 +4,9 @@
 #
 # The panel only changes when a frame is sent, so while the console is
 # "active" this sends ~5 frames/s through LK's display path
-# (/bin/astro-disp kick). Active = a new kernel message, or
-# `astro-disp wake` (touches /tmp/console-wake). After IDLE seconds
+# (/bin/astro-disp kick). Active = a new kernel message, a keypress (the
+# keyboard's i2c8 interrupt count changed), or `astro-disp wake` (touches
+# /tmp/console-wake). After IDLE seconds
 # (default 60) without either, it sends a black frame (OLED pixels off) and
 # stops sending frames until the next activity.
 #
@@ -23,7 +24,7 @@ t=0
 while true; do
 	if [ $t -ge 5 ]; then	# once a second: look for activity
 		t=0
-		cur=$(dmesg | tail -n 1)
+		cur="$(dmesg | tail -n 1) $(grep -m1 '11d01100.i2c' /proc/interrupts)"
 		if [ -e /tmp/console-wake ] || [ "$cur" != "$last" ]; then
 			rm -f /tmp/console-wake
 			last="$cur"

@@ -644,3 +644,53 @@ escape with this image.
   user saw ~2 s of rapid blinking (init's fast-feed timer while waiting
   for USB, then the code), then off (brightness 0, diag code 5).
   "Acceptable for now."
+
+## 2026-11-25 — fn1: Fn layer on the console — PRE-FLASH CHECK
+
+- Stock layout source: Android has no device kcm (system/vendor/product
+  keylayout + keychars are Generic/qwerty/Virtual only). Planet's layouts
+  ship in `system/app/Planet_Keyboard` (IME): res/raw/
+  keyboard_layout_*_gemini.kcm, the same set as Gemini/Cosmo. Extracted on
+  Monolith (~/Build/astro-extract, lpunpack of p0/super.bin; not in repo).
+- `english_us_intl_gemini.kcm` fn: 1-0 = ~ ` £ € < > [ ] { }, I/O/P =
+  + - =, J/K/L = _ ; ", APOSTROPHE = :, M = ', arrows = PgUp/Home/PgDn/
+  End. Base layer: APOSTROPHE key = \ |, Shift+, = /, Shift+. = ?,
+  Shift+Backspace = forward delete. **Identical to gemini-debian's xkb
+  `cosmo(us)`** (level 3 = Fn), so the rootfs can reuse the Cosmo layout.
+  UK kcm differs (1-3 = | # \, K = @, L = ;, M = `).
+- Console: `bin/make-defkeymap.py` writes delta
+  `drivers/tty/vt/defkeymap.c_shipped` = base table with only these
+  entries changed (Fn = KEY_LEFTMETA = AltGr in all 7 maps; altgr map =
+  kcm fn; base/shift differences above). No userspace keymap tools.
+- astro-console: a keypress (i2c8 interrupt count) now counts as
+  activity, so typing wakes the panel like a kernel message.
+- Image `boot-fn1.img` = boot.img `5f3808ef…7d35` (Image.gz `4ebf0215…`).
+  Console keymap + init helper only; config/DTB unchanged; escapes as on
+  ufskbd2/3.
+- Result (user flashed `boot-fn1.img` `5f3808ef…`): **Fn keys working.**
+  User: Esc shares the power key; wants Esc for presses up to 1.5 s and
+  power beyond, as on the Cosmo.
+
+## 2026-11-25 — Esc/power key: read-only look at the MT6359P
+
+- The key is the PMIC PWRKEY (no Esc in the AW9523 matrix). Read-only
+  PMIC reads by hand through pwrap WACS2 (`/tmp/pmicrd`, mainline
+  pwrap_read16 ARB protocol: idle → CMD=addr → WFVLDCLR → SWINF_2_RDATA
+  → VLDCLR; no PMIC writes). pwrap INIT_DONE2 = 1 (LK/ATF set it up).
+  - HWCID 0x8 = 0x5930 (MT6359P).
+  - TOPSTATUS 0x2a = 0x000e; bit 1 = PWRKEY debounce, 0 = pressed.
+    User pressed 3 taps + a "2 s" hold: 0.26 / 0.22 / 0.26 s and
+    **1.59 s** (a deliberate 2 s hold measured 1.6 s).
+  - STRUP_CON12 0xa12 = 0x21e0 (bit 13 PWRKEY_RST_EN set: the 10 s escape).
+  - TOP_RST_MISC 0x14a = 0x0225; 0x14c reads 0x0000. **Vendor map:
+    0x14a = TOP_RST_MISC, 0x14c = its SET alias, 0x14e = CLR.** Mainline
+    `MT6359_TOP_RST_MISC 0x14c` is the SET alias; mtk-pmic-keys does a
+    read-modify-write there at every probe (lp_reset_setup).
+  - PSC_TOP_INT_CON0 0x910 = 0x0025.
+- Vendor PMIC interrupt: pio EINT 214 level-high (stock DTB), pwrkey /
+  pwrkey_r hwirqs 0x30 / 0x32.
+- Mainline pwrap probe on mt6873 (mt6873_regs defines 8 registers):
+  skips init when INIT_DONE2 is set, but writes WDT_SRC_EN (undefined
+  index → offset 0), TIMER_EN = 3, INT_EN = BIT4|BIT5 and its IRQ handler
+  uses undefined INT_FLG/INT_CLR (offset 0). Same as on MT8192
+  Chromebooks; unverified against this ATF/SSPM.
