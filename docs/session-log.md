@@ -926,3 +926,9 @@ escape with this image.
   0x21e0.
 - Power-key escape **observed on pmicB** (kernel #10, keys driver bound):
   user held the key, board reset, next boot `bootreason=reboot_longkey`.
+- Watchdog escape **observed on pmicB** (user flashed
+  `boot-pmicB-wdtest.img` `d44e9304…`): Monolith USB log, gadget up
+  13:55:23 → reset 13:56:11; gadget up 13:56:36 → reset 13:57:25 (48–49 s,
+  as on pmicA; each reset re-enumerates the preloader twice). **Step 2
+  done: pwrap + MT6359P core + power key on mainline drivers (two
+  upstreamable deltas), both escapes observed on A and B.**
