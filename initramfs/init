@@ -84,8 +84,137 @@ if grep -qw astro.dispdump=1 /proc/cmdline; then
 	dmesg | grep astro-disp > /dev/pmsg0 2>/dev/null
 fi
 
+# Bring-up network over USB (right-hand port): g_ether (CDC ECM) on mtu3.
+# The Astro is 10.15.21.1; udhcpd hands Monolith 10.15.21.2 (no router or
+# DNS, so the host keeps its own default route). Cable-only, no auth:
+#   telnet 10.15.21.1          interactive shell
+#   socat - TCP:10.15.21.1:2323   one shell per connection (scripted use)
+mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
+mkdir -p /sys/kernel/debug && mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+n=0
+while [ ! -e /sys/class/net/usb0 ] && [ $n -lt 20 ]; do feed; sleep 1; n=$((n+1)); done
+if [ -e /sys/class/net/usb0 ]; then
+	ifconfig lo 127.0.0.1 up
+	ifconfig usb0 10.15.21.1 netmask 255.255.255.0 up
+	printf '%s\n' "start 10.15.21.2" "end 10.15.21.2" "interface usb0" \
+		"max_leases 1" "lease_file /tmp/udhcpd.leases" \
+		"option subnet 255.255.255.0" > /tmp/udhcpd.conf
+	touch /tmp/udhcpd.leases
+	udhcpd /tmp/udhcpd.conf && say "udhcpd on usb0"
+	telnetd -l /bin/sh && say "telnetd up: telnet 10.15.21.1"
+	nc -lk -p 2323 -e /bin/sh &
+	say "shell port up: socat - TCP:10.15.21.1:2323"
+else
+	say "no usb0 after 20 s; udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' ')"
+fi
+dmesg > /dev/pmsg0 2>/dev/null
+
+# USB registers (usb2, 2026-11-25): read-only dump on every boot, into the
+# diagnostic record. Addresses: vendor phy-mtk-mt6873.c V2 layout = mainline
+# tphy u2port0 (0x11e40000, U2 common bank +0x300) + u3port0 (0x11e40700,
+# U3 PHYA bank +0x400 = 0x11e40b00); IPPC 0x11203e00; MAC 0x11201000;
+# GPIO base 0x10005000 (DIR +0x000, DOUT +0x100, DIN +0x200, MODE +0x300).
+rd() { devmem "$1" 32 2>/dev/null; }
+regdump() { # regdump <name> <base> <bytes>
+	o=0
+	while [ $o -lt $3 ]; do
+		a=$(( $2 + o ))
+		echo "reg $1+$(printf '%03x' $o) @$(printf '0x%08x' $a) = $(rd $(printf '0x%x' $a))"
+		o=$((o + 4))
+	done
+}
+usbregs() {
+	echo "--- usb registers ($1)"
+	regdump u2com 0x11e40300 0x80
+	regdump u2misc 0x11e40000 0x20
+	regdump u3phya 0x11e40b00 0x10
+	regdump ippc 0x11203e00 0x60
+	regdump mac 0x11201000 0x40
+	echo "gpio dir0 $(rd 0x10005000) dir3 $(rd 0x10005030)"
+	echo "gpio dout0 $(rd 0x10005100) dout3 $(rd 0x10005130)"
+	echo "gpio din0 $(rd 0x10005200) din3 $(rd 0x10005230)"
+	echo "gpio mode1 $(rd 0x10005310) (pin13 = bits 23:20) mode15 $(rd 0x100053f0) (pin127 = bits 31:28)"
+	echo "udc state: $(cat /sys/class/udc/*/state 2>/dev/null)"
+}
+setbits() { v=$(rd $1); devmem $1 32 $(( v | $2 )); }
+clrbits() { v=$(rd $1); devmem $1 32 $(( v & ~$2 )); }
+usbregs boot > /tmp/usbregs.txt
+# astro.usbforce=1: the vendor PHY power-on values mainline tphy does not
+# write (phy-mtk-mt6873.c phy_init_soc): U2PHYDTM1 (0x11e4036c)
+# FORCE_VBUSVALID bit 13, FORCE_SESSEND bit 12, FORCE_AVALID bit 10 with
+# RG_VBUSVALID bit 5 = 1, RG_AVALID bit 2 = 1, RG_SESSEND bit 4 = 0; then
+# RG_SSUSB_VUSB10_ON (0x11e40b04 bit 29). State re-read after each step.
+if grep -qw astro.usbforce=1 /proc/cmdline; then
+	setbits 0x11e4036c $(( (1<<13) | (1<<10) | (1<<12) | (1<<5) | (1<<2) ))
+	clrbits 0x11e4036c $(( 1<<4 ))
+	feed; sleep 3; feed
+	echo "after vbus/avalid/sessend force: $(cat /sys/class/udc/*/state 2>/dev/null)" >> /tmp/usbregs.txt
+	if [ "$(cat /sys/class/udc/*/state 2>/dev/null)" = "not attached" ]; then
+		setbits 0x11e40b04 $(( 1<<29 ))
+		feed; sleep 3; feed
+		echo "after VUSB10_ON: $(cat /sys/class/udc/*/state 2>/dev/null)" >> /tmp/usbregs.txt
+	fi
+	usbregs after-force >> /tmp/usbregs.txt
+	say "usbforce: $(tail -n 1 /tmp/usbregs.txt)"
+fi
+
+# USB diagnosis without a working link (usb1, 2026-11-25): after the
+# network setup, the keyboard light switches from the fast blink to a
+# repeating blink code (N short blinks, pause):
+#   1 = no UDC (mtu3 did not probe)      2 = UDC but no usb0
+#   3 = UDC "not attached" (no link seen) 4 = link but not configured
+#   5 = configured
+UDC=$(ls /sys/class/udc 2>/dev/null | head -n1)
+# The host needs a moment to enumerate: wait up to 10 s for "configured"
+# (usb3: the state read right after usb0 appeared was still "not attached").
+n=0
+while [ -n "$UDC" ] && [ "$(cat /sys/class/udc/$UDC/state 2>/dev/null)" != configured ] && [ $n -lt 10 ]; do
+	feed; sleep 1; n=$((n+1))
+done
+UDCSTATE=$( [ -n "$UDC" ] && cat /sys/class/udc/$UDC/state 2>/dev/null)
+if [ -z "$UDC" ]; then CODE=1
+elif [ ! -e /sys/class/net/usb0 ]; then CODE=2
+elif [ "$UDCSTATE" = "not attached" ]; then CODE=3
+elif [ "$UDCSTATE" != "configured" ]; then CODE=4
+else CODE=5; fi
+say "usb diag: udc=${UDC:-none} state=${UDCSTATE:-n/a} code=$CODE"
+diag() {
+	echo "=== ASTRO-DIAG $(cut -d' ' -f1 /proc/uptime) code=$CODE udc=${UDC:-none} state=${UDCSTATE:-n/a}"
+	cat /tmp/usbregs.txt 2>/dev/null
+	echo "--- devices_deferred"; cat /sys/kernel/debug/devices_deferred 2>/dev/null
+	echo "--- udc"; for f in /sys/class/udc/*/*; do [ -f "$f" ] && echo "$f: $(cat $f 2>/dev/null)"; done
+	echo "--- gpio"; cat /sys/kernel/debug/gpio 2>/dev/null
+	echo "--- dmesg (usb/phy)"; dmesg | grep -iE "mtu3|usb|phy|udc|gadget|g_ether|astro"
+	echo "=== ASTRO-DIAG-END"
+}
+diag > /dev/pmsg0 2>/dev/null
+if [ -n "$LED" ]; then
+	echo none > "$LED/trigger"
+	( while true; do
+		k=0
+		while [ $k -lt $CODE ]; do
+			echo 1 > "$LED/brightness"; usleep 250000
+			echo 0 > "$LED/brightness"; usleep 350000
+			k=$((k+1))
+		done
+		sleep 2
+	done ) &
+fi
+# astro.logreset=1: log-channel test. Stop feeding the watchdog 30 s after
+# the diagnosis, so the board resets by itself (watchdog, not power key)
+# and the pmsg record above can be looked for with `mtk da peek` in the
+# pstore region (0x4d010000) right after the reset.
+LOGRESET=0
+grep -qw astro.logreset=1 /proc/cmdline && LOGRESET=1
+
 i=0
 while true; do
+	if [ $LOGRESET = 1 ] && [ $i -ge 6 ]; then
+		say "logreset: watchdog no longer fed; reset in ~31 s"
+		diag > /dev/pmsg0 2>/dev/null
+		sync
+		while true; do sleep 60; done
+	fi
 	feed
 	sleep 5
 	i=$((i+1))

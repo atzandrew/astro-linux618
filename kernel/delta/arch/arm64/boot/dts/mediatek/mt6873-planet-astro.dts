@@ -18,7 +18,7 @@
  *    TOP_RST_MISC register mainline mtk-pmic-keys writes).
  *  - Display pipeline (mmsys, OVL, RDMA, DSI, M4U): LK owns the SH8802B
  *    command-mode panel; Linux only reads its registers (initramfs).
- *  - UFS, USB, SPMI/MT6315, SCP, GPU, everything else.
+ *  - UFS, SPMI/MT6315, SCP, GPU, everything else (USB: device port only, below).
  *
  * LK contract (same LK family as the Cosmo, lk_a strings):
  *  - LK applies `dtbo` to this DTB and refuses to boot if that fails:
@@ -36,6 +36,7 @@
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/phy/phy.h>
 #include "mt8192.dtsi"
 
 / {
@@ -298,10 +299,6 @@
 	status = "disabled";
 };
 
-&u3phy0 {
-	status = "disabled";
-};
-
 &mmsys {
 	status = "disabled";
 };
@@ -450,4 +447,51 @@
 		output-low;
 		line-name = "panel-reset-hold";
 	};
+};
+
+/*
+ * USB device port (right-hand USB-C): the SSUSB controller as mtu3, for a
+ * bring-up network (g_ether) and shell. Same IP as the vendor mtu3_0 node
+ * (mt6873.dts: mac 0x11201000, ippc 0x11203e00, SPI 96, PHY 0x11e40000)
+ * and as mainline's mt8192 xhci node (host-only, left disabled). Mainline
+ * mt8192.dtsi has no mtu3 node, so it is added here, shaped like
+ * mt8195.dtsi ssusb0.
+ *
+ * As on the Cosmo (cosmo-linux618 &ssusb): OTG with a role switch that
+ * defaults to peripheral, because only the role-switch path forces the
+ * IP into device mode (mtu3_dr.c ssusb_set_force_mode); USB 2 only
+ * (u3p-dis-msk), else mtu3 waits for a U3 MAC clock that never starts.
+ * No host child and no vbus-supply: the host role is never used (dummy
+ * regulator). No vusb33-supply either: the PMIC stays out of reach (rule
+ * 5); LK/preloader leave the USB rails on (preloader and LK use this port).
+ */
+&{/soc} {
+	ssusb: usb@11201000 {
+		compatible = "mediatek,mt8192-mtu3", "mediatek,mtu3";
+		reg = <0 0x11201000 0 0x2dff>, <0 0x11203e00 0 0x0100>;
+		reg-names = "mac", "ippc";
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH 0>;
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		clocks = <&infracfg CLK_INFRA_SSUSB>,
+			 <&apmixedsys CLK_APMIXED_USBPLL>,
+			 <&clk26m>,
+			 <&clk26m>;
+		clock-names = "sys_ck", "ref_ck", "mcu_ck", "dma_ck";
+		dr_mode = "otg";
+		usb-role-switch;
+		role-switch-default-mode = "peripheral";
+		maximum-speed = "high-speed";
+		mediatek,u3p-dis-msk = <0x1>;
+	};
+};
+
+/*
+ * VBUS is sensed by the charger (MT6360), not by the U2 PHY: without the
+ * PHY's VBUSVALID/AVALID/SESSEND inputs forced the UDC stays "not
+ * attached" with D+ pulled up (usb1, 2026-11-25). Forcing them (vendor
+ * phy-mtk-mt6873.c phy_init_soc values) gave "configured" (usb2,
+ * init devmem test). Kernel delta: phy-mtk-tphy.c.
+ */
+&u2port0 {
+	mediatek,force-vbus-valid;
 };

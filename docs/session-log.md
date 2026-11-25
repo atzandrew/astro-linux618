@@ -312,3 +312,96 @@ timing tells.
 - Result (user ran `mtk w boot_a boot.img`, `c3486e4c…`): **orange
   warning during LK, then blanked**, no garbage or flicker; keyboard
   light blinking fast (init feeding the watchdog). Burn-in guard works.
+
+## 2026-11-25 — usb1: USB gadget network — PRE-FLASH CHECK
+
+- DTS: `ssusb: usb@11201000` (`mediatek,mt8192-mtu3`, mac 0x11201000,
+  ippc 0x11203e00, SPI 96, u2port0 only), OTG + role switch defaulting to
+  peripheral, high-speed, `u3p-dis-msk = <1>` (Cosmo recipe); T-PHY
+  `u3phy0` re-enabled. No vbus/vusb33 supply (PMIC stays out of reach).
+- Config: `USB_MTU3=y` (dual role), `USB_LIBCOMPOSITE=y`, `USB_ETH=y`
+  (g_ether CDC ECM), RNDIS off. Kernel `92ff386d…`, DTB `fc86347a…`.
+- Cmdline: `g_ether.dev_addr=42:00:15:21:01:01
+  g_ether.host_addr=42:00:15:21:01:00`. Init: usb0 = 10.15.21.1, udhcpd →
+  host 10.15.21.2, `telnetd`, `nc -lk -p 2323 -e /bin/sh`
+  (`bin/astro-sh` drives it via Monolith + socat).
+- Images: `boot.img` `5bb2631a…48fb`, `boot-wdtest.img` `eb016b91…c41d`;
+  dtbo unchanged (astro-lk `a86abc6d…`). Writes `boot_a`.
+- Risk flags: **new kernel config** (USB only). New hardware access: SSUSB
+  IP (infracfg SSUSB gate, apmixed USBPLL, T-PHY u2 port init). No PMIC,
+  watchdog, reset-path or display change (GPIO42 hold kept).
+- Escapes: watchdog and power key observed with the previous kernel;
+  nothing here touches PMIC keys, watchdog or keyboard input, so they
+  stand. Worst case for USB: no usb0 (init logs it and keeps feeding the
+  watchdog) or a hang in USB probe (kernel worker keeps the watchdog fed
+  only while the kernel lives: a hard hang → watchdog; a soft hang → power
+  key).
+- Expected: keyboard light fast blink as before; on Monolith a new
+  `42:00:15:21:01:00` cdc_ether interface, DHCP 10.15.21.2,
+  `telnet 10.15.21.1` works.
+
+## 2026-11-25 — usb1 result: gadget up, link never seen; RAM log channel works
+
+- Flashed by the user: `boot_a` = usb1 boot.img (`5bb2631a…`). Keyboard
+  light fast blink (init alive); nothing new on Monolith's USB.
+- Blink-code image (`boot-logreset.img`, `6449863e…`, `astro.logreset=1`):
+  user saw **3 blinks** = UDC present, usb0 present, state "not attached".
+- **Log channel**: after the image's deliberate watchdog reset, `mtk da
+  peek 0x4d000000 0x100000` (agent, quick read) → ramoops `DBGC` at
+  0x4d010000, console zone 0x4d09f000 (27 KiB of our kernel's log) and
+  pmsg zone 0x4d0df000 (init's ASTRO-DIAG). **RAM survives a watchdog
+  reset** (power-key reset untested here; it did not on the Cosmo).
+- Kernel log: `mtu3 11201000.usb: … IP version 0x1003(U3 IP)`, `dr_mode:
+  3`, `u3p_dis_msk: 1`, `max_speed: high-speed`, `g_ether ready`,
+  `gadget (high-speed) pullup D+` → controller and gadget fine; the host
+  never sees the pull-up. Also `simple-framebuffer … probe … failed with
+  error -12` (to look at later).
+- Candidates: (1) USB mux — right port = GPIO13 `usb_sw` low and GPIO127
+  `hdmi_usb_sw` low (vendor aeonusb.c / uswitch.c usb_gpio_init); the
+  stock gpio_init_default LK applies sets both output low; (2) PHY setup
+  mainline tphy skips: vendor phy-mtk-mt6873.c phy_init_soc sets
+  U2PHYDTM1 FORCE_VBUSVALID/FORCE_AVALID/FORCE_SESSEND and
+  RG_SSUSB_VUSB10_ON (U3 PHYA bank, 0x11e40b04 bit 29), mainline only the
+  RG values (u2_phy_instance_power_on) and never the u3 bank.
+
+### usb2 — test image (init only)
+
+- `boot-usb2.img` (`7424d09e…`): cmdline `astro.logreset=1
+  astro.usbforce=1`. Init dumps PHY/IPPC/MAC/GPIO registers (read only),
+  then writes the vendor values (DTM1 forces, then VUSB10_ON if still not
+  attached), re-reads the UDC state after each step, blink code from the
+  final state, record to pmsg, watchdog reset ~30 s later for the RAM log.
+  USB PHY register writes only; the vendor writes them every stock boot.
+- `boot.img` (`e7f4e743…`): same init without the flags (to end the loop).
+
+## 2026-11-25 — usb2 result: USB network and shell work
+
+- Flashed by the user: `boot_a` = `boot-usb2.img` (`7424d09e…`). User:
+  **5 blinks** (configured), and a new device on Monolith.
+- Monolith: `0525:a4a1 Netchip … Linux-USB Ethernet Gadget`,
+  `enp0s20f0u6 10.15.21.2/24` (NetworkManager DHCP from the Astro's
+  udhcpd). `bin/astro-sh 'uname -a'` → `Linux (none) 6.18.58-astro #2 …
+  aarch64`. Full dmesg fetched over the shell (`backup/usb2-dmesg.txt`).
+- `/tmp/usbregs.txt`: "udc state: not attached" → **"after
+  vbus/avalid/sessend force: configured"**. VUSB10_ON not needed.
+- Fix moved into the kernel: delta `drivers/phy/mediatek/phy-mtk-tphy.c`
+  adds the u2 port property `mediatek,force-vbus-valid` (sets
+  U2PHYDTM1 FORCE_VBUSVALID bit 13, FORCE_SESSEND bit 12, FORCE_AVALID
+  bit 10 at power-on, next to mainline's RG values); `&u2port0` sets it.
+  Kernel `2ad23ce5…`, DTB `32c2938e…`. Init still dumps the registers
+  (read only); `astro.usbforce` stays as a test path.
+- Also seen in dmesg: `WARNING … arch/arm64/mm/ioremap.c:27` then
+  `simple-framebuffer 7dd80000.framebuffer: probe … failed with error
+  -12`: LK reserves the framebuffer mapped (mblock map:1), so ioremap of
+  RAM is refused. To fix with the display work.
+
+## 2026-11-25 — usb3: USB fix in the kernel
+
+- Flashed by the user: `boot_a` = `81f18d5d…` (kernel `2ad23ce5…` with
+  the tphy delta, no test flags). User: 3 blinks, device on Monolith.
+- Shell: UDC `configured` at 67 s; `U2PHYDTM1=0x00003426` →
+  FORCE_VBUSVALID=1 FORCE_SESSEND=1 FORCE_AVALID=1 RG_VBUSVALID=1
+  RG_SESSEND=0 RG_AVALID=1, set by the kernel. **USB device network works
+  from the kernel alone.**
+- The blink code (3) was a race: init read the state at 0.67 s, before
+  the host enumerated. Init now waits up to 10 s for "configured".

@@ -34,7 +34,9 @@ BOOT_PART_SIZE=$((0x2800000))
 #  - ramoops.*: the vendor pstore region LK reserves (mblock "pstore",
 #    0x4d010000 +0xe0000, map:0), Cosmo layout. Whether it survives a
 #    watchdog reset (LK sets ddr_rsv = yes) is still to be tested.
-CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=10 oops=panic ramoops.mem_address=0x4d010000 ramoops.mem_size=0xe0000 ramoops.record_size=0x1000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000"
+#  - g_ether.*: fixed, locally administered MACs for the USB bring-up
+#    network (init: Astro 10.15.21.1, host .2 by DHCP).
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=10 oops=panic ramoops.mem_address=0x4d010000 ramoops.mem_size=0xe0000 ramoops.record_size=0x1000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000 g_ether.dev_addr=42:00:15:21:01:01 g_ether.host_addr=42:00:15:21:01:00"
 
 # EXTRA_CMDLINE is appended (astro.wdtest=1, astro.dispdump=1); OUTNAME
 # names the image (default boot.img).

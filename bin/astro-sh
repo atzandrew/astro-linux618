@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Run a shell command on the Astro over the USB bring-up network, via the
+# flashing host (the Astro's right-hand USB-C is plugged into it).
+#
+#   bin/astro-sh 'dmesg | tail'
+#   echo 'cat /proc/cmdline' | bin/astro-sh
+#
+# The Astro's initramfs listens on 10.15.21.1:2323 (busybox nc -lk -e
+# /bin/sh, one shell per connection); the flashing host gets 10.15.21.2 by
+# DHCP on its usb0/cdc_ether interface. Interactive: telnet 10.15.21.1 on
+# the flashing host.
+set -euo pipefail
+FLASH_HOST="${FLASH_HOST:-atzero@192.168.0.235}"
+ASTRO="${ASTRO:-10.15.21.1}"
+if [[ $# -gt 0 ]]; then
+	printf '%s\n' "$*" | ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t 5 - TCP:$ASTRO:2323"
+else
+	ssh -o BatchMode=yes "$FLASH_HOST" "timeout ${TIMEOUT:-30} socat -t 5 - TCP:$ASTRO:2323"
+fi

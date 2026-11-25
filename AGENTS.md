@@ -28,6 +28,22 @@ Receipts (2026-11-25, `docs/hardware-map.md`): 97 of mainline
 vendor `mt6873.dts`; pin tables are 228 pins in both, function lists equal
 except mainline's 8 extra GPIO-only entries (GPIO220–227).
 
+## Talking to the running Astro (2026-11-25)
+
+- **USB network + shell** (right-hand port, g_ether): the Astro is
+  10.15.21.1, Monolith gets 10.15.21.2 by DHCP. `bin/astro-sh '<cmd>'`
+  runs a command through Monolith (socat to the init's `nc` shell on port
+  2323); `telnet 10.15.21.1` on Monolith is interactive.
+- **RAM log after a reset**: ramoops/pmsg at 0x4d010000 survive a
+  **watchdog** reset. Stop feeding the watchdog (or use an image with
+  `astro.logreset=1`), then `mtk da peek 0x4d000000 0x100000 --filename
+  f.bin` in the preloader window and unpack the zones (console at
+  0x4d09f000, pmsg at 0x4d0df000).
+- **LK log**: `mtk r expdb` (ring buffer; find a boot by its dtbo_size or
+  zimage size).
+- **Keyboard light**: heartbeat = kernel, fast blink = init feeding the
+  watchdog, solid = wdtest, N blinks = USB diagnosis code (initramfs/init).
+
 ## Flashing host
 
 The Astro is plugged into **Monolith** (192.168.0.235) by its **right-hand**
@@ -89,7 +105,13 @@ builds images and copies them over.
 | `kernel/BASE` | upstream pin |
 | `kernel/delta/` | changed/added kernel files, kernel-relative |
 | `kernel/config/astro.config` | config fragment over arm64 defconfig |
-| `bin/` | build and device scripts (to port from cosmo-linux618) |
+| `bin/build-kernel.sh` | build (`dtbs` arg = DTB only) → `out/` |
+| `bin/build-dtbo.sh` | `out/dtbo.img` from `dtbo/astro-lk.dts` (NOOP=1: no-op) + both LK overlay passes checked offline |
+| `bin/build-boot-img.sh` | `out/boot.img`: boot v2 + DT table + AVB footer; refuses PMIC/display/overlay hazards |
+| `bin/astro-sh` | run a shell command on the Astro over USB via Monolith |
+| `dtbo/` | LK board-config overlay (`astro-lk.dts`) and the no-op overlay |
+| `initramfs/init` | bring-up init: watchdog owner, LED codes, USB network/shell, diagnostics |
+| `docs/flashing.md` | mtk procedure and stock restore |
 | `docs/hardware-map.md` | SoC/board map and mainline status |
 | `docs/session-log.md` | dated log of every session |
 | `backup/` | P0 partition backups (gitignored, never pushed) |
