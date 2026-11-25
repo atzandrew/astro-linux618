@@ -37,6 +37,13 @@ History and receipts: `docs/session-log.md`.
   gemini-debian `cosmo(us)`).
 
 Next candidates:
+00. **Burn-in bug, fix first (found 2026-11-25 at session end):** init
+   writes "astro-init: alive" to /dev/kmsg every 30 s and astro-console
+   treats any new kernel message as activity, so the 60 s idle blank
+   never fires: the console stays lit indefinitely. Fix: astro-console
+   ignores init's own alive lines (or init stops logging them to kmsg).
+   Until then, blank by killing the helper (`kill $(cat
+   /tmp/astro-console.pid)`; init then blanks the panel).
 0. **Esc/power key (planned, start here next session).** The key is the
    MT6359P PWRKEY (TOPSTATUS 0x2a bit 1, 0 = pressed; read by hand via
    pwrap WACS2, session log "Esc/power key"). Plan: pwrap + MT6359P MFD

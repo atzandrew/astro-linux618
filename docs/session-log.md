@@ -694,3 +694,11 @@ escape with this image.
   index → offset 0), TIMER_EN = 3, INT_EN = BIT4|BIT5 and its IRQ handler
   uses undefined INT_FLG/INT_CLR (offset 0). Same as on MT8192
   Chromebooks; unverified against this ATF/SSPM.
+
+## 2026-11-25 — end of session: burn-in bug found
+
+- init's 30 s "alive" kmsg line counts as console activity in
+  astro-console, so the idle blank (60 s) never fires and the console has
+  been lit all along on every image since console1. To fix first next
+  session (AGENTS.md next candidates 00). Blanking the panel from here
+  was refused by the session's permission check; handed to the user.
