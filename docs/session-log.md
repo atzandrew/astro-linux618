@@ -947,3 +947,21 @@ escape with this image.
 - Images: `boot-bat3a.img` `b812f105…0b97`, `boot-bat3a-wdtest.img`
   `7d04e984…b4fe`. Pre-flash register snapshot
   `backup/pre-bat3a-auxadc-regs.txt` (0xa12 = 0x21e0). Not flashed yet.
+- Result (user flashed `boot-bat3a.img` `b812f105…`, kernel #11): boots,
+  bootreason PowerKey. **0xa12 = 0x21e0.** Register diff vs the pre-flash
+  snapshot (`backup/post-bat3a-auxadc-regs.txt`): only result registers
+  (AUXADC_ADC0/3/19/22 cleared by the reset, ADC30 and IMP3 new
+  samples); every config register (AUXADC_CON0–20, DIG_3_ELR trims,
+  LBAT, NAG, HK_TOP) unchanged.
+- Readings on USB, charger Full: MT6359 VBAT raw 22242 × 0.19226 =
+  **4276 mV** vs MT6360 VBAT 4272.5 mV (4 mV apart; mainline scale fix
+  confirmed). IBAT −2…+1 mA (charger terminated, system on VBUS).
+  adc-battery: **capacity 92 %**, voltage_ocv 4.275 V, status
+  "Not charging" (helper's Full needs OCV > CV − 38 mV = 4.312 V).
+- Note: rest voltage 4.276 V = 92 % of the stock profile because the
+  charger terminates at CV 4.35 V (LK's setting); stock battery_cv is
+  4.40 V. Not changed.
+- BAT_TEMP raw 826 × 1.0986 = 907 mV → 24 kΩ·V/(2.8 V − V) = 11.5 kΩ ≈
+  21–22 °C for a 10 kΩ B≈3435 NTC (plausible room temperature; 3B input).
+- LK cmdline `has_battery_removed=1` this boot; also seen on earlier
+  boots before any PMIC driver (usb1 logs), so not new.
