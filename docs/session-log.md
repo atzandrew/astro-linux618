@@ -1040,3 +1040,16 @@ escape with this image.
   unless every sd device but sdc + sdc56 reads back ro. Gate dry-run on
   the live system: "REFUSE (sdc1 not read-only)".
 - Image `boot-root2.img` `2739e141…153c` (kernel/DTB = bat3b).
+- root2 result (user flashed `boot-root2.img`): the gate **refused** the
+  handoff ("sdc1 is not read-only: staying in the rescue initramfs") —
+  the safe outcome. Real cause (also likely behind root1): a partition's
+  sysfs `ro` reads 1 while its disk is read-only, and `ufs_ro` skipped
+  devices that already read ro; sdc is visited before sdc1…, so no sdc
+  partition got its own flag, and all came back writable with
+  `--setrw sdc`. Fix (root3): `blockdev --setro` every sd device
+  unconditionally. Tested in rescue (no mount): ufs_ro → setrw sdc, sdc56
+  → gate PASS, writable exactly "sdc sdc56"; relock → none writable.
+- User reported a power-key hold rebooting the board, but bootreason on the
+  current boot was PowerKey (fresh power-on) and root2 never ran Debian:
+  the power-key escape under Debian is still to be observed.
+- Image `boot-root3.img` `abe341b1…29aa`.

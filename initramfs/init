@@ -257,9 +257,11 @@ blknode() { # sysfs block name -> /dev node (created if devtmpfs lags)
 }
 ufs_ro() {
 	[ $UFSRO = 1 ] || return 0
+	# Unconditional: a partition's sysfs `ro` also reads 1 while its disk is
+	# read-only, so "skip if ro" skipped every sdc partition once sdc was
+	# set, and they came back writable with the disk (root2, 2026-11-25).
 	for b in /sys/class/block/sd*; do
-		[ -e "$b/dev" ] || continue
-		[ "$(cat "$b/ro" 2>/dev/null)" = 1 ] || blockdev --setro "$(blknode "${b##*/}")"
+		[ -e "$b/dev" ] && blockdev --setro "$(blknode "${b##*/}")"
 	done
 }
 # Every sd disk/partition except the named ones reads back read-only.
