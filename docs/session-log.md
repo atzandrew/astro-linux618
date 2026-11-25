@@ -980,3 +980,9 @@ escape with this image.
 - Power-key escape **observed on bat3a** (kernel #11, AUXADC +
   adc-battery running): user held the key, board reset, next boot
   `bootreason=reboot_longkey`; 0xa12 = 0x21e0; capacity 92 % at boot.
+- Watchdog escape **observed on bat3a** (user flashed
+  `boot-bat3a-wdtest.img` `7d04e984…`): Monolith USB log, gadget up
+  14:43:45 → reset 14:44:33; up 14:44:58 → reset 14:45:47; up 14:46:12
+  (48–49 s each, preloader enumerates twice per reset, as on pmicA/B).
+  **Step 3A done: battery percentage on mainline drivers (three
+  upstreamable deltas), both escapes observed.**
