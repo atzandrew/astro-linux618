@@ -814,3 +814,13 @@ escape with this image.
     Identical to the pre-flash audit.
 - chg1 burn-in fix **confirmed** by the user: the panel blanked after
   about 1 min idle (AGENTS.md item 00 closed).
+- Replug test (user unplugged/replugged the right port twice, uptime
+  ~238 s): mt-eint 24 = 7, chrdet_ext_evt = 4 (2 × out + in), attach_i
+  = 3 (boot + 2), usb_type SDP again, USB shell back by itself. Then
+  **status Full** (termination), VBAT 4.277 V, IBAT 0, IBUS 162 mA (the
+  board on USB power, battery idle).
+- User: the **red charging light** comes on at every boot and on each
+  replug. That is the MT6360 LED1 in hardware charge-indicator mode
+  (vendor DT rgbled trigger "cc_mode"), no driver involved. When
+  leds-mt6360 is enabled, LED1 must stay in hardware/CC mode or the
+  charge light is lost.
