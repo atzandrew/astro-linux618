@@ -1,6 +1,7 @@
 # AGENTS.md — astro-linux618: mainline Linux 6.18 LTS on the Astro Slide 5G
 
-Read this first, then `docs/hardware-map.md` and `docs/session-log.md`.
+Read this first, then `docs/bringup-checklist.md`, `docs/hardware-map.md`
+and `docs/session-log.md`.
 
 Sister projects (same owner, same methods — reuse their code and lessons):
 - `atzandrew/cosmo-linux618` — Cosmo Communicator (MT6771 on MT8183) on
@@ -165,6 +166,7 @@ builds images and copies them over.
 | `dtbo/` | LK board-config overlay (`astro-lk.dts`) and the no-op overlay |
 | `initramfs/init` | bring-up init: watchdog owner, LED codes, USB network/shell, diagnostics |
 | `docs/flashing.md` | mtk procedure and stock restore |
+| `docs/bringup-checklist.md` | every hardware block, status and the order to do the rest |
 | `docs/hardware-map.md` | SoC/board map and mainline status |
 | `docs/session-log.md` | dated log of every session |
 | `backup/` | P0 partition backups (gitignored, never pushed) |
