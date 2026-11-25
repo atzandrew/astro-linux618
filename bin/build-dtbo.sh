@@ -13,7 +13,9 @@ python3 -I "$ROOT/bin/mkdtboimg.py" "$OUT/astro-noop.dtbo" -o "$OUT/dtbo.img"
 # Offline check: the overlay must apply to our DTB (needs __symbols__).
 if [[ -x "$FDTOVERLAY" ]]; then
 	"$FDTOVERLAY" -i "$OUT/mt6873-planet-astro.dtb" -o "$OUT/overlay-check.dtb" "$OUT/astro-noop.dtbo"
-	"$DTC" -q -I dtb -O dts "$OUT/overlay-check.dtb" | grep -q 'planet,lk-dtbo = "astro-noop"' \
-		&& echo "overlay applies to mt6873-planet-astro.dtb"
+	CHECK="$("$DTC" -q -I dtb -O dts "$OUT/overlay-check.dtb")"
+	grep -q 'planet,lk-dtbo = "astro-noop"' <<<"$CHECK" \
+		|| { echo "overlay did not apply" >&2; exit 1; }
+	echo "overlay applies to mt6873-planet-astro.dtb"
 fi
 sha256sum "$OUT/dtbo.img"

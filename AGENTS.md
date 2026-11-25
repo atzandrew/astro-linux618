@@ -12,7 +12,7 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 
 ## Status (2026-11-25)
 
-Bootloader **unlocked** 2026-11-25 (orange state, stock Android still boots). No image of ours flashed yet.
+Bootloader **unlocked** 2026-11-25 (orange). try1c (2026-11-25): LK jumps to our 6.18 kernel; a watchdog reset with our kernel running is observed (boot reason 4). Display: LK logs a blind panel init (no vendor panel nodes in our DTB); what the glass shows is not yet reported.
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`), same as the Cosmo.
 - Vendor source: Planet's 4.14.186 MTK BSP (`astro-kernel`, one commit
   `a79860700`), board = `k6873v1_64_defconfig` + `mt6873.dts` +
@@ -52,12 +52,20 @@ builds images and copies them over.
    repo is public).
 5. **Never flash an image that can strand the device.** Every experimental
    image needs a power-key reset and a watchdog reset that have been
-   **seen to fire**. The Cosmo's answers do **not** carry over unverified:
-   the Astro PMIC is **MT6359P**, not MT6358, so the power-key reset
-   register/bit and what mainline `mtk-pmic-keys` does to it must be
-   re-derived and re-observed before the first experimental boot.
-   Changes touching PMIC keys, watchdog, reset path, display/panel or a new
-   kernel config need an explicit yes to a written pre-flash check.
+   **seen to fire**. Status (2026-11-25, `docs/session-log.md`):
+   - **Watchdog: observed** with our kernel (try1c `astro.wdtest=1`, init
+     never feeds it: board resets, next boot `lk boot reason = 4`).
+   - **Power key ~10 s: observed** with our kernel running (normal image,
+     init feeding the watchdog) and before the kernel (mtk DA mode).
+   - **LK panic → watchdog reset: observed** (try1, try1b).
+   These hold only while nothing in Linux reaches the MT6359P: its
+   power-key reset lives in `STRUP_CON12` (0xa12) and mainline
+   `mtk-pmic-keys` writes 0x14c, a different register on this PMIC.
+   `bin/build-boot-img.sh` refuses a DTB with pwrap/mt6359/keys enabled
+   and a kernel with the pwrap or PMIC keys driver. Changes touching PMIC
+   keys, watchdog, reset path, display/panel or a new kernel config need
+   an explicit yes to a written pre-flash check; a change touching any of
+   these re-opens the matching escape test.
 6. After an mtk write the board stays in download mode until reset by hand;
    `mtk reset` may power the board off (it did on the Cosmo).
 

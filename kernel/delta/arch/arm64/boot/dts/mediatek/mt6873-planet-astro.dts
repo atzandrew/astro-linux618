@@ -28,7 +28,9 @@
  *    while(1)").
  *  - LK adds its own mblock-N-<name> no-map carve-outs to /reserved-memory
  *    (ATF, TEE, SSPM, SPM, SCP, modem, framebuffer, ram_console, pstore):
- *    none of them is declared here (a duplicate hung the Gemini).
+ *    none of them is declared here (a duplicate hung the Gemini), but the
+ *    container must exist, with the vendor nodes LK's fixups look up
+ *    (below the memory node).
  */
 
 /dts-v1/;
@@ -93,6 +95,101 @@
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 2 0x00000000>;
+	};
+
+	/*
+	 * Vendor nodes LK's final fixup pass looks up in this DTB (try1b,
+	 * 2026-11-25: each missing one logged an error that a stock boot does
+	 * not log, then "ASSERT at (app/mt_boot/mt_boot.c:991)"). Copied from
+	 * the stock base DTB (boot_a dtb section) minus phandle references to
+	 * vendor nodes we do not carry. No mainline driver matches any of
+	 * these compatibles.
+	 *
+	 * /reserved-memory: LK adds its mblock-N-<name> carve-outs here
+	 * ("[DRAMC] Warning: can't find reserved-memory node") and resizes
+	 * the SSPM pool by path ("SSPM: no reserved mem found, skip").
+	 * Nothing LK reserves itself is declared (Gemini lesson).
+	 */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		reserve-memory-sspm_share {
+			compatible = "mediatek,reserve-memory-sspm_share";
+			no-map;
+			status = "okay";
+			size = <0 0x510000>;
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
+	};
+
+	/* LK records the SPM firmware here ("/sleep not found. LINE: 101") */
+	sleep@10006000 {
+		compatible = "mediatek,sleep";
+		reg = <0 0x10006000 0 0x1000>;
+	};
+
+	/* "ERROR: EMI info incorrect" without it */
+	emicen@10219000 {
+		compatible = "mediatek,mt6873-emicen", "mediatek,common-emicen";
+		reg = <0 0x10219000 0 0x1000>;
+	};
+
+	/* "[set_fdt_dramc] get_path_offset fail" / "DRAMC info incorrect" */
+	dramc@10230000 {
+		compatible = "mediatek,mt6873-dramc", "mediatek,common-dramc";
+		reg = <0 0x10230000 0 0x2000>, <0 0x10240000 0 0x2000>,
+		      <0 0x10234000 0 0x1000>, <0 0x10244000 0 0x1000>,
+		      <0 0x10238000 0 0x2000>, <0 0x10248000 0 0x2000>,
+		      <0 0x10236000 0 0x1000>, <0 0x10246000 0 0x1000>,
+		      <0 0x10006000 0 0x1000>;
+		mr4_version = <1>;
+		mr4_rg = <0x90 0xffff 0>;
+		fmeter_version = <1>;
+		crystal_freq = <52>;
+		pll_id = <0x50c 0x100 8>;
+		shu_lv = <0x50c 0x30000 16>;
+		shu_of = <0x700>;
+		sdmpcw = <0x704 0xffff0000 16 0x724 0xffff0000 16>;
+		prediv = <0x708 0xc0000 18 0x728 0xc0000 18>;
+		posdiv = <0x708 7 0 0x728 7 0>;
+		ckdiv4 = <0x874 4 2 0x874 4 2>;
+		pll_md = <0x744 0x100 8 0x744 0x100 8>;
+		cldiv2 = <0x8b4 2 1 0x8b4 2 1>;
+		fbksel = <0x70c 0x40 6 0x70c 0x40 6>;
+		dqsopen = <0x870 0x100000 20 0x870 0x100000 20>;
+		dqopen = <0x870 0x200000 21 0x870 0x200000 21>;
+	};
+
+	/*
+	 * LK sets the SCP core status here ("[SCP] platform_fdt_scp: getting
+	 * node from dtb fails"). Only the properties LK reads; no reg, so it
+	 * claims no MMIO. Mainline SCP stays off (CONFIG_MTK_SCP=n).
+	 */
+	scp-lk {
+		compatible = "mediatek,scp";
+		status = "disabled";
+		core_0 = "enable";
+		scp_sramSize = <0x100000>;
+	};
+
+	/*
+	 * Secure-memory sizes LK's memory_ssmr_fixup reads (stock logs the
+	 * scenarios, then "get ssmr-reserved-cma_memory failed" and goes on;
+	 * no ssmr/zmc pool is declared, so it fails the same way here).
+	 */
+	memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+		svp-size = <0 0x10000000>;
+		2d_fr-size = <0 0>;
+		tui-size = <0 0x4000000>;
+		prot-sharedmem-size = <0 0x8000000>;
+		ta-elf-size = <0 0x1000000>;
+		ta-stack-heap-size = <0 0x6000000>;
+		sdsp-tee-sharedmem-size = <0 0x1000000>;
+		sdsp-firmware-size = <0 0x1000000>;
 	};
 
 	/*

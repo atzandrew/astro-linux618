@@ -17,8 +17,8 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 DTB="$OUT/mt6873-planet-astro.dtb"
 DTC="$ROOT/build/obj/scripts/dtc/dtc"
 # boot_a is 0x2800000 bytes (GPT, docs/p0-findings.md). The image is padded
-# to the full partition so no stale stock data (its AVB vbmeta blob) is
-# left behind it.
+# to the full partition (by the AVB footer, below), so no stale stock data
+# is left behind it.
 BOOT_PART_SIZE=$((0x2800000))
 
 # Header cmdline. LK puts its own arguments around it:
@@ -79,9 +79,27 @@ python3 -I "$ROOT/bin/mkbootimg.py" --kernel "$OUT/Image.gz" \
 	-o "$OUT/$OUTNAME"
 SIZE=$(stat -c %s "$OUT/$OUTNAME")
 (( SIZE <= BOOT_PART_SIZE )) || { echo "$OUTNAME is $SIZE bytes, boot_a holds $BOOT_PART_SIZE" >&2; exit 1; }
-truncate -s "$BOOT_PART_SIZE" "$OUT/$OUTNAME"
+
+# AVB hash footer (try1 finding, docs/session-log.md 2026-11-25): on this
+# LK, AVB is what loads boot_a. Without a footer libavb stops at "invalid
+# vbmeta header", never loads the image, and LK asserts at
+# boot_info.c:554 (g_boot_info.hdr_loaded). vbmeta_a chains "boot" to
+# Planet's key; unlocked (orange) LK tolerates a rejected key or a wrong
+# digest but not missing metadata. So: a well-formed footer as stock
+# (SHA256_RSA2048, partition "boot", rollback index 0), signed with a
+# local dev key. The footer also pads the image to the full partition.
+AVBKEY="$ROOT/build/avb/astro-dev-rsa2048.pem"
+if [[ ! -f "$AVBKEY" ]]; then
+	mkdir -p "$(dirname "$AVBKEY")"
+	openssl genrsa -out "$AVBKEY" 2048 2>/dev/null
+fi
+avbtool add_hash_footer --image "$OUT/$OUTNAME" --partition_name boot \
+	--partition_size "$BOOT_PART_SIZE" --algorithm SHA256_RSA2048 \
+	--key "$AVBKEY" --rollback_index 0
+avbtool info_image --image "$OUT/$OUTNAME" | grep -qE "Partition Name: +boot" \
+	|| { echo "AVB footer missing after add_hash_footer" >&2; exit 1; }
 
 echo "busybox: $("$BUSYBOX" | head -1)"
 echo "cmdline: $CMDLINE"
-echo "$OUTNAME: $SIZE bytes used, padded to $BOOT_PART_SIZE"
+echo "$OUTNAME: $SIZE bytes used, AVB footer, padded to $(stat -c %s "$OUT/$OUTNAME")"
 sha256sum "$OUT/initramfs.cpio.gz" "$OUT/$OUTNAME"
