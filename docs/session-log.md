@@ -1058,3 +1058,20 @@ escape with this image.
   Debian … (last state: OK)"; under Debian exactly sdc + sdc56 have
   sysfs ro = 0, the other 58 sd devices ro = 1. Tripwire OK, running,
   astro-console active.
+- **Escapes under Debian (root3, all observed 2026-11-25):**
+  - Power key: user held it with Debian running → `bootreason=reboot_longkey`,
+    next boot Debian (last state OK).
+  - Watchdog after the handoff: `/dev/watchdog0` held by PID 1 (fuser).
+    `sudo kill -SEGV 1` at 15:48:37 → journal "systemd[1]: Caught <SEGV>
+    … Freezing execution" → board reset 15:49:08 (31 s; Monolith USB log),
+    `bootreason=lk_crash`. Next boot went to Debian (correct: that boot had
+    reported OK; the tripwire is for boots that never reach multi-user).
+  - Tripwire: state set to TRY + `systemctl reboot` → reset in ~2 s →
+    rescue "last root boot never reported in (RESCUE; next boot tries
+    again)", all 60 sd devices read-only; `reboot -f` from rescue → Debian
+    (last state RSC) → OK.
+  - `systemctl reboot` and busybox `reboot -f` both work (LK reports
+    `lk_crash`: the reset goes through the mtk_wdt restart handler, as on
+    the Cosmo).
+- Rootfs to-dos: `net.ipv4.ping_group_range` (ping fails for users);
+  smaller IMAGE_SIZE (≈1.5 G: 670 MB used, growfs fills the partition).

@@ -59,6 +59,12 @@ Next candidates:
    generic-adc-battery/adc-battery-helper + stock OCV tables, temperature
    from the stock NCP15XH103 NTC via ntc_thermistor (`docs/pmic-plan.md`
    "Step 3", "Step 3B"). Later: a coulomb-counter FG driver.
+0a. **Debian 13 CLI on userdata: running** (root3 + gemini-debian
+   `DEVICE=astro`, 2026-11-25): only sdc + sdc56 writable, systemd owns
+   the watchdog, tripwire, console on the panel, SSH via Monolith
+   (`ssh -J atzero@192.168.0.235 atzero@10.15.21.1`), NAT through
+   Monolith's `astro-usb` profile. Next: Wi-Fi. Rootfs to-dos: ping
+   (ping_group_range), smaller image.
 0c. **To-do: charge voltage 4.40 V** (user, 2026-11-25: queued, not
    urgent). LK sets CV 4.35 V every boot (`mt6360_set_cv: cv = 4350`);
    stock Android raises it to `battery_cv` 4.40 V in 10–45 °C. Mainline
@@ -149,6 +155,10 @@ builds images and copies them over.
    - **Power key ~10 s: observed** with our kernel running (normal image,
      init feeding the watchdog) and before the kernel (mtk DA mode).
    - **LK panic → watchdog reset: observed** (try1, try1b).
+   - **Debian root (root3, 2026-11-25): observed** power-key reset with
+     Debian running, watchdog reset after the handoff (systemd frozen by
+     SIGSEGV → reset in 31 s), tripwire (TRY → rescue → Debian).
+     `docs/rootfs-plan.md`.
    These hold only while nothing in Linux reaches the MT6359P: its
    power-key reset lives in `STRUP_CON12` (0xa12) and mainline
    `mtk-pmic-keys` writes 0x14c, a different register on this PMIC.
