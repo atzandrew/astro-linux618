@@ -879,3 +879,10 @@ escape with this image.
 - Power-key escape **observed on pmicA** (kernel #9, pwrap + MT6359P core
   running): user held the power/Esc key, board reset, next boot
   `androidboot.bootreason=reboot_longkey`.
+- Watchdog escape **observed on pmicA** (user flashed
+  `boot-pmicA-wdtest.img` `44c35a35…`, init never feeds the watchdog):
+  the board resets by itself and cycles. Monolith kernel log, Astro
+  USB: gadget up 13:37:07 → disconnect 13:37:56 → preloader 13:37:59;
+  gadget up 13:38:21 → disconnect 13:39:10 → preloader 13:39:13 (~49 s
+  from gadget to reset each time). Shell not reached (reset comes before
+  DHCP). Both escapes now observed with pwrap + MT6359P core running.
