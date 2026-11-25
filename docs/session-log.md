@@ -1053,3 +1053,8 @@ escape with this image.
   current boot was PowerKey (fresh power-on) and root2 never ran Debian:
   the power-key escape under Debian is still to be observed.
 - Image `boot-root3.img` `abe341b1…29aa`.
+- root3 result (user flashed `boot-root3.img` `abe341b1…`): handoff
+  "UFS: only sdc + sdc56 writable (60 sd devices checked)", "booting
+  Debian … (last state: OK)"; under Debian exactly sdc + sdc56 have
+  sysfs ro = 0, the other 58 sd devices ro = 1. Tripwire OK, running,
+  astro-console active.
