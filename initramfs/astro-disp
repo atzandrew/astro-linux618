@@ -13,6 +13,7 @@
 #                            logo layer off, one frame
 #   astro-disp kick          one more frame (command mode: the panel only
 #                            changes when a frame is sent)
+#   astro-disp wake          tell /bin/astro-console to show the console
 #
 # Path (read from LK's registers 2026-11-25): OVL0_2L (0x14006000, fb layer)
 # -> OVL0 (0x14005000, LK logo layer; DATAPATH_CON BGCLR_SEL_IN = background
@@ -77,5 +78,6 @@ case "$1" in
 	reset-hold) reset_low; echo "panel reset held" ;;
 	fb) fb ;;
 	kick) frame ;;
-	*) sed -n '2,18p' "$0"; exit 1 ;;
+	wake) touch /tmp/console-wake ;;
+	*) sed -n '2,19p' "$0"; exit 1 ;;
 esac

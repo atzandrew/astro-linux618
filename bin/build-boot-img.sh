@@ -26,6 +26,9 @@ BOOT_PART_SIZE=$((0x2800000))
 #    Astro value).
 #  - console=tty0 again so the framebuffer is the preferred console.
 #  - *_ignore_unused: keep LK's display clocks, power and rails on.
+#  - fbcon=rotate:1: the panel is portrait (1080x2340); with the slider
+#    open the console is upright at rotate 1 (user, 2026-11-25) and fills
+#    146x33 with TER16x32.
 #  - cpuidle.off=1: mainline MT8192 idle states are unproven on the vendor
 #    ATF; WFI only until a CPU idle test.
 #  - panic=10 + oops=panic: an oops becomes a panic. PSCI reboot is not
@@ -36,7 +39,7 @@ BOOT_PART_SIZE=$((0x2800000))
 #    watchdog reset (LK sets ddr_rsv = yes) is still to be tested.
 #  - g_ether.*: fixed, locally administered MACs for the USB bring-up
 #    network (init: Astro 10.15.21.1, host .2 by DHCP).
-CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=10 oops=panic ramoops.mem_address=0x4d010000 ramoops.mem_size=0xe0000 ramoops.record_size=0x1000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000 g_ether.dev_addr=42:00:15:21:01:01 g_ether.host_addr=42:00:15:21:01:00"
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:1 fbcon=font:TER16x32 consoleblank=0 loglevel=7 panic=10 oops=panic ramoops.mem_address=0x4d010000 ramoops.mem_size=0xe0000 ramoops.record_size=0x1000 ramoops.console_size=0x40000 ramoops.pmsg_size=0x10000 g_ether.dev_addr=42:00:15:21:01:01 g_ether.host_addr=42:00:15:21:01:00"
 
 # EXTRA_CMDLINE is appended (astro.wdtest=1, astro.dispdump=1); OUTNAME
 # names the image (default boot.img).
@@ -100,7 +103,8 @@ mkdir -p "$RD"/{bin,dev,proc,sys,tmp}
 cp "$BUSYBOX" "$RD/bin/busybox"
 cp "$ROOT/initramfs/init" "$RD/init"
 cp "$ROOT/initramfs/astro-disp" "$RD/bin/astro-disp"
-chmod 755 "$RD/init" "$RD/bin/busybox" "$RD/bin/astro-disp"
+cp "$ROOT/initramfs/astro-console" "$RD/bin/astro-console"
+chmod 755 "$RD/init" "$RD/bin/busybox" "$RD/bin/astro-disp" "$RD/bin/astro-console"
 ( cd "$RD" && find . | LC_ALL=C sort | cpio -o -H newc --owner=0:0 --quiet ) \
 	| gzip -9n > "$OUT/initramfs.cpio.gz"
 

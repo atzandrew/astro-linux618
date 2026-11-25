@@ -485,3 +485,25 @@ timing tells.
   stripes** (bytes ff ff ff ff / 00 00 ff ff / 00 ff 00 ff) with leftover
   console text: **format a8r8g8b8 (BGRA in memory) and stride 4352
   confirmed on glass.** Each exposure ~10 s, then `astro-disp black`.
+
+## 2026-11-25 — console1: visible console with idle blanking — PRE-FLASH CHECK
+
+- LK's `zone-movable-cma-memory` node: empty (only `name`), reserves
+  nothing; MemTotal 7386408 kB.
+- `initramfs/astro-console`: while active (new kernel message, or
+  `astro-disp wake`), ~5 frames/s via `astro-disp kick`; after 60 s idle a
+  black frame and no more frames until the next activity. Init's main
+  loop blanks the panel (black + reset hold) if the helper dies.
+- Default boot now: black frame (not reset hold) + astro-console;
+  `astro.noconsole=1` or a failed black frame → reset hold. Init only;
+  kernel/DTB unchanged. `boot.img` hash below.
+- Burn-in bound: a static console stays lit at most ~60 s after the last
+  activity (plus LK's own orange frame during boot, as always).
+- Image: `boot.img` `0df962b1…9c39` (writes `boot_a`).
+- Result (user flashed `0df962b1…`): **console visible** on a normal boot.
+- Orientation: `rotate_all = 1` → user: **upright with the slider open**.
+  "Only ~2/5 of the screen": the console is 146x33 (TER16x32, landscape;
+  67x73 portrait at boot); full-width ruler rows 1/16/32 → user: fills
+  the screen ("fixed!") — the 2/5 was just short kernel lines.
+- `fbcon=rotate:1` now on the cmdline (build-boot-img.sh). Image includes
+  the blink-code wait (configured) fix.

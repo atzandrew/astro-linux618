@@ -29,23 +29,29 @@ led() { # led <trigger> [delay_on delay_off]
 
 # Burn-in guard first (AMOLED; docs/session-log.md 2026-11-25): LK leaves
 # its last frame (orange warning, brightness 255) on the command-mode panel.
-# Default: hold the panel in reset (GPIO42 low; was a DT gpio-hog).
-# astro.dispkick=1: instead push one black frame through LK's display path
-# (pixels off, panel stays initialised for display tests over the shell);
-# if no frame completes, fall back to the reset hold. A live panel is
-# blanked again after 10 minutes regardless.
-if grep -qw astro.dispkick=1 /proc/cmdline; then
-	if /bin/astro-disp black > /tmp/dispkick.txt 2>&1; then
-		( sleep 600; /bin/astro-disp blank > /tmp/dispkick-timeout.txt 2>&1 ) &
-	else
-		/bin/astro-disp reset-hold >> /tmp/dispkick.txt 2>&1
-	fi
+# Default: push a black frame through LK's display path (pixels off, panel
+# stays initialised) and start /bin/astro-console, which shows the
+# framebuffer console while there is activity and blacks it out after 60 s
+# idle. If the black frame fails, or with astro.noconsole=1: hold the panel
+# in reset (GPIO42 low) instead.
+CONSOLE=0
+if ! grep -qw astro.noconsole=1 /proc/cmdline && /bin/astro-disp black > /tmp/dispkick.txt 2>&1; then
+	CONSOLE=1
 else
-	/bin/astro-disp reset-hold > /tmp/dispkick.txt 2>&1
+	/bin/astro-disp reset-hold >> /tmp/dispkick.txt 2>&1
 fi
+console_check() { # init's main loop: a dead console helper must not leave a frame lit
+	[ $CONSOLE = 1 ] || return
+	if ! kill -0 "$(cat /tmp/astro-console.pid 2>/dev/null)" 2>/dev/null; then
+		/bin/astro-disp blank >> /tmp/dispkick.txt 2>&1
+		CONSOLE=0
+		say "astro-console died: panel blanked (reset hold)"
+	fi
+}
 
 say "===== Astro Slide mainline bring-up: initramfs reached ====="
 say "display: $(tr '\n' ' ' < /tmp/dispkick.txt)"
+[ $CONSOLE = 1 ] && { /bin/astro-console 60 & sleep 1; }
 say "keyboard LED: ${LED:-not found}"
 
 # Watchdog failsafe (AGENTS.md rule 5): from here on only this init feeds
@@ -227,6 +233,7 @@ grep -qw astro.logreset=1 /proc/cmdline && LOGRESET=1
 
 i=0
 while true; do
+	console_check
 	if [ $LOGRESET = 1 ] && [ $i -ge 6 ]; then
 		say "logreset: watchdog no longer fed; reset in ~31 s"
 		diag > /dev/pmsg0 2>/dev/null
