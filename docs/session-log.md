@@ -869,3 +869,10 @@ escape with this image.
 - After boot, first: `/tmp/pmicrd 0xa12 0x14a` (expect 0x21e0, 0x0225)
   before any reset; then the IRQ-enable table, pwrap/PMIC IRQ counts (no
   storm), probe log.
+- Result (user flashed `boot-pmicA.img` `afdbac95…`, kernel #9): boots,
+  shell up. Probe: mt-pmic-pwrap and mt6397 bound; mt6359 cells without
+  DT nodes log "Failed to locate of_node" (intended). Read-only, at 22 s:
+  **0xa12 = 0x21e0, 0x14a = 0x0225, 0x14c = 0** (unchanged); HWCID
+  0x5930; all 10 IRQ-enable registers 0; TOP_INT_STATUS0 0; PMIF
+  INIT_DONE 0x1 (no WDT_SRC write), TIMER_EN 3, INT_EN 0x30, IRQ_FLAG_3
+  0. IRQ counts: pwrap (GIC 252) 0, mt6358-irq (EINT 214) 0.
