@@ -728,3 +728,23 @@ escape with this image.
   Escapes as on fn1 (kernel identical). Plan after boot: read-only
   `i2cget`/`i2cdump` of MT6360 PMU 0x34 (charger status, HZ/CHG_EN,
   AICR/ICHG, watchdog) — no i2cset without a written check.
+- Result (user flashed `boot-chg1.img` `d9df3c73…`, kernel #7 as fn1):
+  booted; i2c5 = /dev/i2c-1, `i2cdetect -r` finds 0x1a, 0x34, 0x4e,
+  0x64. Read-only `i2cdump -f 1 0x34` (no writes), decoded against
+  mainline mt6360_charger.c and the vendor mt6360_pmu_chg.h:
+  - CHG_CTRL1 0x11 = 0x00: no HZ, no force sleep, no OTG.
+  - CHG_CTRL2 0x12 = 0x1b: **CHG_EN = 1**, CFO_EN, TE_EN, IINLMTSEL = AICR.
+  - CHG_CTRL3 0x13 = 0x22: **AICR 500 mA** (sel 8), ILIM_EN 0.
+  - CHG_CTRL7 0x17 = 0x10: **ICHG 500 mA** (sel 4). CV 0x14 = 0x5a: 4.35 V.
+    MIVR 0x16 = 0x0d: 4.5 V. IEOC 0x19 = 0x3c: 250 mA.
+  - CHG_CTRL12 0x1c = 0x02: safety timer enabled; timer field 0 (by
+    the vendor table {4,6,…} h that is 4 h; field position not checked).
+  - CHG_CTRL13 0x1d = 0x52: **charger watchdog off** (bit 7 = 0); nothing
+    needs kicking.
+  - DEVICE_TYPE 0x22 = 0x50: BC1.2 off (USBCHGEN 0); USB_STATUS1 0x27 =
+    0x60 → type 6 = "BC1.2 disabled".
+  - **CHG_STAT 0x4a = 0x62: charge in progress, VBAT_LVL = 1 (fast charge).**
+  So the MT6360 charges with no Linux driver, at LK's safe defaults
+  (500 mA in, 500 mA to the battery). Whether the battery gains net
+  charge under our load is not measured (gauge needs a PMIC write;
+  MT6360 ADC needs a conversion start = a write).
