@@ -53,9 +53,10 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # AGENTS.md rule 5: never pack an image that can strand the device.
 # On the MT6359P the power-key reset lives in STRUP_CON12 (0xa12); mainline
 # mtk-pmic-keys does read-modify-write on 0x14c, a different register on
-# this PMIC. Until that is understood nothing may reach the PMIC: refuse a
-# DTB with an enabled pwrap, any mt6359 node, a keys node or a long-press
-# property, and a kernel built with the pwrap or PMIC keys driver.
+# this PMIC (docs/pmic-plan.md). Allowed shape (step 2, image A): pwrap
+# enabled only with our delta (real INT_FLG/INT_CLR, no WDT_SRC write),
+# one child "mediatek,mt6359" with no children of its own, and no MT6359
+# function driver in the kernel. Keys stay refused until the keys delta.
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -85,13 +86,31 @@ grep -q 'status = "disabled"' <<<"$REAL_DSI" || refuse "real DSI node not disabl
 grep -q 'lcm_rst_out' <<<"$(awk '/^\t\tpinctrl@10005000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$OV")" \
 	&& refuse "LK overlay landed on the real pinctrl node"
 echo "LK overlay applies to the boot DTB and lands in /lk-sink only"
-PWRAP_NODE="$(awk '/compatible = "mediatek,mt6873-pwrap"/{f=1} f{print} f&&/^\t*};$/{exit}' <<<"$DTS_TEXT")"
-grep -q 'status = "disabled"' <<<"$PWRAP_NODE" || refuse "pwrap node not disabled"
-grep -qE '"mediatek,mt6359[^"]*"' <<<"$DTS_TEXT" && refuse "mt6359 node in DTB"
+KCONF="$ROOT/build/obj/.config"
+# The pwrap node (tabs: soc child at depth 2, its children at depth 3+).
+PWRAP_NODE="$(awk '/^\t\tpwrap@10026000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+[[ -n "$PWRAP_NODE" ]] || refuse "pwrap node not found"
+if grep -q 'status = "disabled"' <<<"$PWRAP_NODE"; then
+	grep -qE '"mediatek,mt6359[^"]*"' <<<"$DTS_TEXT" && refuse "mt6359 node with pwrap disabled"
+	grep -qE '^CONFIG_MTK_PMIC_WRAP=' "$KCONF" && refuse "pwrap driver without a pwrap node"
+else
+	PW_SRC="$ROOT/build/src/drivers/soc/mediatek/mtk-pmic-wrap.c"
+	grep -q 'wdt_src = 0: the SoC has no WDT_SRC_EN register' "$PW_SRC" \
+		&& grep -qE '\[PWRAP_INT_FLG\] =\s+0x450' "$PW_SRC" \
+		|| refuse "pwrap enabled without the mt6873 pwrap delta"
+	# Exactly one child, the PMIC, and nothing below it.
+	[[ "$(grep -cP '^\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE")" == 1 ]] || refuse "pwrap has other than one child"
+	grep -qP '^\t\t\tpmic \{$' <<<"$PWRAP_NODE" || refuse "pwrap child is not pmic"
+	grep -q 'compatible = "mediatek,mt6359";' <<<"$PWRAP_NODE" || refuse "pwrap child is not mediatek,mt6359"
+	grep -qP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" && refuse "mt6359 node has children (keys/regulators/...)"
+fi
 grep -qE 'mediatek,mt63[0-9]+-keys' <<<"$DTS_TEXT" && refuse "PMIC keys node in DTB"
 grep -q 'long-press-mode' <<<"$DTS_TEXT" && refuse "long-press-mode in DTB"
-KCONF="$ROOT/build/obj/.config"
-grep -qE '^CONFIG_(MTK_PMIC_WRAP|KEYBOARD_MTK_PMIC)=' "$KCONF" && refuse "pwrap/PMIC keys driver in kernel config"
+grep -qE '^CONFIG_KEYBOARD_MTK_PMIC=' "$KCONF" && refuse "PMIC keys driver in kernel config"
+for c in REGULATOR_MT6359 RTC_DRV_MT6397 MEDIATEK_MT6359_AUXADC SND_SOC_MT6359 \
+	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
+	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
+done
 # Panel rule (AGENTS.md rule 3): no display driver in this kernel.
 grep -qE '^CONFIG_DRM_MEDIATEK=' "$KCONF" && refuse "DRM_MEDIATEK in kernel config (panel rule)"
 # LK applies the dtbo overlay: the base DTB needs __symbols__.

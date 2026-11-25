@@ -827,3 +827,45 @@ escape with this image.
 - Power-key escape **re-observed on chg2** (kernel #8): user held power
   ~10 s, board reset, next boot `androidboot.bootreason=reboot_longkey`,
   charger back to Charging. (Watchdog path unchanged; not re-run.)
+
+## 2026-11-25 — pmicA: pwrap + MT6359P core (step 2, image A) — PRE-FLASH CHECK
+
+- Plan and register audit: `docs/pmic-plan.md` (user approved: Esc/power
+  split in userspace as on the Cosmo; clean the WDT_SRC write; image A
+  before image B).
+- Delta `drivers/soc/mediatek/mtk-pmic-wrap.c` (upstreamable):
+  `mt6873_regs` gains `PWRAP_INT_FLG` 0x450 / `PWRAP_INT_CLR` 0x454
+  (vendor PMIF IRQ_FLAG_3/IRQ_CLR_3); `pwrap_mt6873.wdt_src = 0` and the
+  probe skips the WDT_SRC_EN write when `wdt_src` is 0 (mt6873 has no
+  such register; mainline and stock both wrote 0xffffffff to offset 0).
+  mt8195_regs has the same gap (not changed, can't test).
+- DTS: `&pwrap` okay with one child `pmic` "mediatek,mt6359" (EINT 214
+  level high, interrupt-controller), no function nodes.
+- Config: MTK_PMIC_WRAP=y, MFD_MT6397=y; off: KEYBOARD_MTK_PMIC,
+  REGULATOR_MT6359 (was y from defconfig), RTC_DRV_MT6397,
+  MEDIATEK_MT6359_AUXADC, SND_SOC_MT6359 (+ the three Chromebook machine
+  drivers that select it), SND_SOC_MT6359_ACCDET, SPMI_MTK_PMIF,
+  REGULATOR_MT6315.
+- Rule-5 guard narrowed (bin/build-boot-img.sh): pwrap allowed only with
+  the delta in the built source, exactly one child `pmic` =
+  "mediatek,mt6359" with no children, keys/long-press refused, none of
+  the MT6359 function drivers in the config. Negative test: a
+  `regulators { };` child under pmic → "REFUSING (mt6359 node has
+  children)". Found and fixed on the way: `grep -E` has no `\t`.
+- Images: `boot-pmicA.img` `afdbac95…8948`, `boot-pmicA-wdtest.img`
+  (`astro.wdtest=1`) `44c35a35…905d`; Image.gz `38591225…`, DTB
+  `0eccd504…`.
+- Pre-flash check — writes this kernel makes:
+  - pwrap MMIO: TIMER_EN 0x3E0 = 3 (is 3), INT_EN 0x448 = 0x30 (is 0),
+    clock parent osc_d10 (is osc_d10); handler clears 0x454 only if a
+    pwrap interrupt fires. No WDT_SRC write, no pwrap init (INIT_DONE 1).
+  - MT6359P: **0 to the 10 interrupt-enable registers** (pmic-plan
+    table: LDO_TOP_INT_CON0/1 0xffff/0x3fff and PSC_TOP_INT_CON0 0x25 are
+    the only nonzero ones); status W1C only if a PMIC interrupt fires.
+    Reads: SWCID. **Nothing touches 0xa12 (STRUP_CON12) or 0x14a/0x14c.**
+  - MT6360, USB, UFS, keyboard, display: as chg2.
+  Escapes to re-observe: power-key hold (normal image), watchdog
+  (`boot-pmicA-wdtest.img`). Rollback: `boot-chg2.img`.
+- After boot, first: `/tmp/pmicrd 0xa12 0x14a` (expect 0x21e0, 0x0225)
+  before any reset; then the IRQ-enable table, pwrap/PMIC IRQ counts (no
+  storm), probe log.
