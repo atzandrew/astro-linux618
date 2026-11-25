@@ -886,3 +886,32 @@ escape with this image.
   gadget up 13:38:21 → disconnect 13:39:10 → preloader 13:39:13 (~49 s
   from gadget to reset each time). Shell not reached (reset comes before
   DHCP). Both escapes now observed with pwrap + MT6359P core running.
+- Back on `boot-pmicA.img` after the wdtest (user), bootreason PowerKey.
+
+## 2026-11-25 — pmicB: power key on mtk-pmic-keys (step 2, image B) — PRE-FLASH CHECK
+
+- Delta `drivers/input/keyboard/mtk-pmic-keys.c` (upstreamable):
+  `mt6359p_regs` with the long-press reset in STRUP_CON12 0xa12
+  (RST_EN bit 13, KEY_MODE bit 12 = two-key, TD bits 15:14), chosen when
+  `MT6359P_HWCID` ≥ `MT6359P_CHIP_VER` (the check mt6359-regulator.c
+  already makes); for it `power-off-time-sec` is real seconds through
+  the BSP table {8, 11, 14, 5} (absent/unknown = timeout untouched).
+  Plain-MT6359 table unchanged (also wrong, untestable here).
+- DTS: `pmic/keys` "mediatek,mt6359-keys", long-press-mode 1,
+  power-off-time-sec 8, `power` = KEY_ESC + wakeup-source.
+- Config: KEYBOARD_MTK_PMIC=y. Guard: keys allowed only as exactly
+  `keys { power { } }` with mode 1 / 8 s and the delta in the built
+  source. Negative tests: mode 0 → refused; 5 s → refused.
+- Images: `boot-pmicB.img` `e5e1299e…1a44`, `boot-pmicB-wdtest.img`
+  `d44e9304…9e75`; Image.gz `167fc6a7…`, DTB `b405c43d…`.
+- Pre-flash check — new writes vs pmicA (all MT6359P):
+  - HWCID 0x8 read (0x5930 → MT6359P table).
+  - PSC_TOP_INT_CON0 0x910: PWRKEY + PWRKEY_R enables (bits 0, 2) set
+    (intsel update + IRQ enable); was 0x25 under LK, 0 on pmicA.
+  - STRUP_CON12 0xa12: read-modify-write, mask 0xf000, value 0x2000.
+    0xa12 = 0x21e0 → bits 15:12 already 0x2 → **no write**
+    (regmap_update_bits skips unchanged values).
+  - On key events: TOPSTATUS 0x2a read, PSC status W1C (MFD handler).
+  Nothing else changes. Esc reaches the console; holding still resets
+  the board at ~8–10 s (PMIC hardware). After boot, first: 0xa12 again.
+  Escapes: power-key hold, watchdog (wdtest image). Rollback: pmicA.

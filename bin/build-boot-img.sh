@@ -53,10 +53,12 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # AGENTS.md rule 5: never pack an image that can strand the device.
 # On the MT6359P the power-key reset lives in STRUP_CON12 (0xa12); mainline
 # mtk-pmic-keys does read-modify-write on 0x14c, a different register on
-# this PMIC (docs/pmic-plan.md). Allowed shape (step 2, image A): pwrap
+# this PMIC (docs/pmic-plan.md). Allowed shape (step 2, image B): pwrap
 # enabled only with our delta (real INT_FLG/INT_CLR, no WDT_SRC write),
-# one child "mediatek,mt6359" with no children of its own, and no MT6359
-# function driver in the kernel. Keys stay refused until the keys delta.
+# one child "mediatek,mt6359" whose only child is "keys"
+# (mediatek,mt6359-keys, only a "power" key, long-press mode 1 = stock,
+# 8 s), the keys driver only with our MT6359P delta, and no other MT6359
+# function driver in the kernel.
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -102,11 +104,28 @@ else
 	[[ "$(grep -cP '^\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE")" == 1 ]] || refuse "pwrap has other than one child"
 	grep -qP '^\t\t\tpmic \{$' <<<"$PWRAP_NODE" || refuse "pwrap child is not pmic"
 	grep -q 'compatible = "mediatek,mt6359";' <<<"$PWRAP_NODE" || refuse "pwrap child is not mediatek,mt6359"
-	grep -qP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" && refuse "mt6359 node has children (keys/regulators/...)"
+	# PMIC children: none, or exactly "keys" with exactly "power" below.
+	KIDS="$(grep -P '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" | tr -d '\t')"
+	if [[ -n "$KIDS" ]]; then
+		[[ "$KIDS" == "keys {" ]] || refuse "mt6359 node has children other than keys"
+		KEYS_NODE="$(awk '/^\t\t\t\tkeys \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
+		grep -q 'compatible = "mediatek,mt6359-keys";' <<<"$KEYS_NODE" || refuse "keys is not mediatek,mt6359-keys"
+		[[ "$(grep -P '^\t\t\t\t\t[a-z][^ ]* \{$' <<<"$KEYS_NODE" | tr -d '\t')" == "power {" ]] \
+			|| refuse "keys node has keys other than power"
+		grep -q 'mediatek,long-press-mode = <0x01>;' <<<"$KEYS_NODE" || refuse "long-press-mode is not 1 (stock one-key reset)"
+		grep -q 'power-off-time-sec = <0x08>;' <<<"$KEYS_NODE" || refuse "power-off-time-sec is not 8 (stock)"
+	fi
 fi
-grep -qE 'mediatek,mt63[0-9]+-keys' <<<"$DTS_TEXT" && refuse "PMIC keys node in DTB"
-grep -q 'long-press-mode' <<<"$DTS_TEXT" && refuse "long-press-mode in DTB"
-grep -qE '^CONFIG_KEYBOARD_MTK_PMIC=' "$KCONF" && refuse "PMIC keys driver in kernel config"
+if grep -qE 'mediatek,mt63[0-9]+-keys|long-press-mode' <<<"$DTS_TEXT"; then
+	[[ -n "${KEYS_NODE:-}" ]] || refuse "PMIC keys/long-press outside the checked keys node"
+	[[ "$(grep -cE 'mediatek,mt63[0-9]+-keys' <<<"$DTS_TEXT")" == 1 ]] || refuse "more than one PMIC keys node"
+fi
+if grep -qE '^CONFIG_KEYBOARD_MTK_PMIC=' "$KCONF"; then
+	KEYS_SRC="$ROOT/build/src/drivers/input/keyboard/mtk-pmic-keys.c"
+	grep -q 'define MT6359P_STRUP_CON12		0xa12' "$KEYS_SRC" \
+		&& grep -q 'mtk_pmic_regs = &mt6359p_regs;' "$KEYS_SRC" \
+		|| refuse "PMIC keys driver without the MT6359P delta"
+fi
 for c in REGULATOR_MT6359 RTC_DRV_MT6397 MEDIATEK_MT6359_AUXADC SND_SOC_MT6359 \
 	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"

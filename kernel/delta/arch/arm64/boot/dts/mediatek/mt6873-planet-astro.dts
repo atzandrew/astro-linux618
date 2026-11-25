@@ -266,8 +266,8 @@
 /*
  * pwrap: the only path to the MT6359P (AGENTS.md rule 5, docs/pmic-plan.md).
  * LK/ATF leave it initialised (PMIF INIT_DONE 0x1, WACS2_RDATA bit 15), so
- * mainline skips init; the clock parent is already osc_d10. Step 2 image A:
- * the PMIC core only, no function nodes; bin/build-boot-img.sh refuses any
+ * mainline skips init; the clock parent is already osc_d10. Step 2 image B:
+ * the PMIC core and the power key only; bin/build-boot-img.sh refuses any
  * other shape.
  *
  * MT6359P interrupt: pio EINT 214, level high (stock DTB).
@@ -280,6 +280,25 @@
 		interrupts-extended = <&pio 214 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		/*
+		 * Power key (TOPSTATUS bit 1). Reported as Esc, as on the
+		 * Cosmo; "hold for power" is userspace policy. The long-press
+		 * reset is stated as stock leaves it (STRUP_CON12 0x21e0:
+		 * one key, 8 s; hal_kpd.c ONEKEY_REBOOT, LPRST_TD 0), so the
+		 * driver (MT6359P delta) finds it set and writes nothing.
+		 * No home key on the Astro.
+		 */
+		keys {
+			compatible = "mediatek,mt6359-keys";
+			mediatek,long-press-mode = <1>;
+			power-off-time-sec = <8>;
+
+			power {
+				linux,keycodes = <KEY_ESC>;
+				wakeup-source;
+			};
+		};
 	};
 };
 
