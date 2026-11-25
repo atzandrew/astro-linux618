@@ -798,3 +798,19 @@ escape with this image.
 - After boot: dmesg mt6360; /sys/class/power_supply/mt6360-chg*;
   /sys/bus/iio (VBAT, IBAT); /sys/kernel/debug/regulator/summary; GPIO24
   high again; IRQ count changes on unplug/replug.
+- Result (user flashed `boot-chg2.img` `85613d6b…`, kernel #8): boots,
+  USB shell up (BC1.2 did not drop it). dmesg: no mt6360 errors (adc/
+  led/tcpc "Failed to locate of_node" = MFD cells without a DT node, as
+  intended; tcpc/led have no driver).
+  - power_supply `mt6360-chg.1.auto`: online 1, **status Charging,
+    charge_type Fast**, usb_type **SDP** (BC1.2 ran: attach_i fired once),
+    ICHG 500 mA, AICR 500 mA, CV 4.35 V, MIVR 4.5 V, IEOC 250 mA.
+  - ADC (iio:device0, raw × scale): **VBAT 4.340 V**, VSYS 4.348 V,
+    **IBAT 265 mA** (charge current into the battery), IBUS 398 mA,
+    VBUS 4.97 V, junction 25 °C. The battery was not drained: near CV.
+  - GPIO24 now reads **1** (IRQB released: interrupts serviced).
+  - regulator_summary: vmdla 1125, vdram1 750, vmddr 750, vdram2 600 mV
+    on; vfp 1800, vtp 1800, vmc 3000, vmch 2950 mV off; otg 5050 mV off.
+    Identical to the pre-flash audit.
+- chg1 burn-in fix **confirmed** by the user: the panel blanked after
+  about 1 min idle (AGENTS.md item 00 closed).

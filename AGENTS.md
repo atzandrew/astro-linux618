@@ -35,15 +35,18 @@ History and receipts: `docs/session-log.md`.
 
 - **Console Fn layer** (kernel default keymap, Planet US layout =
   gemini-debian `cosmo(us)`).
+- **MT6360 charger/ADC/regulators** (chg2, mainline drivers, DTS only):
+  i2c5 `pmic@34`, IRQB GPIO24; power_supply `mt6360-chg.1.auto` (SDP,
+  charging at LK's 500 mA / 500 mA), iio VBAT/IBAT/IBUS/VBUS. DRAM rails
+  (BUCK2, LDO6, LDO7) and BUCK1 are MT6360 rails: always-on in the DTS,
+  ranges audited against LK's voltages (session log "chg2").
+- **Driver policy (user, 2026-11-25):** mainline drivers and bindings,
+  small upstreamable deltas; vendor BSP is a reference for values only;
+  shell register pokes are for learning, never the fix.
 
 Next candidates:
-00. **Burn-in bug, fix first (found 2026-11-25 at session end):** init
-   writes "astro-init: alive" to /dev/kmsg every 30 s and astro-console
-   treats any new kernel message as activity, so the 60 s idle blank
-   never fires: the console stays lit indefinitely. Fix: astro-console
-   ignores init's own alive lines (or init stops logging them to kmsg).
-   Until then, blank by killing the helper (`kill $(cat
-   /tmp/astro-console.pid)`; init then blanks the panel).
+00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
+   lines; user saw the 60 s blank, 2026-11-25).
 0. **Esc/power key (planned, start here next session).** The key is the
    MT6359P PWRKEY (TOPSTATUS 0x2a bit 1, 0 = pressed; read by hand via
    pwrap WACS2, session log "Esc/power key"). Plan: pwrap + MT6359P MFD
