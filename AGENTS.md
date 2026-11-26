@@ -111,12 +111,30 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
 mediatek-cpufreq + mtk-cci-devfreq (the Cosmo route; stock runs DVFS in
 the MCUPM) with the stock FY tables: A55 500-2000 MHz, A76 774-2000 MHz,
 CCI 500-1017 MHz with the stock CCI map, Vproc 0.600-0.925 V on MT6315@6,
-Vsram tracked +100 mV on MT6359P VSRAM_PROC1/2. Stages C1-C4 passed
-(kernel #25, boot-c4.img). Both modules load at boot (gemini-debian
-modules-load.d, 2026-11-26). DRAM already at 4266 Mbps
-and UFS at HS-G3B x2 (read 2026-11-26). Flashing host: livingwall
-192.168.0.8.
+Vsram tracked +100 mV on MT6359P VSRAM_PROC1/2, ramp 12.5 mV/us (stock
+UP_SRATE). Stages C1-C4 passed. Both modules load at boot (gemini-debian
+modules-load.d). Schedutil rate limit 1.5 ms from per-OPP
+`clock-latency-ns` (measured 0.46-0.86 ms per change; mediatek-cpufreq
+delta reads it as cpufreq-dt does). DRAM already at 4266 Mbps and UFS at
+HS-G3B x2 (read only, no speed pass needed).
 
+**Frame pacing (2026-11-26, `docs/frame-pacing.md`)**: kernel #26
+(`boot-k26b.img`, uname #27) = C4 + command-mode early flip (mtk_crtc
+`cmd_early_flip`: page-flip event at frame trigger, vblank count at frame
+done; 32.7 -> 63 Hz, drag input->flip 15 -> 8 ms median), panel mode
+63.00 Hz (HFP 21: the SH8802B refreshes when a frame arrives, TE follows
+frames, 2 Hz self-refresh when idle; the 15.86 ms transfer sets the rate;
+TE-wait was tried and removed), uinput module. Rootfs (gemini-debian):
+KWin on GLES + `PAN_MESA_DEBUG=noafbc` for session and greeter, Mesa 26.1.6
+from trixie-backports with an Astro panfrost patch (`expensive_alu_ok =
+false`, KWin's colour shader 2.2x faster in isolation), held. Remaining:
+full-screen animations (start menu ~30 fps): each frame costs KWin 13-25
+ms GPU; KWin 6.3/6.8 never treats sRGB clients on the SDR gamma22 output
+as identity (black 0.2 vs 0.01 nits) and runs its colour shader per pixel;
+no knob outside KWin; user: no custom KWin, nothing upstream. Why the Mesa
+patch did not change KWin's frames is open (not pursued). Tracing test
+kernels: KLOCAL=-tr2 KFRAG=kernel/config/trace.config (own module tree);
+tools in `tools/frame-pacing/` (README).
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
    lines; user saw the 60 s blank, 2026-11-25).
@@ -203,10 +221,14 @@ except mainline's 8 extra GPIO-only entries (GPIO220–227).
 
 ## Flashing host
 
-The Astro is plugged into **Monolith** (192.168.0.235) by its **right-hand**
-USB-C port (the only port that does ADB/MTP/download mode). All device
-access (adb, mtkclient) runs on Monolith. This build machine (aarch64)
-builds images and copies them over.
+Since 2026-11-26 the Astro is flashed from **livingwall** (192.168.0.8;
+`ssh atzero@192.168.0.8`, images in `~/Build/astro-backup`, copy + sha256
+check before every handoff), by its **right-hand** USB-C port (the only port
+that does ADB/MTP/download mode). The user runs every `mtk w` there. Before
+that it was **Monolith** (192.168.0.235), which still holds the older
+images and is the route for `bin/astro-sh` / USB networking. This build
+machine (aarch64) builds images and copies them over. Day-to-day access is
+Wi-Fi SSH: `ssh atzero@192.168.0.138` (DHCP; may change).
 
 ## Rules (inherited from cosmo-linux618 — read its AGENTS.md for history)
 
@@ -280,4 +302,9 @@ builds images and copies them over.
 | `docs/bringup-checklist.md` | every hardware block, status and the order to do the rest |
 | `docs/hardware-map.md` | SoC/board map and mainline status |
 | `docs/session-log.md` | dated log of every session |
+| `docs/cpufreq-stock.md` | CPU DVFS: stock reference, stages C1-C4, results |
+| `docs/frame-pacing.md` | Plasma frame pacing: early flip, TE, KWin/Mesa GPU cost |
+| `kernel/config/trace.config` | tracing fragment for test kernels (`KFRAG=`, with `KLOCAL=-trN`) |
+| `tools/cpufreq-tests/` | c-test.sh (steps/stress), vfcheck.c (undervolt sampler), fttrans.py |
+| `tools/frame-pacing/` | astro-frametrace + analysis, feeders, gpufill.c, tetime.c |
 | `backup/` | P0 partition backups (gitignored, never pushed) |

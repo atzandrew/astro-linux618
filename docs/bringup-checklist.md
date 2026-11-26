@@ -35,7 +35,7 @@ and needs a written pre-flash check (no escape re-tests: AGENTS.md rule 5).
 | ⬜ | Root filesystem | UFS `userdata` (sdc56) or `super` (sdc55) | — | decide the LU, lift the ro guard for it only; Debian via gemini-debian (Astro target) | **2** |
 | ⬜ | RTC | MT6359P RTC | yes (`rtc-mt6397`) | check the vendor year encoding (Cosmo needed a delta) | 4 rule 5 |
 | ⬜ | Regulators audit | MT6359P + MT6315 (CPU/GPU bucks via SPMI) | yes | every rail vs stock before any regulator driver binds; Cosmo: regulators row (VEMC lesson) | 4 rule 5 |
-| ⬜ | cpufreq / DVFS | MT6315 bucks, CPU tables | check (mt8192 cpufreq-hw node not on MT6873) | needs the regulator audit first | 5 |
+| ✅ | cpufreq / DVFS | MT6315@6 Vproc, MT6359P VSRAM_PROC1/2, ARMPLL/CCIPLL | mediatek-cpufreq + mtk-cci-devfreq (mt6873 data), clk deltas | stock FY tables to 2.0 GHz, CCI map; C1-C4 passed 2026-11-26 (`docs/cpufreq-stock.md`) | 5 |
 | ⬜ | Thermal | LVTS | check (mainline nodes not in vendor DT) | | 5 |
 | ⬜ | cpuidle / suspend | SPM, MCUPM / SSPM | port | Cosmo: deep-sleep row (vendor ATF/SPM quirks) | 8 |
 | ⬜ | Power off | MT6359P | new (Cosmo `mt6358-poweroff` pattern) | | 4 rule 5 |
