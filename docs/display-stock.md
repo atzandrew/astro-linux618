@@ -779,3 +779,19 @@ Reference = stock Android steady state. That settles the former questions:
    only from Stage 4 on. No other D0h value, ever.
 
 No open questions. Stages 0–4 done; next: Stage 5 (console and desktop on mediatek-drm by default).
+
+## Correction (2026-11-26): the shipped Android kernel sends no gamma tables
+
+Checked the stock kernel *binary* (`backup/boot_a.kernel`, "Linux version
+4.14.186 … Wed May 24 18:56:15 BST 2023", gunzipped) against the source in
+`astro-kernel` (`panel-sh8802b-vdo.c` `lcm_panel_init`, gamma writes inside
+`#if 1`). All 31 long non-gamma writes of the source are in the binary's
+rodata, contiguous and byte-identical (0xfab782–0xfabd15). **None of the 12
+gamma writes (C3–CE, 137 bytes each) is anywhere in the binary**, and no
+array with the gamma header (`Cx 00 00 FF 04 00…`) exists: F6 (0xfab9c8,
+22 bytes) is followed directly by D4 (0xfab9e2). So the kernel that ran on
+the Astro under Android did **not** load the gamma tables, like LK: the
+panel ran its OTP gamma. The released source is not what shipped.
+Our driver (decision 1 above, based on the source) sends all 12 after the
+first off/on. That is not the stock steady state. Pending the user's
+decision: drop the 12 gamma writes so our table = shipped kernel = LK.
