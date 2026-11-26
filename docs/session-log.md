@@ -1380,3 +1380,6 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   vgpu stays on at idle (power-controller sync_state pending on
   never-bound devices); MFG1 picks up MFG0's supply via the regulator
   child-node fallback (order unaffected). Next: Plasma on panfrost.
+  Correction (same day): the first G-S3 kmscube runs never started (card
+  path `.1.auto` vs `.2.auto`); rerun with the path looked up: 748 MHz
+  ~60 fps for 22 s and the full sweep under load, user saw the cube.

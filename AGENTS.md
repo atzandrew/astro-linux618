@@ -88,7 +88,10 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   `docs/gpu-stock.md`)**: SPMI + MT6315 read-only, MFG0–6 + panfrost at
   358 MHz with no rail control (blacklisted at boot, `modprobe panfrost`),
   kmscube ~59 fps on the panel. Test tip: modetest/kmscube exit on stdin
-  EOF — run `sleep N | timeout N kmscube …` over SSH. Next: G-S3 (stock
+  EOF — run `sleep N | timeout N kmscube …` over SSH; the card
+  number changes between boots (`mediatek-drm.1.auto` / `.2.auto`): look
+  it up (`ls /dev/dri/by-path/platform-mediatek-drm.*-card`) and check
+  kmscube's output for the renderer line. Next: G-S3 (stock
   OPP table, devfreq, vsram rule), then Plasma.
   **Thermal T-S1 done (2026-11-25, `docs/thermal-stock.md`)**: mainline
   LVTS with the MT6873 stock sequence (module, blacklisted, `modprobe

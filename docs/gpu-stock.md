@@ -299,11 +299,17 @@ Prerequisite done: thermal T-S1 (`docs/thermal-stock.md`).
 - `modprobe panfrost`: devfreq (simple_ondemand) over the 22 stock points,
   cooling device `devfreq-13000000.gpu` bound to gpu/gpu1-thermal; vgpu
   **0.75 → 0.5625 V** at the unchanged 358 MHz (stock probe behaviour).
-- Sweep under kmscube, every point: PLL = the predicted mainline rate
-  (≤ 0.4 kHz under stock) and vgpu = the table voltage (358 MHz 0.5625 V …
-  748 MHz 0.69375 V). 20 s pinned at 748 MHz: GPU sensors ~30 °C
-  (kmscube is light), no fault/timeout/regulator error. Ondemand stays at
-  358 MHz for kmscube (below the 45 % up-threshold).
+- Sweep, every point: PLL = the predicted mainline rate (≤ 0.4 kHz under
+  stock) and vgpu = the table voltage (358 MHz 0.5625 V … 748 MHz
+  0.69375 V).
+- **Correction**: the first sweep and 748 MHz pin ran with the GPU idle —
+  the display card enumerated as `mediatek-drm.2.auto` that boot and the
+  hardcoded `.1.auto` path made kmscube exit ("could not open drm
+  device"). Rerun with the path looked up (user watched the cube):
+  748 MHz pinned 22 s = 1312 frames (~60 fps), GPU sensors +1.5 °C to
+  31.7 °C; full 22-point sweep under kmscube = 1546 frames, vgpu right at
+  every point; no fault/timeout/regulator error. Ondemand stays at
+  358 MHz for kmscube alone (below the 45 % up-threshold).
 - **Deviation found — vgpu never switches off at idle**: the power
   controller's `sync_state()` is pending on devices that never bind
   (postmask, dither, afe-pcm), so genpd keeps every domain on; vgpu stays
