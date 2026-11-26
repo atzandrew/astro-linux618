@@ -133,3 +133,17 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
   39 jobs > 5 ms (max 21.5 ms); context 45 (vertex/tiler) 1621 jobs / 107
   ms, max 0.93 ms. First shader-dump session got nothing: Mesa's disk
   shader cache served every shader (no compiles).
+
+## KWin's fragment shaders (tr2, one debug login, BIFROST_MESA_DEBUG=shaders)
+
+Note: on Mesa 26.1.6 the panfrost shader dump is `BIFROST_MESA_DEBUG=shaders`
+(not PAN_MESA_DEBUG/NIR_DEBUG), with MESA_SHADER_CACHE_DISABLE=true.
+16 fragment shaders compiled (`docs/kwin-fs-summary-tr2.txt`,
+`tools/frame-pacing/fsplit.py`): FS1/FS2 = KWin's colour-management shader
+(uniforms colorimetryTransform, destinationNamedTransferFunction,
+destinationTransferFunctionParams, destinationToLMS/lmsToDestination,
+destinationReferenceLuminance, maxDestinationLuminance,
+maxTonemappingLuminance, primaryBrightness, modulation), each 40 fpow in
+NIR -> ~160 FEXP.f32 + 164 FLOGD.f32. The other 14 (blur, contrast,
+gradients, copies) have none. Matches gpufill: a per-pixel colour transform
+costs 4x on this GPU (9.99 vs 2.38 ms for 4 full-screen layers).

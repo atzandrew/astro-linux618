@@ -1,0 +1,16 @@
+FS1: fpow 40 FEXP 160 FLOGD 164 | colorimetryTransform, converter, destinationNamedTransferFunction, destinationReferenceLuminance, destinationToLMS, destinationTransferFunctionParams, lmsToDestination, maxDestinationLuminance, maxTonemappingLuminance, modulation, primaryBrightness, sampler, s
+FS2: fpow 40 FEXP 160 FLOGD 164 | colorimetryTransform, converter, destinationNamedTransferFunction, destinationReferenceLuminance, destinationToLMS, destinationTransferFunctionParams, lmsToDestination, maxDestinationLuminance, maxTonemappingLuminance, modulation, primaryBrightness, sampler, s
+FS3: fpow 0 FEXP 0 FLOGD 0 | halfpixel, offset, texUnit
+FS4: fpow 0 FEXP 0 FLOGD 0 | halfpixel, offset, texUnit
+FS5: fpow 0 FEXP 0 FLOGD 0 | gl_FbWposYTransform, noiseTextureSize, texStartPos, texUnit
+FS6: fpow 0 FEXP 0 FLOGD 0 | colorMatrix, opacity, sampler
+FS7: fpow 0 FEXP 0 FLOGD 0 | blendFactor, currentTexture, previousTexture
+FS8: fpow 0 FEXP 0 FLOGD 0 | cos_val, hor_ver, n_stop, p1_distance, pt_distance, pt_slope, repeat_type, stop0, stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop_color0, stop_color1, stop_color2, stop_color3, stop_color4, stop_color5, stop_color6, stop_color7, transform_mat
+FS9: fpow 0 FEXP 0 FLOGD 0 | cos_val, hor_ver, n_stop, p1_distance, pt_distance, pt_slope, repeat_type, stop_colors, stops, transform_mat
+FS10: fpow 0 FEXP 0 FLOGD 0 | A_value, c1, c2, n_stop, r1, r2, repeat_type, stop0, stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop_color0, stop_color1, stop_color2, stop_color3, stop_color4, stop_color5, stop_color6, stop_color7, transform_mat
+FS11: fpow 0 FEXP 0 FLOGD 0 | A_value, c1, c2, n_stop, r1, r2, repeat_type, stop_colors, stops, transform_mat
+FS12: fpow 0 FEXP 0 FLOGD 0 | converter, sampler, sampler1
+FS13: fpow 0 FEXP 0 FLOGD 0 | uniform_0
+FS14: fpow 0 FEXP 0 FLOGD 0 | sampler
+FS15: fpow 0 FEXP 0 FLOGD 0 | converter, modulation, sampler, sampler1
+FS16: fpow 0 FEXP 0 FLOGD 0 | sampler
