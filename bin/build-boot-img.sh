@@ -275,12 +275,26 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 	grep -q 'compatible = "mediatek,mt6873-spmi";' <<<"$SPMI_NODE" || refuse "spmi node is not mediatek,mt6873-spmi"
 	KIDS="$(grep -oP '^\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPMI_NODE" | sort | tr '\n' ' ')"
 	[[ "$KIDS" == "pmic@3 pmic@6 pmic@7 " ]] || refuse "spmi children are not exactly pmic@3/6/7: $KIDS"
-	# G-S3: the only described rail is MT6315@7 vbuck1 (vgpu), with exactly
-	# the audited constraints; pmic@3 and pmic@6 (CPU rails) stay bare.
+	# G-S3: MT6315@7 vbuck1 (vgpu) with exactly the audited constraints.
+	# cpufreq C1 (docs/cpufreq-stock.md): MT6315@6 vbuck1/vbuck3 (CPU rails)
+	# with exactly the audited C1 pins (LK's voltages, always on).
+	# pmic@3 stays bare.
 	PMIC7="$(awk '/^\t\t\tpmic@7 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
-	OTHERS="$(awk '/^\t\t\tpmic@7 \{$/{f=1} !f{print} f&&/^\t\t\t};$/{f=0}' <<<"$SPMI_NODE")"
-	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$OTHERS" && refuse "pmic@3/pmic@6 have child nodes"
-	grep -qE 'regulator-|always-on|boot-on' <<<"$OTHERS" && refuse "regulator constraints on pmic@3/pmic@6"
+	PMIC6="$(awk '/^\t\t\tpmic@6 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
+	OTHERS="$(awk '/^\t\t\tpmic@[67] \{$/{f=1} !f{print} f&&/^\t\t\t};$/{f=0}' <<<"$SPMI_NODE")"
+	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$OTHERS" && refuse "pmic@3 has child nodes"
+	grep -qE 'regulator-|always-on|boot-on' <<<"$OTHERS" && refuse "regulator constraints on pmic@3"
+	[[ "$(grep -oP '^\t\t\t\t\t?\K[a-z0-9]+(?= \{$)' <<<"$PMIC6" | tr '\n' ' ')" == "regulators vbuck1 vbuck3 " ]] \
+		|| refuse "pmic@6 describes more than regulators/vbuck1/vbuck3"
+	for b in vbuck1 vbuck3; do
+		VBP="$(awk "/^\t\t\t\t\t$b \{\$/{f=1} f{print} f&&/^\t\t\t\t\t};\$/{exit}" <<<"$PMIC6" \
+			| grep -oP '^\t\t\t\t\t\t\K.*;$' | grep -v '^phandle = ' | tr '\n' '|')"
+		case $b in
+		vbuck1) want='regulator-name = "Vproc_big";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0x927c0>;|regulator-always-on;|' ;;
+		vbuck3) want='regulator-name = "Vproc_little";|regulator-min-microvolt = <0xaf79e>;|regulator-max-microvolt = <0xaf79e>;|regulator-always-on;|' ;;
+		esac
+		[[ "$VBP" == "$want" ]] || refuse "CPU rail pmic@6 $b constraints are not the audited C1 ones: $VBP"
+	done
 	[[ "$(grep -oP '^\t\t\t\t\t?\K[a-z0-9]+(?= \{$)' <<<"$PMIC7" | tr '\n' ' ')" == "regulators vbuck1 " ]] \
 		|| refuse "pmic@7 describes more than regulators/vbuck1"
 	VB1="$(awk '/^\t\t\t\t\tvbuck1 \{$/{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$PMIC7")"

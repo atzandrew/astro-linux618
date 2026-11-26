@@ -1430,3 +1430,18 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   Next session: **cpufreq** (A76 measured 772 MHz; no CPU DVFS = frame
   drops). Queued for the next kernel build: panel reports 8 bpc (dither
   as stock).
+
+## 2026-11-26 — CPU DVFS: stock inventory, C1 (frequency only)
+
+- Stock: hybrid DVFS in the MCUPM (kernel fills CSRAM, IPI INIT_PTBL);
+  this unit = FY table (devinfo 7 0x01, 141 ver 5); shipped binary has the
+  source tables. Route: kernel-side mediatek-cpufreq as the Cosmo.
+  Details, register reads and stages C1-C4: `docs/cpufreq-stock.md`.
+- C1 (kernel #24, `boot-c1.img` `a66d505e…`, flashed by the user): CPU
+  PLLs on a mt6873 apmixedsys variant, mt6873 mcusys muxes,
+  mediatek-cpufreq mt6873 data (module, blacklisted), CPU rails pinned at
+  LK's 0.600 / 0.71875 V (narrowed build-boot-img guard). **PASS**: 0xa12
+  0x21e0, policy0 500-1181 MHz, policy4 774 MHz, steps 8/8, stress max
+  and min with 0 md5 mismatches, stock post dividers. #23 modules kept as
+  `.k23`. Next: C2 (VSRAM supplies, Vproc constraints opened, A76 range).
+

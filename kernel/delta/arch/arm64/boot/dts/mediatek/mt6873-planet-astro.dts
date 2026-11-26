@@ -518,6 +518,30 @@
 	mt6315_6: pmic@6 {
 		compatible = "mediatek,mt6315-regulator";
 		reg = <0x6 SPMI_USID>;
+
+		/*
+		 * cpufreq C1 (docs/cpufreq-stock.md): the CPU rails (stock DT
+		 * 6_vbuck1 = proc1 = A76 cluster, 6_vbuck3 = proc2 = A55
+		 * cluster + CCI), pinned at the voltages LK leaves (read
+		 * 2026-11-26: 0.600 V, 0.71875 V). The regulator core applies
+		 * the pin once at registration (same value). Always on: no
+		 * Linux path may switch a CPU rail off.
+		 */
+		regulators {
+			mt6315_6_vbuck1: vbuck1 {
+				regulator-name = "Vproc_big";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <600000>;
+				regulator-always-on;
+			};
+
+			mt6315_6_vbuck3: vbuck3 {
+				regulator-name = "Vproc_little";
+				regulator-min-microvolt = <718750>;
+				regulator-max-microvolt = <718750>;
+				regulator-always-on;
+			};
+		};
 	};
 
 	mt6315_7: pmic@7 {
@@ -1333,4 +1357,148 @@
 		touchscreen-size-y = <2340>;
 		touchscreen-inverted-x;
 	};
+};
+
+/*
+ * CPU DVFS, kernel side as on the Cosmo (docs/cpufreq-stock.md). Stock
+ * Android hands the same steps to the MCUPM (CONFIG_HYBRID_CPU_DVFS); the
+ * frequencies, voltages and post dividers here are the vendor FY table
+ * (mtk_cpufreq_opp_pv_table.h FY_6873Tbl, chip level 0 from efuse
+ * devinfo 7 = 0x01, 141 = 0x05; the shipped kernel binary has the same
+ * table). Clock: ARMPLL -> MCUSYS mux -> cluster, 26 MHz as the parking
+ * parent while the PLL relocks (mainpll is 2184 MHz here).
+ *
+ * C1: frequency only. The proc rails stay pinned at LK's voltages, so each
+ * table lists only the stock OPPs that need no more than that voltage:
+ * A55 500-1181 MHz (<= 0.7125 V on a 0.71875 V rail), A76 774 MHz (the
+ * LK rate, 0.600 V). No sram supply (no voltage change), CCI node without
+ * a driver: mediatek-cpufreq then never drops Vproc below its boot value.
+ */
+&apmixedsys {
+	compatible = "mediatek,mt6873-apmixedsys", "mediatek,mt8192-apmixedsys",
+		     "syscon";
+};
+
+&{/soc} {
+	mcusys: syscon@c53a000 {
+		compatible = "mediatek,mt6873-mcusys", "syscon";
+		reg = <0 0x0c53a000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+};
+
+/ {
+	cci: cci {
+		compatible = "mediatek,mt6873-cci";
+		clocks = <&mcusys CLK_MCU_ARMPLL_BUS_SEL>, <&clk26m>;
+		clock-names = "cci", "intermediate";
+	};
+
+	cluster0_opp: opp-table-cluster0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-650000000 {
+			opp-hz = /bits/ 64 <650000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-756000000 {
+			opp-hz = /bits/ 64 <756000000>;
+			opp-microvolt = <625000>;
+		};
+		opp-862000000 {
+			opp-hz = /bits/ 64 <862000000>;
+			opp-microvolt = <643750>;
+		};
+		opp-968000000 {
+			opp-hz = /bits/ 64 <968000000>;
+			opp-microvolt = <668750>;
+		};
+		opp-1075000000 {
+			opp-hz = /bits/ 64 <1075000000>;
+			opp-microvolt = <693750>;
+		};
+		opp-1181000000 {
+			opp-hz = /bits/ 64 <1181000000>;
+			opp-microvolt = <712500>;
+		};
+	};
+
+	cluster1_opp: opp-table-cluster1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-774000000 {
+			opp-hz = /bits/ 64 <774000000>;
+			opp-microvolt = <600000>;
+		};
+	};
+};
+
+&cpu0 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_LL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster0_opp>;
+	proc-supply = <&mt6315_6_vbuck3>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu1 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_LL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster0_opp>;
+	proc-supply = <&mt6315_6_vbuck3>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu2 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_LL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster0_opp>;
+	proc-supply = <&mt6315_6_vbuck3>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu3 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_LL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster0_opp>;
+	proc-supply = <&mt6315_6_vbuck3>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu4 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_BL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster1_opp>;
+	proc-supply = <&mt6315_6_vbuck1>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu5 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_BL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster1_opp>;
+	proc-supply = <&mt6315_6_vbuck1>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu6 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_BL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster1_opp>;
+	proc-supply = <&mt6315_6_vbuck1>;
+	mediatek,cci = <&cci>;
+};
+
+&cpu7 {
+	clocks = <&mcusys CLK_MCU_ARMPLL_BL_SEL>, <&clk26m>;
+	clock-names = "cpu", "intermediate";
+	operating-points-v2 = <&cluster1_opp>;
+	proc-supply = <&mt6315_6_vbuck1>;
+	mediatek,cci = <&cci>;
 };
