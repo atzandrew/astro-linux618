@@ -38,6 +38,10 @@
  *
  * TODO: Needs update: this header is missing a bunch of member descriptions.
  */
+static bool cmd_debug;
+module_param(cmd_debug, bool, 0644);
+MODULE_PARM_DESC(cmd_debug, "Log command-mode frame triggers and frame-done interrupts");
+
 struct mtk_crtc {
 	struct drm_crtc			base;
 	bool				enabled;
@@ -418,6 +422,14 @@ static int mtk_crtc_ddp_hw_init(struct mtk_crtc *mtk_crtc)
 		if (i == 0)
 			/* first layer mixer: no background input (a bootloader may set it) */
 			mtk_ddp_comp_bgclr_in_off(comp);
+		else
+			/*
+			 * Vblank comes from the first component only
+			 * (mtk_crtc_enable_vblank); a frame-done interrupt a
+			 * bootloader left enabled on a later one would count every
+			 * frame twice.
+			 */
+			mtk_ddp_comp_disable_vblank(comp);
 		if (i == 1)
 			mtk_ddp_comp_bgclr_in_on(comp);
 
@@ -657,6 +669,9 @@ static void mtk_crtc_update_config(struct mtk_crtc *mtk_crtc, bool needs_vblank)
 		spin_unlock_irqrestore(&mtk_crtc->config_lock, flags);
 
 		mtk_ddp_comp_trigger(out, mtk_crtc->mutex);
+		if (cmd_debug)
+			pr_info("mtk_crtc cmd: trigger, needs_vblank %d event %p\n",
+			 mtk_crtc->pending_needs_vblank, mtk_crtc->event);
 		goto update_config_unlock;
 	}
 
@@ -679,6 +694,10 @@ static void mtk_crtc_ddp_irq(void *data)
 
 	/* command mode: config was written before the frame was triggered */
 	if (mtk_crtc->cmd_mode) {
+		if (cmd_debug)
+			pr_info("mtk_crtc cmd: frame done, pending %d updating %d event %p\n",
+			 mtk_crtc->pending_needs_vblank, mtk_crtc->config_updating,
+			 mtk_crtc->event);
 		mtk_drm_finish_page_flip(mtk_crtc);
 		return;
 	}

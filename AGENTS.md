@@ -83,8 +83,13 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   modules, blacklisted at boot): takeover without init, console, DCS
   brightness, stock off, and a full stock screen-on (54-write table) with
   power mode 0x9C. Reference = stock Android behaviour (user decision).
-  Next: Stage 5 (mediatek-drm by default, idle blanking/DPMS, hang-proof
-  off path, CMA or IOMMU), then GPU (panfrost).
+  Stage 5 done too (mediatek-drm by default, 60 s console blank, idle-off
+  guard, cma=256M). **GPU G-S1 + G-S2 done (2026-11-25,
+  `docs/gpu-stock.md`)**: SPMI + MT6315 read-only, MFG0–6 + panfrost at
+  358 MHz with no rail control (blacklisted at boot, `modprobe panfrost`),
+  kmscube ~59 fps on the panel. Test tip: modetest/kmscube exit on stdin
+  EOF — run `sleep N | timeout N kmscube …` over SSH. Next: G-S3 (stock
+  OPP table, devfreq, vsram rule), then Plasma.
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive

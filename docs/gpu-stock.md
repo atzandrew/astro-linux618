@@ -125,6 +125,78 @@ sysfs, nothing written):
 vgpu is on at 0.75 V with every MFG domain off; vsram_others 0.75 V. 0.75 V
 is a stock point (855 MHz / 0.75 V / vsram 0.75 V).
 
+## G-S2 pre-flash check (2026-11-25) — approved ("yes")
+
+1. **Image**: `boot-g2.img` sha256
+   `3b07432e33b40f86b2515eafb09446f393ab008dd605270d001cb392512bac55`
+   (Monolith), kernel **#21** (`Image.gz` `faf41270…`, DTB `7da96f70…`).
+   Writes `boot_a`. Module tree `~/mod-k21` (installed before the flash,
+   #20's kept as `.k20`, synced); `panfrost.ko` `b060bc89…`, blacklisted
+   (`/etc/modprobe.d/astro-gpu.conf`, synced).
+2. **Changes vs #20**:
+   - DT: spm gets MFG0 → MFG1 → MFG2–6 back (mainline tree), **no
+     domain-supply**; `&gpu` okay, **no OPP table, no mali-supply**,
+     `mediatek,shader-core-mask = 0x50005`.
+   - `mtk-pm-domains.c` delta (`c09a53aa…`, pinned): a missing
+     domain-supply means "rail not controlled" instead of a probe error
+     (without it the whole power controller — DISP, CONN — would fail).
+   - `panfrost_gpu.c` delta (`861feb65…`, pinned): optional DT core mask,
+     applied right after reading SHADER_PRESENT (logged), before any core
+     is powered.
+   - Config `DRM_PANFROST=m`. Guard: domains exactly CONN, MFG0–6, DISP,
+     no domain-supply, DISP childless; GPU node without
+     operating-points/mali-supply/sram-supply and with the mask; panfrost
+     module only (negative test refused).
+3. **At boot — first GPU power-up** (scpsys probe; panfrost not loaded):
+   MFG0, MFG1, MFG2–6 each: PWR_ON, PWR_ON_2ND, wait status, CLK_DIS=0,
+   ISO=0, RST_B=1, SRAM_PDN=0, wait ack — the vendor MTCMOS order.
+   MFG1 bus protection released (EN_2 bits 5|6, 7; EN bits 21|22; EN_1 bit
+   21): **same masks as the vendor `MFG1_PROT_STEP*`**, polled. Domain
+   clocks `mfg_pll_sel`/`mfg_ref_sel` already on. Vendor "way_en"
+   (`INFRA_MFG_SECURE_CTRL0`) bits already set (`0x1801`), not written.
+   **Rails: none written** — vgpu stays 0.75 V on, vsram_others 0.75 V on.
+   The domains stay on (pd_ignore_unused) until panfrost runtime-suspends
+   them.
+4. **The test** (agent, you watch the panel):
+   1. read GPU_ID / SHADER_PRESENT once the domains are up (devmem, read);
+   2. `apt install kmscube` (pulls Mesa 25.0.7: panfrost Gallium driver,
+      GBM, EGL) — a rootfs package install;
+   3. `modprobe panfrost`: enables MFGPLL (already on, **358 MHz**, stock
+      lowest point, set by the bootloader), dummy regulator, attaches the
+      core domains, logs shader_present + mask, powers L2, the 4 masked
+      cores and the tiler. **No rate or voltage change.**
+   4. `kmscube` on the panel for ~10 s (animated), then back to the console.
+5. **R-rules**: no rail written (vgpu/vsram as LK left them, 0.75 V = the
+   stock point up to 855 MHz; the GPU runs at 358 MHz); no PMIC write;
+   CPU rails untouched; panel traffic as Stage 5 (frames only). Burn-in:
+   kmscube animates; ends on the console with its 60 s blank.
+6. **Escapes**: 0xa12 unaffected (no MT6359P change); a bus hang from a
+   GPU access → watchdog reset in ~31 s.
+
+## G-S2 result (2026-11-25) — passed
+
+- `boot-g2.img` `3b07432e…` flashed (kernel #21). At boot scpsys powered
+  MFG0–6 in the vendor order; vgpu 0.75 V and vsram_others 0.75 V
+  unchanged (no rail written); mfgcfg BG3D ungated; 0xa12 = 0x21e0.
+- GPU_ID 0x9093 (Mali-G57), SHADER_PRESENT 0x50005 — four cores, no hidden
+  extra core; L2 and tiler 1.
+- `modprobe panfrost`: 358 MHz (MFGPLL as LK left it), dummy regulator,
+  mask logged, no faults. Mesa 25.0.7 renderer "Mali-G57 (Panfrost)".
+- kmscube on the panel: **~59 fps (293 frames / 5 s), "super smooth"** for
+  15 s (user watched), back to the console, no panfrost/DSI errors.
+- Two display fixes were needed first (mediatek-drm `66274443…`, installed
+  as a module; kernel image unchanged):
+  - LK leaves the OVL frame-done interrupt enabled on `ovl_2l0`; mainline
+    registers the vblank callback on every component, so each frame
+    counted twice and a commit arriving between the two lost its flip
+    event. `mtk_crtc` hw_init now disables vblank on every component but
+    the first, and the OVL handler counts a vblank only when
+    `OVL_FME_CPL_INT` is set (`mtk_disp_ovl.c` delta).
+  - Test note: modetest and kmscube quit on stdin EOF ("user
+    interrupted!"); over SSH run them as `sleep N | timeout N … `.
+- modetest `-v` page flips: 62.89 Hz. `mediatek_drm.cmd_debug=1` logs
+  each command-mode trigger and frame-done (off by default).
+
 ## Staged plan
 
 Each stage with a write has its own pre-flash check and waits for a yes.

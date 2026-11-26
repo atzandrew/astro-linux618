@@ -1353,3 +1353,12 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   SPMI (mainline pmif, AP channel 2) + three bare MT6315s (no constraints),
   read only: CPU big 0.600 V, little 0.71875 V, vgpu 0.750 V on (MFG off),
   MT6315@3 bucks 0.825 V; 0xa12 0x21e0; console and Wi-Fi up.
+- **GPU G-S2 passed** (2026-11-25, kernel #21 `boot-g2.img` `3b07432e…`):
+  MFG0–6 on at boot, rails untouched, GPU_ID 0x9093, SHADER_PRESENT
+  0x50005, panfrost at 358 MHz. kmscube first showed nothing: the tools
+  exited on stdin EOF over SSH, and every frame raised two vblanks (LK left
+  the frame-done irq on ovl_2l0), losing flip events. Fixed in mtk_crtc
+  (vblank off on non-first comps) and mtk_disp_ovl (FME_CPL check);
+  mediatek-drm `66274443…`. kmscube ~59 fps, smooth for 15 s (user
+  watched); modetest 62.89 Hz; 0xa12 0x21e0. Next: G-S3 (stock OPP table,
+  devfreq, vsram rule), then Plasma.

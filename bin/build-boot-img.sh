@@ -72,11 +72,13 @@ AUXADC_SHA=1468d6538002322c80f5847d45e656a728d64036522787d892d524c495342675
 # SCPSYS power domains with the spm node reduced to CONN (KEEP_DEFAULT_OFF).
 # Both sources pinned as audited (unmodified v6.18.58).
 REG6359_SHA=86b9d129c5664aa280fdd7837c7c5bdad96b49096a764bb368b5e1bf97821841
-PMDOM_SHA=5c3bc0d05499bf624ba0dc9f602f81e4f72592719fb5312d38d02efc8b53a04c
+PMDOM_SHA=c09a53aa35cf898ea8f8d05bf3a2676656a36819491496531dc7e15bfe28961a
 PMDOM8192_SHA=776ce01e0eac0f24a9eb3257b7f13d55af0839410adac69417f6510a0dfe3e6b
 # GPU G-S1: audited SPMI / MT6315 sources (unmodified v6.18.58).
 MT6315_SHA=3c3cfcbf91795a7ecb08fe3f00c9c1ba69d987315f5ce1c6704f97fa733a611a
 PMIF_SHA=8ddb83ad364c2d530f049e974c87f818abb22cac29cd20aa9b05131f22a1201d
+# GPU G-S2: audited panfrost core-mask delta.
+PANFROST_GPU_SHA=861feb65c26bfefd4ad196e1e8ad4854ae342cd453bb58e401ae658368a50e20
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
 PANEL_SHA=b75532375556ced0e99dc121d7908c234fbec9454be2ea7f14d9991946556980
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
@@ -212,11 +214,16 @@ grep -q 'compatible = "mediatek,mt6359-regulator";' <<<"$DTS_TEXT" && [[ -z "${R
 SPM_NODE="$(awk '/^\t\t\tpower-controller \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$DTS_TEXT")"
 if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 	[[ -n "$SPM_NODE" ]] || refuse "SCPSYS power domains on but no spm node"
-	[[ "$(grep -cP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$SPM_NODE")" == 2 ]] \
-		&& grep -qP '^\t\t\t\tpower-domain@1 \{$' <<<"$SPM_NODE" \
-		&& grep -qP '^\t\t\t\tpower-domain@9 \{$' <<<"$SPM_NODE" \
-		|| refuse "spm lists power domains other than CONN (1) and DISP (9)"
-	[[ "$(grep -c 'power-domain@' <<<"$SPM_NODE")" == 2 ]] || refuse "spm has nested power domains (DISP children?)"
+	# GPU G-S2 (docs/gpu-stock.md): + MFG0 (2) with MFG1 (3) and MFG2-6
+	# (4-8) under it, no domain-supply (rails stay as LK left them).
+	TOP="$(grep -oP '^\t\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPM_NODE" | sort | tr '\n' ' ')"
+	[[ "$TOP" == "power-domain@1 power-domain@2 power-domain@9 " ]] \
+		|| refuse "spm top-level domains are not CONN (1), MFG0 (2), DISP (9): $TOP"
+	ALL="$(grep -oP 'power-domain@\K[0-9a-f]+(?= \{$)' <<<"$SPM_NODE" | sort | tr '\n' ' ')"
+	[[ "$ALL" == "1 2 3 4 5 6 7 8 9 " ]] || refuse "spm domains are not exactly CONN, MFG0-6, DISP: $ALL"
+	DISP_NODE="$(awk '/^\t\t\t\tpower-domain@9 \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$SPM_NODE")"
+	grep -q 'power-domain@[0-9a-f]* {' <<<"$(tail -n +2 <<<"$DISP_NODE")" && refuse "DISP has child domains"
+	grep -q 'domain-supply' <<<"$SPM_NODE" && refuse "a power domain has a domain-supply (rail control)"
 	[[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mtk-pm-domains.c" | cut -d' ' -f1)" == "$PMDOM_SHA" ]] \
 		&& [[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" | cut -d' ' -f1)" == "$PMDOM8192_SHA" ]] \
 		|| refuse "mtk-pm-domains / mt8192 table is not the audited W2 source"
@@ -245,6 +252,17 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$SPMI_NODE" && refuse "an MT6315 node has child nodes (regulators?)"
 	grep -qE 'regulator-|always-on|boot-on' <<<"$SPMI_NODE" && refuse "regulator constraints under spmi"
 	[[ "$(grep -c 'compatible = "mediatek,mt6315-regulator";' <<<"$SPMI_NODE")" == 3 ]] || refuse "MT6315 nodes are not the 3 regulator PMICs"
+fi
+# GPU G-S2: panfrost only as a module, pinned core-mask delta, and a GPU
+# node that cannot touch a rail or a rate (no OPP table, no mali-supply),
+# with the stock MT6873 4-core mask.
+GPU_NODE="$(awk '/^\t\tgpu@13000000 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+grep -qE '^CONFIG_DRM_PANFROST=y' "$KCONF" && refuse "DRM_PANFROST built in (module only)"
+if grep -qE '^CONFIG_DRM_PANFROST=m' "$KCONF"; then
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/gpu/drm/panfrost/panfrost_gpu.c" | cut -d' ' -f1)" == "$PANFROST_GPU_SHA" ]] \
+		|| refuse "panfrost_gpu.c is not the audited core-mask delta"
+	grep -qE 'operating-points|mali-supply|sram-supply' <<<"$GPU_NODE" && refuse "GPU node can change rails or rates"
+	grep -q 'mediatek,shader-core-mask = <0x00 0x50005>;' <<<"$GPU_NODE" || refuse "GPU node without the stock 4-core mask"
 fi
 # Panel rule (AGENTS.md rule 3), Display Stage 3: mediatek-drm and the
 # SH8802B panel only as modules (blacklisted on the rootfs), and the panel

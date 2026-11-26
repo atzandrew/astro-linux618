@@ -545,6 +545,20 @@
 };
 
 /*
+ * GPU G-S2 (docs/gpu-stock.md): Mali-G57 on panfrost at the clock the
+ * bootloader set (MFGPLL 358 MHz = the stock lowest point), with vgpu and
+ * vsram untouched (0.75 V each): no OPP table and no mali-supply, so
+ * panfrost changes no rail and no rate. The MT6873 segment runs 4 shader
+ * cores (vendor shader_present 0x50005): mediatek,shader-core-mask
+ * (panfrost delta) keeps it so. panfrost is a module, loaded by hand.
+ */
+&gpu {
+	/delete-property/ operating-points-v2;
+	mediatek,shader-core-mask = /bits/ 64 <0x50005>;
+	status = "okay";
+};
+
+/*
  * Display Stage 3 (docs/display-stock.md): mediatek-drm on the main path
  * OVL0 -> OVL_2L0 -> RDMA0 -> COLOR0 -> CCORR -> AAL0 -> GAMMA -> POSTMASK0
  * -> DITHER0 -> DSI0 -> SH8802B (command mode). No IOMMU yet: the bootloader
@@ -1075,7 +1089,14 @@
  */
 &spm {
 	/delete-node/ power-domain@MT8192_POWER_DOMAIN_AUDIO;
-	/delete-node/ power-domain@MT8192_POWER_DOMAIN_MFG0;
+	/*
+	 * GPU G-S2 (docs/gpu-stock.md): MFG0 (+MFG1-6) back. All off at
+	 * handover; scpsys powers them on at probe with the stock MT6873 MTCMOS
+	 * sequence and bus-protect masks (clk-mt6873-pg.c MFG1_PROT_STEP*; the
+	 * vendor "way_en" bits INFRA_MFG_SECURE_CTRL0 0x1800 are already set).
+	 * No domain-supply: vgpu (MT6315@7 vbuck1) and vsram_others stay as the
+	 * bootloader left them (0.75 V each, on).
+	 */
 
 	/*
 	 * Display Stage 2: DISP back, without its children (IPE, ISP, ISP2,
