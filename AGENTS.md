@@ -45,6 +45,28 @@ History and receipts: `docs/session-log.md`.
   small upstreamable deltas; vendor BSP is a reference for values only;
   shell register pokes are for learning, never the fix.
 
+Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
+- **Cheap, DT-mostly, mainline drivers or Cosmo code**: RTC (rtc-mt6397
+  MT6359 cell), power off (Cosmo mt6358-poweroff pattern on MT6359P),
+  slide hall sensor (gpio-keys SW_LID, as the Cosmo lid), volume keys
+  (mt6779-keypad), keyboard backlight (gpio-leds GPIO28), microSD (mtk-sd,
+  CD GPIO23), joydev; userspace: PipeWire (BT audio), polkit rule for
+  nmcli/bluetoothctl, ping_group_range.
+- **Not like the Cosmo — CPU DVFS**: Cosmo = mediatek-cpufreq on MT6358
+  Vproc. Astro = MT8192 layout: Vproc1/2 and Vgpu on two MT6315 over SPMI
+  (stock mt6315@6/@7), and mainline mt8192 uses cpufreq-hw, but the CSRAM
+  LUT at 0x11bc10 is not initialised on this LK (read 2026-11-25: random
+  values; stock kernel fills it and starts MCUPM). Needs SPMI + MT6315
+  first, then a decision (port the stock CSRAM/MCUPM init, or kernel-side
+  DVFS).
+- **GPU**: Mali-G57 MC5 (Valhall) = MT8192 Chromebook GPU, mainline panfrost
+  `mediatek,mt8192-mali` (Cosmo had G72/Bifrost, also panfrost). Needs
+  SPMI + MT6315 (vgpu), MT6359 vsram_others, the MFG0-6 power domains
+  (removed from the spm node for W2) and the stock gpufreq OPPs. Useful
+  once display (DSI panel) is done.
+- Shared prerequisite for CPU DVFS and GPU: SPMI (spmi-mtk-pmif) + MT6315
+  regulators, a rule-5-style pre-flash check (CPU rails).
+
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
    lines; user saw the 60 s blank, 2026-11-25).
