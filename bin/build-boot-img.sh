@@ -79,6 +79,12 @@ MT6315_SHA=3c3cfcbf91795a7ecb08fe3f00c9c1ba69d987315f5ce1c6704f97fa733a611a
 PMIF_SHA=8ddb83ad364c2d530f049e974c87f818abb22cac29cd20aa9b05131f22a1201d
 # GPU G-S2: audited panfrost core-mask delta.
 PANFROST_GPU_SHA=861feb65c26bfefd4ad196e1e8ad4854ae342cd453bb58e401ae658368a50e20
+# Power-off: audited MT6359 power-off driver and its MFD cell.
+PWRC_SHA=b6d001aca1a2d64598c0837251387dc3cfbe84e023d0b445a12ddfc11036a0ac
+MT6397_CORE_SHA=b738f1720b55324dcd461bbc64e14a20e936cbaf371b319fb03698d5b866e8be
+# Touch: audited GT9897 entry in the Goodix Berlin I2C driver.
+GOODIX_I2C_SHA=deccdd921168e635e83aa31547fc2e8b9b985337e275393017b90d25a8fef39f
+GOODIX_CORE_SHA=aa897b60353dce96be21273f841debde6fa4536f964e5006d6991153860413ff
 # Thermal T-S1: audited LVTS delta (MT6873 vendor sequence).
 LVTS_SHA=de9e97ac7450d4edccd0af06010a67c9ae9df5679b4cf1dab815ea8ab83572fd
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
@@ -139,6 +145,19 @@ else
 	grep -q 'compatible = "mediatek,mt6359";' <<<"$PWRAP_NODE" || refuse "pwrap child is not mediatek,mt6359"
 	# PMIC children: none, "keys", "adc", or both.
 	KIDS="$(grep -P '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" | tr -d '\t' | sort | tr '\n' ' ')"
+	# Power-off: pwrc only with the audited driver built in, exactly its
+	# compatible and the TOPRGU phandle (= the watchdog node).
+	if [[ "$KIDS" == *"pwrc { "* ]]; then
+		grep -qE '^CONFIG_POWER_RESET_MT6359=y' "$KCONF" || refuse "pwrc node without the MT6359 power-off driver"
+		[[ "$(sha256sum < "$ROOT/build/src/drivers/power/reset/mt6359-poweroff.c" | cut -d' ' -f1)" == "$PWRC_SHA" ]] \
+			&& [[ "$(sha256sum < "$ROOT/build/src/drivers/mfd/mt6397-core.c" | cut -d' ' -f1)" == "$MT6397_CORE_SHA" ]] \
+			|| refuse "mt6359-poweroff / mt6397-core is not the audited source"
+		PWRC_NODE="$(awk '/^\t\t\t\tpwrc \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
+		WDT_PH="$(awk '/^\t\twatchdog@10007000 \{$/{f=1} f&&/phandle = /{print $3; exit}' <<<"$DTS_TEXT" | tr -d ';')"
+		[[ "$(grep -oP '^\t\t\t\t\t\K.*;$' <<<"$PWRC_NODE" | tr '\n' '|')" == "compatible = \"mediatek,mt6359-pwrc\";|mediatek,toprgu = $WDT_PH;|" ]] \
+			|| refuse "pwrc node is not exactly compatible + toprgu = watchdog"
+		KIDS="${KIDS/pwrc \{ /}"
+	fi
 	case "$KIDS" in
 	""|"keys { "|"adc { "|"adc { keys { "|"adc { keys { regulators { "|"keys { regulators { "|"regulators { "|"adc { regulators { ") ;;
 	*) refuse "mt6359 node has children other than adc/keys/regulators: $KIDS" ;;
@@ -314,6 +333,19 @@ for n in "$LVTS_AP_NODE" "$LVTS_MCU_NODE"; do
 	grep -q 'status = "okay";' <<<"$n" && ! grep -qE '^CONFIG_MTK_LVTS_THERMAL=m' "$KCONF" \
 		&& refuse "LVTS node enabled without the audited module"
 done
+# Touch: the Goodix Berlin I2C driver only as a module, pinned; the
+# touchscreen only on i2c0 0x5d with the stock pins and the vtp supply.
+grep -qE '^CONFIG_TOUCHSCREEN_GOODIX_BERLIN_I2C=y' "$KCONF" && refuse "Goodix Berlin I2C built in (module only)"
+if grep -qE '^CONFIG_TOUCHSCREEN_GOODIX_BERLIN_I2C=m' "$KCONF"; then
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/input/touchscreen/goodix_berlin_i2c.c" | cut -d' ' -f1)" == "$GOODIX_I2C_SHA" ]] \
+		|| refuse "goodix_berlin_i2c.c is not the audited source"
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/input/touchscreen/goodix_berlin_core.c" | cut -d' ' -f1)" == "$GOODIX_CORE_SHA" ]] \
+		|| refuse "goodix_berlin_core.c is not unmodified mainline"
+	# vtp (MT6360 LDO2, touch AVDD) exactly the stock 2.6 V, nothing else
+	VTP_NODE="$(awk '/^\t\t\t\t\tldo2 \{$/{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$DTS_TEXT")"
+	[[ "$(grep -oP '^\t\t\t\t\t\t\K.*;$' <<<"$VTP_NODE" | grep -v '^phandle = ' | tr '\n' '|')" == 'regulator-name = "vtp";|regulator-min-microvolt = <0x27ac40>;|regulator-max-microvolt = <0x27ac40>;|' ]] \
+		|| refuse "vtp (MT6360 LDO2) is not fixed at 2.6 V"
+fi
 # Panel rule (AGENTS.md rule 3), Display Stage 3: mediatek-drm and the
 # SH8802B panel only as modules (blacklisted on the rootfs), and the panel
 # driver pinned to the audited source (stock tables only; any change

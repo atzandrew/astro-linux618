@@ -68,3 +68,65 @@ the desktop: idle screen-off, compositor DPMS, kernel idle-off backstop.
 
 Next candidates: touchscreen driver (no pointer yet), a login manager
 (SDDM Wayland or autologin), vgpu idle-off (sync_state blockers).
+
+## P2 pre-flash check (2026-11-25) — awaiting approval
+
+Touchscreen, power-off, SDDM. User decisions: touch option a (mainline
+Berlin core without the vendor Berlin-A reset writes), SDDM option a (X11
+greeter, Xorg screen-off after 1 min).
+
+1. **Image**: `boot-tp1.img` sha256
+   `4984784ac17ac7fbb0712a19844036a609886ee7d6a6a28cbcf520e65d4cb668`
+   (Monolith `~/Build/astro-backup/`), kernel **#23** (`Image.gz`
+   `17c3edeb…`, DTB `0471915b…`). Writes `boot_a`. Module tree #23
+   installed with #22's kept as `.k22`, synced, right before the flash.
+2. **Changes vs #22**:
+   - Power-off (`docs/poweroff.md`): `mt6359-poweroff.c` (built in,
+     pinned) + an mt6397-core MFD cell (pinned); DT `pwrc` under the
+     MT6359 with `mediatek,toprgu = <&watchdog>`. Writes **only at
+     power-off**: MT6359P `PPCCTL0` bit 0 = 0, then (still powered) TOPRGU
+     `NONRST_REG2` bit 13 clear, `WDT_MODE`, `SWRST`.
+   - Touch (`docs/touch-stock.md`): goodix_berlin_i2c + `gt9897` (pinned,
+     module, loads at boot); DT `&i2c0` okay 400 kHz, `touchscreen@5d`,
+     touch pins, `avdd-supply = <&mt6360_ldo2>`. At probe: **VTP enabled
+     at its current 1.8 V** (no voltage write), 15 ms, reset GPIO20
+     released, then the driver reads version/IC info and handles events.
+   - Guard: pwrc exactly compatible + toprgu = watchdog, driver built in,
+     sources pinned; Goodix I2C module only, pinned (three negative tests
+     refused).
+3. **SDDM (rootfs)**: `sddm` + `sddm-theme-breeze` (installed, service
+   starts blocked during the install), `/etc/sddm.conf.d/astro.conf`:
+   X11 greeter, Breeze theme, Xsetup rotates the X screen to landscape;
+   `/etc/X11/xorg.conf.d/10-astro-dpms.conf`: blank/standby/suspend/off
+   after 1 min (DPMS off = the panel's stock off). policy-rc.d removed.
+4. **Test**: boot → SDDM greeter in landscape; 0xa12; touch probe log
+   (version, IC info), events with `evtest`/libinput while you touch;
+   greeter blanks at 1 min, key wakes; log in (Plasma Wayland), touch in
+   Plasma; then `poweroff` with USB unplugged → stays off; power key →
+   boots. Optional: `poweroff` on USB → LK decides (expect charging mode
+   or a boot).
+5. **R-rules**: no panel or rail change except VTP on at its own voltage
+   (stock behaviour); PMIC write only at power-off (the stock one);
+   burn-in: greeter off after 1 min, Plasma as P1, kernel guard 600 s.
+6. **Escapes**: 0xa12 unchanged (no write to STRUP); a bad power-off at
+   worst leaves the board on or reboots; power-key 8 s hold reset stays.
+
+### P2 findings and fix image (2026-11-26)
+
+- SDDM first boot: X started before mediatek-drm and auto-added fbdev →
+  udev symlink `/dev/dri/astro-panel`, Xorg Device/Screen/ServerLayout on
+  it (modesetting, AutoAddGPU off), SDDM after astro-display.service.
+- "Keyboard not working" in the greeter: the keys reached the kernel
+  (evtest: 197 key events); the greeter's drawing did not reach the
+  command-mode panel with glamor (`Failed to make import prime FD as
+  pixmap`), only the hardware cursor moved. Fix: `AccelMethod none` +
+  `ShadowFB on` (software, DIRTYFB per damage) — typing shows. Also
+  `InputMethod=` (no Qt virtual keyboard), as the Cosmo.
+- Touch: see `docs/touch-stock.md` T1 findings: VTP 2.6 V, inverted-x.
+- **`boot-tp2.img`** sha256
+  `1d6b16556fd11f803b2309032d626800be7751ef9f77ccb3b0ace0d3c4a2ee9f`
+  (Monolith): kernel #23 unchanged (`Image.gz` `17c3edeb…`), DTB
+  `af029c9b…` = tp1 + MT6360 LDO2 fixed 2.6 V (core sets it at probe while
+  off) + `touchscreen-inverted-x`. Modules unchanged (core = mainline,
+  `8bc3a87c…`). Guard: vtp exactly 2.6 V, Goodix core unmodified mainline
+  (negative test refused).

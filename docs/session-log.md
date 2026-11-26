@@ -1389,3 +1389,13 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   installed, panfrost and lvts_thermal load at boot. startplasma-wayland
   on tty1: landscape, rendering on panfrost, dim 30 s / off 60 s / wake /
   logout all fine (user). Keyboard only for now (no touchscreen driver).
+- **P2 in progress** (2026-11-25/26, kernel #23, `boot-tp2.img`
+  `1d6b1655…`): power-off driver (mt6359-poweroff: RG_PWRHOLD, then the
+  vendor charger reset without bypass), touch (GT9897 on I2C0 via
+  goodix_berlin_i2c + gt9897, VTP fixed 2.6 V, inverted-x), SDDM X11
+  greeter (software rendering, 1 min DPMS, touch matrix). Touch maps
+  correctly in the greeter; dragging lags ~2 s (suspect synchronous cursor
+  updates on the command-mode panel; next: measure the report rate, try
+  `-nocursor`). Plasma touch with inverted-x not yet checked. User powered
+  off from Plasma at night: the board stayed off (no route after 20 s);
+  power-key boot and USB-plugged behaviour still to confirm.
