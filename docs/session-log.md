@@ -1414,3 +1414,19 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   USB, text rendering (Plasma uses RGB subpixel AA + hintfull on a rotated
   OLED; console path adds COLOR/CCORR/AAL/GAMMA/POSTMASK/DITHER and stock
   panel gamma after the first off/on).
+- **Display quality, G1** (2026-11-26, modules only on kernel #23: panel
+  `16129a3f…`, mediatek-drm `0b630611…`; old in /var/tmp/modules-pre-g1 on
+  the device): the shipped Android kernel never sent the source's 12 gamma
+  tables (binary check), so the panel init now = shipped Android = LK
+  (factory OTP gamma). Read-only debugfs `sh8802b/dcs_regs`: 54h 0x20, ACL
+  off, SRE off in both states. mtk_dsi: transfers and frame triggers share
+  one lock. User: pattern and text much better at 512 and 1023. SoC path
+  pixel-exact; Android's MTK PQ/AAL (readability, DRE, colour engine) not
+  reproduced (see display-stock.md). Brightness: Plasma/greeter 50% (KWin
+  0.5 = DBV 114, perceptual); console 512. Fonts: AA/hinting off in the
+  user's session only (by choice; .aa backups); image default unchanged.
+  Also: USB-plugged poweroff ends in LK KPOC (boot mode 8), Debian has no
+  charger mode yet (later, as on the other devices); power-key boot OK.
+  Next session: **cpufreq** (A76 measured 772 MHz; no CPU DVFS = frame
+  drops). Queued for the next kernel build: panel reports 8 bpc (dither
+  as stock).
