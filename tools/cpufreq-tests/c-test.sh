@@ -1,5 +1,5 @@
 #!/bin/sh
-# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C3 onwards; C1 = e71fd7d, C2 = eb94af0). Run as root.
+# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C4; C1 = e71fd7d, C2 = eb94af0, C3 = 35b1efe). Run as root.
 #   c-test.sh hw            PLL/mux readback of the three CPU clocks + rails
 #   c-test.sh steps         every OPP of both policies (userspace), readback
 #   c-test.sh stress SECS [min]  8 md5 workers at max (or min) OPP, temps
@@ -42,17 +42,43 @@ hw() {
 # Stock FY table voltages (uV) per kHz (docs/cpufreq-stock.md)
 v_little() {
 	case $1 in
-	500000|650000) echo 600000;; 756000) echo 625000;; 862000) echo 643750;;
-	968000) echo 668750;; 1075000) echo 693750;; 1181000) echo 712500;;
-	1358000) echo 750000;; 1500000) echo 781250;; 1541000) echo 800000;;
+	2000000) echo 925000;;
+	1875000) echo 887500;;
+	1812000) echo 868750;;
+	1750000) echo 856250;;
+	1687000) echo 837500;;
+	1625000) echo 818750;;
+	1541000) echo 800000;;
+	1500000) echo 781250;;
+	1358000) echo 750000;;
+	1181000) echo 712500;;
+	1075000) echo 693750;;
+	968000) echo 668750;;
+	862000) echo 643750;;
+	756000) echo 625000;;
+	650000) echo 600000;;
+	500000) echo 600000;;
 	*) echo 0;;
 	esac
 }
 v_big() {
 	case $1 in
-	774000) echo 600000;; 841000) echo 618750;; 925000) echo 637500;;
-	1008000) echo 656250;; 1091000) echo 675000;; 1175000) echo 700000;;
-	1258000) echo 718750;; 1383000) echo 750000;; 1548000) echo 800000;;
+	2000000) echo 925000;;
+	1950000) echo 906250;;
+	1900000) echo 887500;;
+	1850000) echo 868750;;
+	1800000) echo 850000;;
+	1716000) echo 831250;;
+	1633000) echo 806250;;
+	1548000) echo 800000;;
+	1383000) echo 750000;;
+	1258000) echo 718750;;
+	1175000) echo 700000;;
+	1091000) echo 675000;;
+	1008000) echo 656250;;
+	925000) echo 637500;;
+	841000) echo 618750;;
+	774000) echo 600000;;
 	*) echo 0;;
 	esac
 }
@@ -68,14 +94,44 @@ v_cci() {
 # CCI kHz each cluster OPP requires (stock normal CCI map, DTS required-opps)
 cci_little() {
 	case $1 in
-	1541000|1500000) echo 730000;; 1358000) echo 672000;; 1181000) echo 615000;;
-	1075000) echo 557000;; *) echo 500000;;
+	2000000) echo 1017000;;
+	1875000) echo 960000;;
+	1812000) echo 902000;;
+	1750000) echo 873000;;
+	1687000) echo 816000;;
+	1625000) echo 816000;;
+	1541000) echo 730000;;
+	1500000) echo 730000;;
+	1358000) echo 672000;;
+	1181000) echo 615000;;
+	1075000) echo 557000;;
+	968000) echo 500000;;
+	862000) echo 500000;;
+	756000) echo 500000;;
+	650000) echo 500000;;
+	500000) echo 500000;;
+	*) echo 0;;
 	esac
 }
 cci_big() {
 	case $1 in
-	1548000) echo 816000;; 1383000) echo 672000;; 1258000|1175000) echo 615000;;
-	1091000) echo 557000;; *) echo 500000;;
+	2000000) echo 1017000;;
+	1950000) echo 960000;;
+	1900000) echo 960000;;
+	1850000) echo 902000;;
+	1800000) echo 902000;;
+	1716000) echo 873000;;
+	1633000) echo 816000;;
+	1548000) echo 816000;;
+	1383000) echo 672000;;
+	1258000) echo 615000;;
+	1175000) echo 615000;;
+	1091000) echo 557000;;
+	1008000) echo 500000;;
+	925000) echo 500000;;
+	841000) echo 500000;;
+	774000) echo 500000;;
+	*) echo 0;;
 	esac
 }
 DF=$(for d in /sys/class/devfreq/*; do [ -e "$d" ] && grep -q cci $d/device/uevent 2>/dev/null && echo $d; done | head -1)

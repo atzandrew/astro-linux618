@@ -107,6 +107,16 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   keyboard only. Next candidates: touchscreen, login manager, vgpu
   idle-off.
 
+**CPU DVFS done (2026-11-26, `docs/cpufreq-stock.md`)**: kernel-side
+mediatek-cpufreq + mtk-cci-devfreq (the Cosmo route; stock runs DVFS in
+the MCUPM) with the stock FY tables: A55 500-2000 MHz, A76 774-2000 MHz,
+CCI 500-1017 MHz with the stock CCI map, Vproc 0.600-0.925 V on MT6315@6,
+Vsram tracked +100 mV on MT6359P VSRAM_PROC1/2. Stages C1-C4 passed
+(kernel #25, boot-c4.img). Modules blacklisted, `modprobe mediatek-cpufreq
+mtk-cci-devfreq` by hand until enabled at boot. DRAM already at 4266 Mbps
+and UFS at HS-G3B x2 (read 2026-11-26). Flashing host: livingwall
+192.168.0.8.
+
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
    lines; user saw the 60 s blank, 2026-11-25).

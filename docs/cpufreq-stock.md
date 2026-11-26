@@ -264,3 +264,47 @@ Stages (as the Cosmo C1-C4):
 - stress 120 max: 0 md5 mismatches, runs 948-951 (A55, C2 914-928: CCI
   816 vs 730 MHz) / 1676-1700 (A76); peak 50.4 °C. stress 60 min (both
   rails 0.600 V, CCI 500 MHz, Vsram 0.750 V): 0 mismatches.
+
+## C4 pre-flash check (boot-c4.img, DTB only on kernel #25)
+
+- Image: `out/boot-c4.img` `98ad67eb…0751`, Image.gz `afcb9b45…`
+  (kernel #25, modules as installed for C3).
+- Change, DTS only: the full FY tables, A55 500-2000 MHz and A76
+  774-2000 MHz (16 OPPs each, each with its stock-map CCI requirement; CCI
+  can now reach 1017 MHz). Constraints: Vproc_big/Vproc_little 0.600-0.925
+  V (stock FY floor/top), vsram_proc1/2 0.750-1.000 V (stock
+  MIN/MAX_VSRAM_VOLT). Guard narrowed to exactly these.
+- Risk flags: **first CPU-rail voltages above 0.800 V** (Vproc up to
+  0.925 V, Vsram up to 1.000 V; at the top Vsram - Vproc = 75 mV, as stock,
+  which clamps at 1.0 V too). Stock unadjusted FY values (EEM only lowers).
+  No PMIC keys, watchdog, reset path, display or config change.
+- PMIC writes at boot: none (LK's values inside every range); writes only
+  after `modprobe`, as in C2/C3.
+- Thermal: mt8192.dtsi cpu zones, passive 85 °C on both clusters (step-wise,
+  250 ms), critical 100 °C (orderly power-off). Expected: throttling under
+  a sustained all-core load at 2.0 GHz; a critical trip is a fail.
+- Escapes: power-key reset and watchdog observed, paths unchanged. After
+  the flash: 0xa12 (single-register read).
+- Test: `steps` (32 OPPs: PLL readback, CCI pairing, Vproc/Vsram per
+  table), `vfrun.sh big|little` (0 LOW), `stress 300` at max with
+  temperatures (throttling expected; md5 mismatches fail), `stress 60 min`.
+  Then the user-visible check: Plasma/KWin smoothness with schedutil.
+
+### C4 result: PASS (2026-11-26, boot-c4.img `98ad67eb…`, kernel #25, flashed from livingwall)
+
+- Boot: 0xa12 0x21e0, rails at LK's values inside the C4 ranges, no
+  regulator errors. policy0 500-2000 MHz and policy4 774-2000 MHz (16
+  OPPs each), CCI 500-1017 MHz.
+- steps: 32/32 PASS. Tops: A55 2000 MHz at 0.925 V / Vsram 1.000 V with
+  CCI 1017 MHz; A76 2000 MHz at 0.925 / 1.000 V with CCI 1017 MHz (A55 rail
+  0.7125 V = the CCI's vote). Post dividers switch where stock's do: A55
+  1541 /2 -> 1625 /1, A76 1548 /2 -> 1633 /1, CCIPLL /2 at 1017 MHz.
+- vfcheck under schedutil: 2 x 40000 samples, 0 under the stock voltage;
+  every A55/A76 OPP up to 2000 MHz and every CCI OPP visited.
+- stress 300 at max (all 8 cores, 2000/2000 MHz, CCI 1017 MHz): 0 md5
+  mismatches; runs 3026-3061 (A55) / 5414-5432 (A76), per second +29 % on
+  both over C3 (= 2000/1541, 2000/1548); temperature 62 -> 78.9 °C, rising
+  ~0.4 °C per 10 s at the end, below the 85 °C passive trip (no throttling
+  within 300 s). stress 60 at min: 0 mismatches.
+- Against LK's clocks (C1 stress, same md5 workload per second): A55 x2.6
+  (1075 -> ~2000 MHz effective), A76 x2.6 (774 -> 2000 MHz).

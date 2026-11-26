@@ -467,15 +467,15 @@
 			 * cpufreq C2: the CPU SRAM rails (stock DT vsram_proc1 =
 			 * A76, vsram_proc2 = A55/CCI; no hardware tracking on the
 			 * MT6359P, stock sets them in software). mediatek-cpufreq
-			 * keeps Vsram = Vproc + 100 mV, floor 0.75 V. Range up to
-			 * the C2 need (0.800 + 0.100 V); LK's 0.750 / 0.81875 V lie
+			 * keeps Vsram = Vproc + 100 mV within 0.75-1.0 V (stock
+			 * MIN/MAX_VSRAM_VOLT); LK's 0.750 / 0.81875 V lie
 			 * inside: nothing written at registration. VOSEL 0x1b44 /
 			 * 0x1b46, EN 0x1e88 / 0x1ea8: nowhere near STRUP_CON12.
 			 */
 			mt6359_vsram_proc1_ldo_reg: ldo_vsram_proc1 {
 				regulator-name = "vsram_proc1";
 				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <900000>;
+				regulator-max-microvolt = <1000000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
@@ -483,7 +483,7 @@
 			mt6359_vsram_proc2_ldo_reg: ldo_vsram_proc2 {
 				regulator-name = "vsram_proc2";
 				regulator-min-microvolt = <750000>;
-				regulator-max-microvolt = <900000>;
+				regulator-max-microvolt = <1000000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
@@ -545,10 +545,10 @@
 		reg = <0x6 SPMI_USID>;
 
 		/*
-		 * cpufreq C2 (docs/cpufreq-stock.md): the CPU rails (stock DT
+		 * cpufreq C4 (docs/cpufreq-stock.md): the CPU rails (stock DT
 		 * 6_vbuck1 = proc1 = A76 cluster, 6_vbuck3 = proc2 = A55
-		 * cluster + CCI). Range 0.600-0.800 V: the stock floor up to
-		 * the C2 ceiling; LK's 0.600 / 0.71875 V lie inside, so the
+		 * cluster + CCI). Range 0.600-0.925 V: the stock FY table's
+		 * floor and top; LK's 0.600 / 0.71875 V lie inside, so the
 		 * regulator core writes nothing at registration. Ramp 5 mV/us
 		 * = the stock down rate (up is 12.5 mV/us): software wait only
 		 * (the MT6315 driver has no ramp setting). Always on: no Linux
@@ -558,7 +558,7 @@
 			mt6315_6_vbuck1: vbuck1 {
 				regulator-name = "Vproc_big";
 				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <800000>;
+				regulator-max-microvolt = <925000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
@@ -566,7 +566,7 @@
 			mt6315_6_vbuck3: vbuck3 {
 				regulator-name = "Vproc_little";
 				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <800000>;
+				regulator-max-microvolt = <925000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
@@ -1397,9 +1397,9 @@
  * table). Clock: ARMPLL -> MCUSYS mux -> cluster, 26 MHz as the parking
  * parent while the PLL relocks (mainpll is 2184 MHz here).
  *
- * C2: Vproc and Vsram follow the stock table up to 0.800 V: A55 500-1541
- * MHz, A76 774-1548 MHz. C3: CCI devfreq with the stock pairing; the
- * A55/CCI rail may now go below LK's 0.71875 V (CCI holds its own vote).
+ * C4: the full FY tables, A55 500-2000 MHz and A76 774-2000 MHz at
+ * 0.600-0.925 V (Vsram up to 1.0 V), CCI devfreq with the stock pairing
+ * (500-1017 MHz). mt8192.dtsi cpu thermal zones throttle both clusters.
  */
 &apmixedsys {
 	compatible = "mediatek,mt6873-apmixedsys", "mediatek,mt8192-apmixedsys",
@@ -1533,6 +1533,36 @@
 			opp-microvolt = <800000>;
 			required-opps = <&cci_opp_730>;
 		};
+		opp-1625000000 {
+			opp-hz = /bits/ 64 <1625000000>;
+			opp-microvolt = <818750>;
+			required-opps = <&cci_opp_816>;
+		};
+		opp-1687000000 {
+			opp-hz = /bits/ 64 <1687000000>;
+			opp-microvolt = <837500>;
+			required-opps = <&cci_opp_816>;
+		};
+		opp-1750000000 {
+			opp-hz = /bits/ 64 <1750000000>;
+			opp-microvolt = <856250>;
+			required-opps = <&cci_opp_873>;
+		};
+		opp-1812000000 {
+			opp-hz = /bits/ 64 <1812000000>;
+			opp-microvolt = <868750>;
+			required-opps = <&cci_opp_902>;
+		};
+		opp-1875000000 {
+			opp-hz = /bits/ 64 <1875000000>;
+			opp-microvolt = <887500>;
+			required-opps = <&cci_opp_960>;
+		};
+		opp-2000000000 {
+			opp-hz = /bits/ 64 <2000000000>;
+			opp-microvolt = <925000>;
+			required-opps = <&cci_opp_1017>;
+		};
 	};
 
 	cluster1_opp: opp-table-cluster1 {
@@ -1583,6 +1613,41 @@
 			opp-hz = /bits/ 64 <1548000000>;
 			opp-microvolt = <800000>;
 			required-opps = <&cci_opp_816>;
+		};
+		opp-1633000000 {
+			opp-hz = /bits/ 64 <1633000000>;
+			opp-microvolt = <806250>;
+			required-opps = <&cci_opp_816>;
+		};
+		opp-1716000000 {
+			opp-hz = /bits/ 64 <1716000000>;
+			opp-microvolt = <831250>;
+			required-opps = <&cci_opp_873>;
+		};
+		opp-1800000000 {
+			opp-hz = /bits/ 64 <1800000000>;
+			opp-microvolt = <850000>;
+			required-opps = <&cci_opp_902>;
+		};
+		opp-1850000000 {
+			opp-hz = /bits/ 64 <1850000000>;
+			opp-microvolt = <868750>;
+			required-opps = <&cci_opp_902>;
+		};
+		opp-1900000000 {
+			opp-hz = /bits/ 64 <1900000000>;
+			opp-microvolt = <887500>;
+			required-opps = <&cci_opp_960>;
+		};
+		opp-1950000000 {
+			opp-hz = /bits/ 64 <1950000000>;
+			opp-microvolt = <906250>;
+			required-opps = <&cci_opp_960>;
+		};
+		opp-2000000000 {
+			opp-hz = /bits/ 64 <2000000000>;
+			opp-microvolt = <925000>;
+			required-opps = <&cci_opp_1017>;
 		};
 	};
 };

@@ -1468,4 +1468,12 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   descriptor spec 0x0210); O_DIRECT sequential read of super (sdc55, ro)
   933 MB/s. Neither needs a speed pass; a DVFSRC/vcore pass would only
   save power at idle.
+- Flashing host is now **livingwall (192.168.0.8)** (user, 2026-11-26);
+  key access from the build machine, images in ~/Build/astro-backup.
+- C4 (DTB only on #25, `boot-c4.img` `98ad67eb…`): full FY tables, A55
+  500-2000 / A76 774-2000 MHz, Vproc 0.600-0.925 V, Vsram 0.75-1.0 V.
+  **PASS**: steps 32/32, stock post-divider switch points, vfcheck 0 low
+  samples (all OPPs, CCI to 1017 MHz), stress 300 s at 2.0 GHz 0 md5
+  mismatches, peak 78.9 °C (no throttling yet). CPU DVFS complete; the
+  modules are still blacklisted (loaded by hand).
 
