@@ -1399,3 +1399,10 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   `-nocursor`). Plasma touch with inverted-x not yet checked. User powered
   off from Plasma at night: the board stayed off (no route after 20 s);
   power-key boot and USB-plugged behaviour still to confirm.
+  User (2026-11-26): the greeter lag is the display, not touch: SDDM
+  animations are very slow. Cause: X greeter on software rendering
+  (AccelMethod none, ShadowFB) at LK CPU clocks (no cpufreq); with glamor
+  the Qt greeter's GL frames never reached the panel (Xorg "Failed to make
+  import prime FD as pixmap: 22"). Next: Wayland greeter (KWin, as the
+  Cosmo) with a verified idle screen-off for burn-in, or fix the X
+  DRI3/glamor import.
