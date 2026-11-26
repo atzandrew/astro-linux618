@@ -1456,4 +1456,16 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   **PASS**: steps 19/19 with CCI pairing, vfcheck 0 under-voltage samples
   incl. CCIPLL, stress max/min 0 md5 mismatches, A55/CCI rail down to the
   stock 0.600 V floor. Next: C4 (full tables to 2.0 GHz, thermal).
+- DRAM / UFS speed check (2026-11-26, read only, kernel #25): DRAM at
+  **4266 Mbps** (DDRPHY decode = vendor dramc.c fmeter_v1 with the stock
+  DT offsets, `tools/dram-rate.sh`: shuffle 0, PLL 1, SDMPCW 0x5200,
+  prediv 1, fbksel 1 -> 4264 -> 4266), i.e. the preloader leaves the top
+  shuffle and nothing in Linux changes it (no DVFSRC driver: full speed,
+  no idle down-clocking). Single-core read bandwidth (`tools/membw.c`,
+  256 MiB): 10.8 GB/s on an A76 at 1548 MHz, 4.9 GB/s on an A55 at 1541
+  MHz (the memcpy figure is invalid: the compiler dropped the copy). UFS
+  link: HS-G3 rate B, 2 lanes, FAST_MODE (UFS 2.x maximum; device
+  descriptor spec 0x0210); O_DIRECT sequential read of super (sdc55, ro)
+  933 MB/s. Neither needs a speed pass; a DVFSRC/vcore pass would only
+  save power at idle.
 
