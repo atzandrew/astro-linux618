@@ -1349,3 +1349,7 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   (kernel #19, + `cma=256M`): CmaTotal 262144 kB (243 MiB free after the
   console fb), console on mediatek-drm, power mode 0x9C, Wi-Fi up, 0xa12
   0x21e0. mediatek-drm 0aa9ec9c (guard, log fix) installed.
+- **GPU G-S1 passed** (2026-11-25, kernel #20 `boot-g1.img` `c53b50c7…`):
+  SPMI (mainline pmif, AP channel 2) + three bare MT6315s (no constraints),
+  read only: CPU big 0.600 V, little 0.71875 V, vgpu 0.750 V on (MFG off),
+  MT6315@3 bucks 0.825 V; 0xa12 0x21e0; console and Wi-Fi up.

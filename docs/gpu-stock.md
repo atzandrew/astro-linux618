@@ -74,6 +74,57 @@ Mainline `mt8192.dtsi` `gpu_opp_table` is a different (Chromebook) bin:
 - vgpu (MT6315@7) and the CPU rails (MT6315@6) cannot be read without an
   SPMI transaction: first read in G-S1.
 
+## G-S1 pre-flash check (2026-11-25) — approved ("yes, go ahead")
+
+1. **Image**: `boot-g1.img` sha256
+   `c53b50c7fc5e5acba6ffecbda5dab41b4ecc5be6ae1880d248ceb4d21bf67a79`
+   (Monolith), kernel **#20** (`Image.gz` `af4f6507…`, DTB `df449428…`).
+   Writes `boot_a`. Module tree staged in `~/mod-k20` (installed as
+   `/lib/modules/6.18.58-astro` before the flash, #19's kept as `.k19`,
+   synced). Changes vs #19: `CONFIG_SPMI=y`, `SPMI_MTK_PMIF=y`,
+   `REGULATOR_MT6315=y` (unmodified mainline, sha256 pinned); DT `&spmi`
+   okay with bare `pmic@6/@7/@3` (`mediatek,mt6315-regulator`, reg only).
+   Guard: sources pinned, children exactly pmic@3/6/7, no child nodes, no
+   `regulator-*`/always-on/boot-on (negative test refused).
+2. **What runs at boot** (audit of the sources):
+   - `spmi-mtk-pmif` probe: maps registers, `clk_bulk_prepare_enable` of
+     `infra_pmic_ap`, `infra_pmic_tmr` (ungated already, also held by
+     pwrap) and `spmi_mst_sel`; assigned parent of `pwrap_ulposc_sel` =
+     `osc_d10`, already live (`CLK_CFG_8 0x03010001`, and pwrap sets the
+     same). **No PMIF register write at probe.** Transactions use software
+     channel 2 (`0xC80`–`0xCA8`) = the stock AP channel (`ap_swinf_no 2`);
+     channel idle (`0x8441`).
+   - `mt6315-regulator` probe (×3): SPMI regmap init, registers vbuck1–4
+     with **no init data** → the regulator core applies no voltage, no
+     mode, no enable; reads only. `regulator_ignore_unused` (cmdline) →
+     nothing is switched off later. No consumer exists (GPU, cpufreq off).
+   - `.shutdown` on a clean reboot/power-off: TMA key 0x9C/0xEA, set
+     `TOP2_ELR7` bit 0 ("power off sequence"), keys 0 — **the same writes
+     as the stock driver** (`CONFIG_REGULATOR_MT6315=y` in the stock
+     defconfig). Watchdog and power-key resets do not run it.
+3. **Rails**: none changed; CPU rails (MT6315@6) and vgpu (MT6315@7) only
+   read. MT6359P untouched (pwrap path unchanged) → 0xa12 stays.
+4. **After boot (read-only)**: `uname -v` #20; dmesg for pmif/mt6315;
+   `/sys/class/regulator/*/{name,microvolts,state}` for all MT6315 bucks
+   (SPMI reads); 0xa12; console, Wi-Fi.
+
+**G-S1 result (2026-11-25): passed.** User flashed `boot-g1.img`, kernel
+#20; no pmif/mt6315 error, "Not disabling unused regulators", 0xa12
+`0x21e0`, console on mediatek-drm, Wi-Fi up. Live rails (SPMI reads via
+sysfs, nothing written):
+
+| PMIC | buck | stock use | µV | state |
+|---|---|---|---|---|
+| MT6315@6 | vbuck1 | CPU big (proc1) | 600000 | on |
+| MT6315@6 | vbuck3 | CPU little (proc2) | 718750 | on |
+| MT6315@7 | vbuck1 | **vgpu** | **750000** | **on** |
+| MT6315@7 | vbuck3, vbuck4 | ? | 750000 | off |
+| MT6315@3 | vbuck1, vbuck3, vbuck4 | ? (to identify) | 825000 | on |
+| all | vbuck2 | phase of vbuck1 | — | off |
+
+vgpu is on at 0.75 V with every MFG domain off; vsram_others 0.75 V. 0.75 V
+is a stock point (855 MHz / 0.75 V / vsram 0.75 V).
+
 ## Staged plan
 
 Each stage with a write has its own pre-flash check and waits for a yes.

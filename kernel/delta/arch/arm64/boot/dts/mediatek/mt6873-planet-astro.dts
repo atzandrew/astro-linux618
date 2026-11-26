@@ -36,6 +36,7 @@
 
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/iio/adc/mediatek,mt6359-auxadc.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -488,8 +489,35 @@
 	status = "disabled";
 };
 
+/*
+ * GPU G-S1 (docs/gpu-stock.md): SPMI (mainline spmi-mtk-pmif, AP software
+ * channel 2 = the stock AP channel) and the three MT6315 bucks PMICs, for
+ * reading only. No regulator constraints on purpose: the regulator core has
+ * nothing to apply, so probe only reads; regulator_ignore_unused keeps every
+ * rail as the bootloader left it. Stock DT: mt6315@6 vbuck1/3 = CPU
+ * (proc1/proc2), mt6315@7 vbuck1 = vgpu, vbuck3/4, mt6315@3 vbuck1/3/4.
+ * The SPMI node's assigned parent for pwrap_ulposc_sel (osc_d10) is the
+ * live one (CLK_CFG_8 = 0x03010001).
+ */
 &spmi {
-	status = "disabled";
+	#address-cells = <2>;
+	#size-cells = <0>;
+	status = "okay";
+
+	mt6315_6: pmic@6 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x6 SPMI_USID>;
+	};
+
+	mt6315_7: pmic@7 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x7 SPMI_USID>;
+	};
+
+	mt6315_3: pmic@3 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x3 SPMI_USID>;
+	};
 };
 
 &gce {

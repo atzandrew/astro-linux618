@@ -74,6 +74,9 @@ AUXADC_SHA=1468d6538002322c80f5847d45e656a728d64036522787d892d524c495342675
 REG6359_SHA=86b9d129c5664aa280fdd7837c7c5bdad96b49096a764bb368b5e1bf97821841
 PMDOM_SHA=5c3bc0d05499bf624ba0dc9f602f81e4f72592719fb5312d38d02efc8b53a04c
 PMDOM8192_SHA=776ce01e0eac0f24a9eb3257b7f13d55af0839410adac69417f6510a0dfe3e6b
+# GPU G-S1: audited SPMI / MT6315 sources (unmodified v6.18.58).
+MT6315_SHA=3c3cfcbf91795a7ecb08fe3f00c9c1ba69d987315f5ce1c6704f97fa733a611a
+PMIF_SHA=8ddb83ad364c2d530f049e974c87f818abb22cac29cd20aa9b05131f22a1201d
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
 PANEL_SHA=b75532375556ced0e99dc121d7908c234fbec9454be2ea7f14d9991946556980
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
@@ -222,9 +225,27 @@ if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 		| grep -q 'MTK_SCPD_KEEP_DEFAULT_OFF' || refuse "CONN domain is not KEEP_DEFAULT_OFF"
 fi
 for c in RTC_DRV_MT6397 SND_SOC_MT6359 \
-	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
+	 SND_SOC_MT6359_ACCDET; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
 done
+# GPU G-S1 (docs/gpu-stock.md): SPMI + MT6315 for reading only. The MT6315s
+# carry the CPU and GPU rails: sources pinned (unmodified mainline, audited:
+# probe only reads, shutdown = the stock driver's power-off-sequence bit),
+# and every MT6315 node must be bare (compatible + reg): no regulator
+# constraint the core could apply.
+SPMI_NODE="$(awk '/^\t\tspmi@10027000 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/regulator/mt6315-regulator.c" | cut -d' ' -f1)" == "$MT6315_SHA" ]] \
+		&& [[ "$(sha256sum < "$ROOT/build/src/drivers/spmi/spmi-mtk-pmif.c" | cut -d' ' -f1)" == "$PMIF_SHA" ]] \
+		|| refuse "mt6315-regulator / spmi-mtk-pmif is not the audited source"
+	[[ -n "$SPMI_NODE" ]] || refuse "SPMI driver without the spmi node"
+	grep -q 'compatible = "mediatek,mt6873-spmi";' <<<"$SPMI_NODE" || refuse "spmi node is not mediatek,mt6873-spmi"
+	KIDS="$(grep -oP '^\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPMI_NODE" | sort | tr '\n' ' ')"
+	[[ "$KIDS" == "pmic@3 pmic@6 pmic@7 " ]] || refuse "spmi children are not exactly pmic@3/6/7: $KIDS"
+	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$SPMI_NODE" && refuse "an MT6315 node has child nodes (regulators?)"
+	grep -qE 'regulator-|always-on|boot-on' <<<"$SPMI_NODE" && refuse "regulator constraints under spmi"
+	[[ "$(grep -c 'compatible = "mediatek,mt6315-regulator";' <<<"$SPMI_NODE")" == 3 ]] || refuse "MT6315 nodes are not the 3 regulator PMICs"
+fi
 # Panel rule (AGENTS.md rule 3), Display Stage 3: mediatek-drm and the
 # SH8802B panel only as modules (blacklisted on the rootfs), and the panel
 # driver pinned to the audited source (stock tables only; any change
