@@ -166,8 +166,17 @@ else
 		REGS_NODE="$(awk '/^\t\t\t\tregulators \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
 		grep -q 'compatible = "mediatek,mt6359-regulator";' <<<"$REGS_NODE" || refuse "regulators is not mediatek,mt6359-regulator"
 		[[ "$(grep -P '^\t\t\t\t\t[a-z][^ ]* \{$' <<<"$REGS_NODE" | tr -d '\t' | sort | tr '\n' ' ')" \
-			== "ldo_vcn13 { ldo_vcn18 { ldo_vcn33_1_bt { ldo_vcn33_1_wifi { ldo_vcn33_2_wifi { " ]] \
-			|| refuse "regulators node describes rails other than the five CONSYS LDOs"
+			== "ldo_vcn13 { ldo_vcn18 { ldo_vcn33_1_bt { ldo_vcn33_1_wifi { ldo_vcn33_2_wifi { ldo_vsram_proc1 { ldo_vsram_proc2 { " ]] \
+			|| refuse "regulators node describes rails other than the five CONSYS LDOs + vsram_proc1/2"
+		# cpufreq C2: the two CPU SRAM rails, exactly the audited constraints
+		for b in ldo_vsram_proc1 ldo_vsram_proc2; do
+			VSP="$(awk -v r="$b" '$0 ~ "^\t\t\t\t\t"r" \\{$"{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$REGS_NODE" \
+				| grep -oP '^\t\t\t\t\t\t\K.*;$' | grep -v '^phandle = ' | tr '\n' '|')"
+			[[ "$VSP" == "regulator-name = \"${b#ldo_}\";|regulator-min-microvolt = <0xb71b0>;|regulator-max-microvolt = <0xdbba0>;|regulator-ramp-delay = <0x1388>;|regulator-always-on;|" ]] \
+				|| refuse "$b constraints are not the audited C2 ones: $VSP"
+		done
+		# the CONSYS rails: everything below applies to them only
+		REGS_NODE="$(awk '/^\t\t\t\t\tldo_vsram_proc[12] \{$/{f=1} !f{print} f&&/^\t\t\t\t\t};$/{f=0}' <<<"$REGS_NODE")"
 		grep -qE 'regulator-(always-on|boot-on)|regulator-initial|regulator-pull-down|regulator-allowed-modes|regulator-over-current|regulator-active-discharge|regulator-ramp' <<<"$REGS_NODE" \
 			&& refuse "regulators node sets something beyond name/min/max"
 		# every property line in a rail: name, min, max, phandle - nothing else
@@ -276,8 +285,10 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 	KIDS="$(grep -oP '^\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPMI_NODE" | sort | tr '\n' ' ')"
 	[[ "$KIDS" == "pmic@3 pmic@6 pmic@7 " ]] || refuse "spmi children are not exactly pmic@3/6/7: $KIDS"
 	# G-S3: MT6315@7 vbuck1 (vgpu) with exactly the audited constraints.
-	# cpufreq C1 (docs/cpufreq-stock.md): MT6315@6 vbuck1/vbuck3 (CPU rails)
-	# with exactly the audited C1 pins (LK's voltages, always on).
+	# cpufreq C2 (docs/cpufreq-stock.md): MT6315@6 vbuck1/vbuck3 (CPU rails)
+	# with exactly the audited C2 constraints (0.600-0.800 V, software ramp
+	# 5 mV/us, always on). dtc prints 800000 (00 0c 35 00) as the string
+	# "", "\f5"; the match below is that exact rendering.
 	# pmic@3 stays bare.
 	PMIC7="$(awk '/^\t\t\tpmic@7 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
 	PMIC6="$(awk '/^\t\t\tpmic@6 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
@@ -290,10 +301,10 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 		VBP="$(awk "/^\t\t\t\t\t$b \{\$/{f=1} f{print} f&&/^\t\t\t\t\t};\$/{exit}" <<<"$PMIC6" \
 			| grep -oP '^\t\t\t\t\t\t\K.*;$' | grep -v '^phandle = ' | tr '\n' '|')"
 		case $b in
-		vbuck1) want='regulator-name = "Vproc_big";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0x927c0>;|regulator-always-on;|' ;;
-		vbuck3) want='regulator-name = "Vproc_little";|regulator-min-microvolt = <0xaf79e>;|regulator-max-microvolt = <0xaf79e>;|regulator-always-on;|' ;;
+		vbuck1) want='regulator-name = "Vproc_big";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = "", "\f5";|regulator-ramp-delay = <0x1388>;|regulator-always-on;|' ;;
+		vbuck3) want='regulator-name = "Vproc_little";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = "", "\f5";|regulator-ramp-delay = <0x1388>;|regulator-always-on;|' ;;
 		esac
-		[[ "$VBP" == "$want" ]] || refuse "CPU rail pmic@6 $b constraints are not the audited C1 ones: $VBP"
+		[[ "$VBP" == "$want" ]] || refuse "CPU rail pmic@6 $b constraints are not the audited C2 ones: $VBP"
 	done
 	[[ "$(grep -oP '^\t\t\t\t\t?\K[a-z0-9]+(?= \{$)' <<<"$PMIC7" | tr '\n' ' ')" == "regulators vbuck1 " ]] \
 		|| refuse "pmic@7 describes more than regulators/vbuck1"

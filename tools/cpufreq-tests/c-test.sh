@@ -1,5 +1,5 @@
 #!/bin/sh
-# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C1 onwards). Run as root.
+# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C2 onwards; C1 = commit e71fd7d). Run as root.
 #   c-test.sh hw            PLL/mux readback of the three CPU clocks + rails
 #   c-test.sh steps         every OPP of both policies (userspace), readback
 #   c-test.sh stress SECS [min]  8 md5 workers at max (or min) OPP, temps
@@ -28,7 +28,7 @@ hw_khz() {
 
 reg() { for r in /sys/class/regulator/regulator.*; do [ "$(cat $r/name)" = $1 ] && echo $r; done; }
 volts() {
-	for n in Vproc_big Vproc_little VSRAM_PROC1 VSRAM_PROC2; do
+	for n in Vproc_big Vproc_little vsram_proc1 vsram_proc2 VSRAM_PROC1 VSRAM_PROC2; do
 		r=$(reg $n); [ -n "$r" ] && printf "%s %s  " $n $(cat $r/microvolts)
 	done
 	echo
@@ -39,18 +39,47 @@ hw() {
 	volts
 }
 
-# C1: rails pinned; fail if they moved
-V_BIG0=600000; V_LIT0=718750
+# Stock FY table voltages (uV) per kHz (docs/cpufreq-stock.md)
+v_little() {
+	case $1 in
+	500000|650000) echo 600000;; 756000) echo 625000;; 862000) echo 643750;;
+	968000) echo 668750;; 1075000) echo 693750;; 1181000) echo 712500;;
+	1358000) echo 750000;; 1500000) echo 781250;; 1541000) echo 800000;;
+	*) echo 0;;
+	esac
+}
+v_big() {
+	case $1 in
+	774000) echo 600000;; 841000) echo 618750;; 925000) echo 637500;;
+	1008000) echo 656250;; 1091000) echo 675000;; 1175000) echo 700000;;
+	1258000) echo 718750;; 1383000) echo 750000;; 1548000) echo 800000;;
+	*) echo 0;;
+	esac
+}
+clampc() { v=$1; [ $v -lt $2 ] && v=$2; [ $v -gt $3 ] && v=$3; echo $v; }
+# C2: no CCI driver, so mediatek-cpufreq keeps each rail >= its boot value
+V_BOOT_BIG=600000; V_BOOT_LIT=718750
+# Vproc = max(table, boot), Vsram = clamp(Vproc + 100 mV, 0.75, 1.0) V.
+# Empty output = OK. Only valid while nothing moves (steps).
 check_pins() {
+	f0=$(cat $CF/policy0/cpuinfo_cur_freq); f4=$(cat $CF/policy4/cpuinfo_cur_freq)
+	# cpuinfo can read 1 kHz low: round to the table's whole MHz
+	f0=$(( (f0 + 500) / 1000 * 1000 )); f4=$(( (f4 + 500) / 1000 * 1000 ))
+	eb=$(v_big $f4); [ $eb -lt $V_BOOT_BIG ] && eb=$V_BOOT_BIG
+	el=$(v_little $f0); [ $el -lt $V_BOOT_LIT ] && el=$V_BOOT_LIT
 	b=$(cat $(reg Vproc_big)/microvolts); l=$(cat $(reg Vproc_little)/microvolts)
-	[ $b = $V_BIG0 ] || echo "FAIL Vproc_big $b want $V_BIG0"
-	[ $l = $V_LIT0 ] || echo "FAIL Vproc_little $l want $V_LIT0"
+	s1=$(cat $(reg vsram_proc1)/microvolts); s2=$(cat $(reg vsram_proc2)/microvolts)
+	[ $b = $eb ] || echo "FAIL Vproc_big $b want $eb"
+	[ $l = $el ] || echo "FAIL Vproc_little $l want $el"
+	w=$(clampc $((b + 100000)) 750000 1000000); [ $s1 = $w ] || echo "FAIL vsram_proc1 $s1 want $w"
+	w=$(clampc $((l + 100000)) 750000 1000000); [ $s2 = $w ] || echo "FAIL vsram_proc2 $s2 want $w"
 }
 
 steps() {
 	cci0=$(hw_khz CCI)
 	for p in 0 4; do
 		echo userspace > $CF/policy$p/scaling_governor || { echo "FAIL governor"; return 1; }
+		cat $CF/policy$p/scaling_min_freq > $CF/policy$p/scaling_setspeed
 	done
 	for p in 0 4; do
 		pol=$CF/policy$p
@@ -99,7 +128,7 @@ stress() {
 	while [ $(date +%s) -lt $end ]; do
 		sleep 10
 		t=$(for z in /sys/class/thermal/thermal_zone*; do cat $z/temp; done | sort -n | tail -1)
-		echo "$(date +%T) max-temp $t $(hw) $(check_pins)"
+		echo "$(date +%T) max-temp $t $(hw)"
 	done
 	wait
 	for p in 0 4; do echo schedutil > $CF/policy$p/scaling_governor; done

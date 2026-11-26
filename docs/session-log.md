@@ -1444,4 +1444,10 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   0x21e0, policy0 500-1181 MHz, policy4 774 MHz, steps 8/8, stress max
   and min with 0 md5 mismatches, stock post dividers. #23 modules kept as
   `.k23`. Next: C2 (VSRAM supplies, Vproc constraints opened, A76 range).
+- C2 (DTB only on #24, `boot-c2.img` `cb497ad7…`): Vproc 0.600-0.800 V
+  following the stock table, VSRAM_PROC1/2 tracked (+100 mV), A55
+  500-1541 MHz, A76 774-1548 MHz. **PASS**: 0xa12 0x21e0, steps 19/19,
+  vfcheck 0 samples under the stock voltage (2 x 40000 under schedutil),
+  stress max/min 0 md5 mismatches, peak 50.7 °C. Rollback: boot-c1.img.
+  Next: C3 (CCI devfreq + stock CCI pairing), then C4 (to 2.0 GHz).
 

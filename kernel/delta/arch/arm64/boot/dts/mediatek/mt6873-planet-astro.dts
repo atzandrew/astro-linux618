@@ -462,6 +462,31 @@
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3500000>;
 			};
+
+			/*
+			 * cpufreq C2: the CPU SRAM rails (stock DT vsram_proc1 =
+			 * A76, vsram_proc2 = A55/CCI; no hardware tracking on the
+			 * MT6359P, stock sets them in software). mediatek-cpufreq
+			 * keeps Vsram = Vproc + 100 mV, floor 0.75 V. Range up to
+			 * the C2 need (0.800 + 0.100 V); LK's 0.750 / 0.81875 V lie
+			 * inside: nothing written at registration. VOSEL 0x1b44 /
+			 * 0x1b46, EN 0x1e88 / 0x1ea8: nowhere near STRUP_CON12.
+			 */
+			mt6359_vsram_proc1_ldo_reg: ldo_vsram_proc1 {
+				regulator-name = "vsram_proc1";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <900000>;
+				regulator-ramp-delay = <5000>;
+				regulator-always-on;
+			};
+
+			mt6359_vsram_proc2_ldo_reg: ldo_vsram_proc2 {
+				regulator-name = "vsram_proc2";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <900000>;
+				regulator-ramp-delay = <5000>;
+				regulator-always-on;
+			};
 		};
 
 		keys {
@@ -520,25 +545,29 @@
 		reg = <0x6 SPMI_USID>;
 
 		/*
-		 * cpufreq C1 (docs/cpufreq-stock.md): the CPU rails (stock DT
+		 * cpufreq C2 (docs/cpufreq-stock.md): the CPU rails (stock DT
 		 * 6_vbuck1 = proc1 = A76 cluster, 6_vbuck3 = proc2 = A55
-		 * cluster + CCI), pinned at the voltages LK leaves (read
-		 * 2026-11-26: 0.600 V, 0.71875 V). The regulator core applies
-		 * the pin once at registration (same value). Always on: no
-		 * Linux path may switch a CPU rail off.
+		 * cluster + CCI). Range 0.600-0.800 V: the stock floor up to
+		 * the C2 ceiling; LK's 0.600 / 0.71875 V lie inside, so the
+		 * regulator core writes nothing at registration. Ramp 5 mV/us
+		 * = the stock down rate (up is 12.5 mV/us): software wait only
+		 * (the MT6315 driver has no ramp setting). Always on: no Linux
+		 * path may switch a CPU rail off.
 		 */
 		regulators {
 			mt6315_6_vbuck1: vbuck1 {
 				regulator-name = "Vproc_big";
 				regulator-min-microvolt = <600000>;
-				regulator-max-microvolt = <600000>;
+				regulator-max-microvolt = <800000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
 			mt6315_6_vbuck3: vbuck3 {
 				regulator-name = "Vproc_little";
-				regulator-min-microvolt = <718750>;
-				regulator-max-microvolt = <718750>;
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <800000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 		};
@@ -1368,11 +1397,10 @@
  * table). Clock: ARMPLL -> MCUSYS mux -> cluster, 26 MHz as the parking
  * parent while the PLL relocks (mainpll is 2184 MHz here).
  *
- * C1: frequency only. The proc rails stay pinned at LK's voltages, so each
- * table lists only the stock OPPs that need no more than that voltage:
- * A55 500-1181 MHz (<= 0.7125 V on a 0.71875 V rail), A76 774 MHz (the
- * LK rate, 0.600 V). No sram supply (no voltage change), CCI node without
- * a driver: mediatek-cpufreq then never drops Vproc below its boot value.
+ * C2: Vproc and Vsram follow the stock table up to 0.800 V: A55 500-1541
+ * MHz, A76 774-1548 MHz. The CCI still has no driver, so mediatek-cpufreq
+ * never drops a rail below its boot value (A55/CCI rail >= LK's 0.71875 V,
+ * which covers the CCI's 730 MHz = 0.650 V).
  */
 &apmixedsys {
 	compatible = "mediatek,mt6873-apmixedsys", "mediatek,mt8192-apmixedsys",
@@ -1426,6 +1454,18 @@
 			opp-hz = /bits/ 64 <1181000000>;
 			opp-microvolt = <712500>;
 		};
+		opp-1358000000 {
+			opp-hz = /bits/ 64 <1358000000>;
+			opp-microvolt = <750000>;
+		};
+		opp-1500000000 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <781250>;
+		};
+		opp-1541000000 {
+			opp-hz = /bits/ 64 <1541000000>;
+			opp-microvolt = <800000>;
+		};
 	};
 
 	cluster1_opp: opp-table-cluster1 {
@@ -1436,6 +1476,38 @@
 			opp-hz = /bits/ 64 <774000000>;
 			opp-microvolt = <600000>;
 		};
+		opp-841000000 {
+			opp-hz = /bits/ 64 <841000000>;
+			opp-microvolt = <618750>;
+		};
+		opp-925000000 {
+			opp-hz = /bits/ 64 <925000000>;
+			opp-microvolt = <637500>;
+		};
+		opp-1008000000 {
+			opp-hz = /bits/ 64 <1008000000>;
+			opp-microvolt = <656250>;
+		};
+		opp-1091000000 {
+			opp-hz = /bits/ 64 <1091000000>;
+			opp-microvolt = <675000>;
+		};
+		opp-1175000000 {
+			opp-hz = /bits/ 64 <1175000000>;
+			opp-microvolt = <700000>;
+		};
+		opp-1258000000 {
+			opp-hz = /bits/ 64 <1258000000>;
+			opp-microvolt = <718750>;
+		};
+		opp-1383000000 {
+			opp-hz = /bits/ 64 <1383000000>;
+			opp-microvolt = <750000>;
+		};
+		opp-1548000000 {
+			opp-hz = /bits/ 64 <1548000000>;
+			opp-microvolt = <800000>;
+		};
 	};
 };
 
@@ -1444,6 +1516,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster0_opp>;
 	proc-supply = <&mt6315_6_vbuck3>;
+	sram-supply = <&mt6359_vsram_proc2_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1452,6 +1525,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster0_opp>;
 	proc-supply = <&mt6315_6_vbuck3>;
+	sram-supply = <&mt6359_vsram_proc2_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1460,6 +1534,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster0_opp>;
 	proc-supply = <&mt6315_6_vbuck3>;
+	sram-supply = <&mt6359_vsram_proc2_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1468,6 +1543,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster0_opp>;
 	proc-supply = <&mt6315_6_vbuck3>;
+	sram-supply = <&mt6359_vsram_proc2_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1476,6 +1552,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster1_opp>;
 	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6359_vsram_proc1_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1484,6 +1561,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster1_opp>;
 	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6359_vsram_proc1_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1492,6 +1570,7 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster1_opp>;
 	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6359_vsram_proc1_ldo_reg>;
 	mediatek,cci = <&cci>;
 };
 
@@ -1500,5 +1579,6 @@
 	clock-names = "cpu", "intermediate";
 	operating-points-v2 = <&cluster1_opp>;
 	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6359_vsram_proc1_ldo_reg>;
 	mediatek,cci = <&cci>;
 };

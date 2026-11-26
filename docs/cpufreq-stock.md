@@ -149,3 +149,63 @@ Stages (as the Cosmo C1-C4):
 - Side note: one `mt-pmic-pwrap: unexpected interrupt int=0x20` at 82 s,
   before cpufreq loaded; it coincided with reading 0xa12 through the
   whole-map regmap debugfs dump. Read single registers next time.
+
+## C2 pre-flash check (boot-c2.img, DTB only on kernel #24)
+
+- Image: `out/boot-c2.img` `cb497ad7…6df4`, DTB `0d8a02c5…9b98`, Image.gz
+  unchanged (`6138a975…`, kernel #24, modules as installed).
+- Change, DTS only:
+  - MT6315@6 vbuck1/vbuck3: 0.600-0.800 V (was pinned), software ramp
+    5 mV/us, always on.
+  - MT6359P ldo_vsram_proc1/2: new nodes, 0.750-0.900 V, ramp 5 mV/us,
+    always on; `sram-supply` on CPU0-3 (vsram_proc2) and CPU4-7
+    (vsram_proc1). mediatek-cpufreq tracks Vsram = Vproc + 100 mV (floor
+    0.75 V, at most 250 mV apart) = the stock rule.
+  - OPPs: every FY point up to 0.800 V. A55 500-1541 MHz (adds 1358 /
+    1500 / 1541), A76 774-1548 MHz (adds 841-1548).
+- Risk flags: **first CPU-rail voltage changes** (up to 0.800 V on Vproc,
+  0.900 V on Vsram), new MT6359P regulator constraints (two LDOs). No PMIC
+  keys, watchdog, reset path, display or config change.
+- PMIC writes at boot: none (LK's 0.600 / 0.71875 / 0.750 / 0.81875 V are
+  inside every range, both SRAM LDOs already on). Writes start only after
+  `modprobe mediatek-cpufreq`, through the regulator API: Vproc via SPMI
+  (MT6315@6 vbuck1/3), Vsram via pwrap at VOSEL 0x1b44 / 0x1b46 (MT6359P,
+  far from STRUP_CON12 0xa12).
+- Highest new pairs: A76 1548 MHz at 0.800 V / Vsram 0.900 V, A55 1541 MHz
+  at 0.800 V / 0.900 V (stock values, unadjusted by EEM). The A55/CCI rail
+  never drops below LK's 0.71875 V (no CCI driver yet), which also covers
+  the CCI at 730 MHz (0.650 V).
+- Guard: `build-boot-img.sh` accepts exactly these constraints on pmic@6
+  and the two vsram nodes; checked with a 0.825 V variant (refused).
+- Escapes: power-key reset and watchdog observed, paths unchanged; a CPU
+  fault at a too-low voltage ends in the watchdog reset. After the flash:
+  0xa12 (single-register read).
+- Test (`c-test.sh`, C2 version): boot → rails at LK's values, no
+  regulator errors; `modprobe` → policy0 10 OPPs, policy4 9 OPPs; `steps`
+  (other cluster at its minimum): PLL readback, Vproc = max(table, boot),
+  Vsram = Vproc + 100 mV at every OPP; `stress 120` at max with
+  temperatures; `stress 60 min`. Fail: any hang/reset, any FAIL line.
+- Rollback: `mtk w boot_a boot-c1.img` (same kernel and modules).
+
+### C2 result: PASS (2026-11-26, boot-c2.img `cb497ad7…`, kernel #24)
+
+- Boot: 0xa12 0x21e0 (single-register read: `dd bs=11 skip=1289 count=1`
+  on the pwrap regmap debugfs; no pwrap interrupt message this time), rails
+  at LK's 0.600 / 0.71875 / 0.750 / 0.81875 V, no regulator errors.
+- `modprobe`: policy0 10 OPPs (500-1541 MHz), policy4 9 OPPs (774-1548).
+- steps: 19/19 PASS. Vproc = max(stock table, boot value) and Vsram =
+  Vproc + 100 mV at every OPP (e.g. A76 1548 MHz: 0.800 / 0.900 V; A55
+  1541 MHz: 0.800 / 0.900 V; A55 below 1181 MHz stays at the 0.71875 V
+  boot floor).
+- Shell sampling right after switching back to schedutil showed A76 PLL
+  1008 MHz next to 0.600 V: the sampler's own process spawning loaded the
+  A76 cores (reads milliseconds apart). Checked with `vfcheck` (static C
+  sampler, /dev/mem + sysfs, Vproc / PLL / Vproc within microseconds),
+  pinned to the other cluster, schedutil with bursty load (`vfrun.sh`):
+  40000 samples per cluster, **0 samples under the stock voltage**, every
+  OPP visited (A76 774-1548, A55 500-1541 MHz), mux always ARMPLL /1.
+- stress 120 at max (1541 / 1548 MHz, 0.800 V, Vsram 0.900 V): 0 md5
+  mismatches, runs 914-928 (A55) / 1638-1674 (A76) vs C1's 726-732 /
+  859-867; peak 50.7 °C. stress 60 at min: 0 mismatches.
+- No kernel ftrace in #24 (CONFIG_FTRACE off); worth enabling at the next
+  kernel build for the CCI stage.
