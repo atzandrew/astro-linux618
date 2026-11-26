@@ -169,3 +169,20 @@ costs 4x on this GPU (9.99 vs 2.38 ms for 4 full-screen layers).
   15.87 ms "TE" period measured earlier was the back-to-back transfer time
   (15.86 ms), not the panel refresh, and the 63.00 Hz mode (HFP 21) rests on
   that misreading. Vendor vrefresh: 60.
+
+## TE on the SH8802B: follows our frames (correction, 2026-11-26)
+
+- Tried TE sync (mtk_dsi: wait for EXT_TE_RDY before DSI_START, as the
+  vendor GCE wait): every wait hit its 40 ms timeout (greeter frames 15.9 +
+  40 = 56 ms apart). Removed again (mtk_dsi.c back to #26).
+- `tools/frame-pacing/tetime.c` (clears DSI_INTSTA bit 4, polls 0.5 ms):
+  idle panel: one TE edge per **500 ms** (2 Hz self-refresh); frames
+  flowing back to back: TE every 15.5-16.6 ms; frames every ~40 ms (slow
+  pointer, `ftslow.py`): TE intervals = frame intervals one for one (42 /
+  35.9 / 42 ... vs 42.4 / 35.1 / 42.3 ...). The panel refreshes when a frame
+  arrives and signals TE for that refresh; there is no free-running refresh
+  to wait for.
+- So the earlier "no TE sync" concern does not apply to this panel: the
+  15.87 ms period is the transfer-limited refresh (63 Hz) and the #26 mode
+  (63.00 Hz) stands. Menu intervals of 22-24 ms come from KWin's per-frame
+  GPU cost (colour-management shader), not from missing TE.
