@@ -1175,3 +1175,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   tx bitrate 468 Mbit/s, DHCP v4 + v6, DNS ok, 0 % loss to the internet;
   SSH works directly over Wi-Fi. (gemini-debian Astro target needs that
   NM snippet.)
+- **Wi-Fi at boot** (gemini-debian `astro-wifi.service`, 2026-11-25):
+  firmware from vendor_a inside super (shell LP-metadata reader: extent
+  1702887424 + 550895616 bytes = the lpunpack reference; read-only loop,
+  ro=1, debugfs), NVRAM WIFI + BT_Addr from nvdata into
+  /mnt/vendor/nvdata. Reboot test with the hand-copied firmware moved
+  away: all 7 files + 2 records extracted, byte-identical; wlan0 up in
+  4.5 s; NM reconnected; SSH over Wi-Fi ~20 s after reboot; 0xa12 =
+  0x21e0. Stage-A regulator blacklist removed.
