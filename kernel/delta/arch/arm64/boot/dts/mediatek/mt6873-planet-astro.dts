@@ -481,7 +481,7 @@
  * First-boot scope (docs/session-log.md 2026-11-25): mt8192.dtsi leaves
  * these enabled, but none is wanted yet. Display, multimedia, IOMMU and
  * GCE belong to LK's display path (panel rule); SPMI is the MT6315 path;
- * performance-controller, SVS, LVTS, efuse and PCIe are MT8192 nodes the
+ * performance-controller, SVS and PCIe are MT8192 nodes the
  * vendor MT6873 DT does not have (unverified on this SoC). Clock
  * providers stay: they only register clocks (clk_ignore_unused).
  */
@@ -524,12 +524,20 @@
 	status = "disabled";
 };
 
+/*
+ * Thermal T-S1 (docs/thermal-stock.md): mainline LVTS with the MT6873
+ * vendor sequence (lvts_thermal.c delta, compatibles mediatek,mt6873-lvts-*).
+ * Same blocks, sensors and efuse calibration as the vendor DT's therm_ctrl;
+ * the mt8192.dtsi thermal zones (passive 85 C, critical 100 C) apply.
+ */
 &lvts_ap {
-	status = "disabled";
+	compatible = "mediatek,mt6873-lvts-ap";
+	status = "okay";
 };
 
 &lvts_mcu {
-	status = "disabled";
+	compatible = "mediatek,mt6873-lvts-mcu";
+	status = "okay";
 };
 
 &svs {
@@ -540,8 +548,9 @@
 	status = "disabled";
 };
 
+/* Read-only (mtk-efuse has no write op): LVTS calibration at 0x1c0. */
 &efuse {
-	status = "disabled";
+	status = "okay";
 };
 
 /*

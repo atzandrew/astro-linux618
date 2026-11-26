@@ -90,6 +90,11 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   kmscube ~59 fps on the panel. Test tip: modetest/kmscube exit on stdin
   EOF — run `sleep N | timeout N kmscube …` over SSH. Next: G-S3 (stock
   OPP table, devfreq, vsram rule), then Plasma.
+  **Thermal T-S1 done (2026-11-25, `docs/thermal-stock.md`)**: mainline
+  LVTS with the MT6873 stock sequence (module, blacklisted, `modprobe
+  lvts_thermal`), 17 zones, passive 85 °C / critical 100 °C; no HW
+  thermal reset yet (stock 117 °C via TOPRGU, optional later). G-S3
+  research is in `docs/gpu-stock.md` (stock top 748 MHz on MT6873).
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive

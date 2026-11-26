@@ -197,6 +197,55 @@ is a stock point (855 MHz / 0.75 V / vsram 0.75 V).
 - modetest `-v` page flips: 62.89 Hz. `mediatek_drm.cmd_debug=1` logs
   each command-mode trigger and frame-done (off by default).
 
+## G-S3 research (2026-11-25, no writes)
+
+- **Segment table = 1.** The stock log's `segment_table: 14` is log
+  damage (expdb has stray bytes elsewhere: `initializedz`, `malib6v>`).
+  The shipped kernel (`backup/boot_a.kernel`, decompressed) holds both
+  tables byte for byte as in the source (table 1 at 0x1a2c0f8, table 2 at
+  0x1a2c404), its format string is `segment_table: %d`, and the source maps
+  efuse(69)[5:4] = 0x0 (logged) to table 1.
+- **MT6873 top = OPP 17**: `__mt_gpufreq_init_table` sets
+  `g_segment_max_opp_idx = 17` for `MT6873_SEGMENT` (12 for MT6875, 4 for
+  MT6875T). Stock range on this chip: **748 MHz / 0.69375 V down to
+  358 MHz / 0.5625 V, 22 points** (table 1, idx 17–38). 950 MHz is never
+  used here.
+- **vsram stays 0.75 V** over that whole range (rule: vgpu ≤ 0.75 V →
+  vsram 0.75 V). Only vgpu moves; no coupling needed.
+- **Stock DVFS order** (`__mt_gpufreq_volt_switch`, `_clock_switch`):
+  rising: vsram, vgpu, settle, then clock; falling: clock, then vgpu,
+  vsram, settle. Settle = Δ/12.5 mV/µs + 9 µs rising, Δ/5 mV/µs + 9 µs
+  falling (max over our range: 36 µs). Clock change parks `clk_mux` on the
+  sub parent, writes MFGPLL_CON1 (posdiv + PCW, CHG bit), 20 µs, back to
+  main (FHCTL not used for a posdiv change).
+- **Stock power-down** (`mt_gpufreq_power_control`): CG off → MTCMOS
+  MFG6…MFG0 off → vgpu off → vsram off; power-up the reverse. Enable ramps
+  in the stock DT: vgpu (7_vbuck1) 256 µs, vsram_others 240 µs. The GPU is
+  the only consumer of both in the stock DT.
+- **Mainline equivalents**:
+  - panfrost devfreq → OPP core: voltage before a rate rise, after a rate
+    fall (same order). Initial OPP at probe = current rate (358 MHz) → vgpu
+    0.75 → 0.5625 V, as the stock driver does at probe.
+  - MFGPLL rate: `mtk_pll_calc_values` picks /8 at 358 MHz and /4 from
+    378 MHz (fmin 1.5 GHz), same as stock. PCW identical or 1 LSB lower
+    (≤ 0.4 kHz below stock, never above); the live CON1 `0x031B89D8` is
+    already the mainline value. CHG bit + 20 µs, as stock. The mt8192 mux
+    notifier parks `mfg_pll_sel` on `mfg_ref_sel` during the change (stock
+    parking). No FHCTL node, so no hopping.
+  - MT6315 regulator: same registers as stock (enable `BUCK_TOP_CON0`
+    bit 0, VOSEL `BUCK_TOP_ELR0`), 6.25 mV steps; all 22 voltages are
+    exact steps. The driver has no ramp; `regulator-settling-time-us = 40`
+    covers every stock wait (max 36 µs).
+    `regulator-enable-ramp-delay = 256` as stock.
+  - vgpu off at idle in stock order: `domain-supply` on MFG0 (as Asurada)
+    → genpd turns vgpu off after MFG0 is off and on before MFG0.
+    panfrost's `GPU_PM_VREG_OFF` only drops its own reference.
+  - Constraints 0.5625–0.75 V include the live 0.75 V, so no write at
+    regulator registration; no modes, no always-on.
+- **No SoC thermal in our kernel**: the only zone is the battery ADC. The
+  stock driver throttles the GPU; mainline mt8192 has LVTS with a
+  gpu-thermal zone (passive 85 °C, critical 100 °C), not enabled here.
+
 ## Staged plan
 
 Each stage with a write has its own pre-flash check and waits for a yes.

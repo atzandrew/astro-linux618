@@ -1362,3 +1362,13 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   mediatek-drm `66274443…`. kmscube ~59 fps, smooth for 15 s (user
   watched); modetest 62.89 Hz; 0xa12 0x21e0. Next: G-S3 (stock OPP table,
   devfreq, vsram rule), then Plasma.
+- **Thermal T-S1 passed** (2026-11-25, kernel #22 `boot-t1.img`
+  `fac89f85…`, `docs/thermal-stock.md`): G-S3 research found the MT6873
+  GPU range 358–748 MHz (OPP 17–38, table 1; the logged "14" is log
+  damage), vsram fixed 0.75 V, but no SoC thermal; user chose thermal
+  first. Mainline LVTS + an MT6873 variant with the stock device commands
+  and sampling (mainline's mt8192 values differ); efuse read-only. All
+  controller registers = stock values; read path changed to the vendor's
+  (last filtered value) after 12–55 % valid-bit misses. 17 zones
+  28.6–30.6 °C idle, CPU +3.5 °C under 30 s all-core load. 0xa12 0x21e0.
+  lvts_thermal blacklisted, loaded by hand. Next: G-S3 pre-flash check.

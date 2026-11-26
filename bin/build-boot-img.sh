@@ -79,6 +79,8 @@ MT6315_SHA=3c3cfcbf91795a7ecb08fe3f00c9c1ba69d987315f5ce1c6704f97fa733a611a
 PMIF_SHA=8ddb83ad364c2d530f049e974c87f818abb22cac29cd20aa9b05131f22a1201d
 # GPU G-S2: audited panfrost core-mask delta.
 PANFROST_GPU_SHA=861feb65c26bfefd4ad196e1e8ad4854ae342cd453bb58e401ae658368a50e20
+# Thermal T-S1: audited LVTS delta (MT6873 vendor sequence).
+LVTS_SHA=de9e97ac7450d4edccd0af06010a67c9ae9df5679b4cf1dab815ea8ab83572fd
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
 PANEL_SHA=b75532375556ced0e99dc121d7908c234fbec9454be2ea7f14d9991946556980
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
@@ -264,6 +266,26 @@ if grep -qE '^CONFIG_DRM_PANFROST=m' "$KCONF"; then
 	grep -qE 'operating-points|mali-supply|sram-supply' <<<"$GPU_NODE" && refuse "GPU node can change rails or rates"
 	grep -q 'mediatek,shader-core-mask = <0x00 0x50005>;' <<<"$GPU_NODE" || refuse "GPU node without the stock 4-core mask"
 fi
+# Thermal T-S1: LVTS only as a module, pinned to the audited MT6873 delta;
+# both LVTS nodes only with the MT6873 compatibles; SVS (writes CPU/GPU
+# voltage margins) and the old AUXADC thermal driver stay off.
+grep -qE '^CONFIG_MTK_LVTS_THERMAL=y' "$KCONF" && refuse "MTK_LVTS_THERMAL built in (module only)"
+grep -qE '^CONFIG_MTK_SVS=[ym]' "$KCONF" && refuse "MTK_SVS enabled"
+grep -qE '^CONFIG_MTK_SOC_THERMAL=[ym]' "$KCONF" && refuse "MTK_SOC_THERMAL enabled"
+LVTS_AP_NODE="$(awk '/^\t\tthermal-sensor@1100b000 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+LVTS_MCU_NODE="$(awk '/^\t\tthermal-sensor@11278000 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+SVS_NODE="$(awk '/^\t\tsvs@1100bc00 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+grep -q 'status = "okay";' <<<"$SVS_NODE" && refuse "SVS node enabled"
+if grep -qE '^CONFIG_MTK_LVTS_THERMAL=m' "$KCONF"; then
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/thermal/mediatek/lvts_thermal.c" | cut -d' ' -f1)" == "$LVTS_SHA" ]] \
+		|| refuse "lvts_thermal.c is not the audited MT6873 delta"
+	grep -q 'compatible = "mediatek,mt6873-lvts-ap";' <<<"$LVTS_AP_NODE" || refuse "LVTS AP node is not mt6873"
+	grep -q 'compatible = "mediatek,mt6873-lvts-mcu";' <<<"$LVTS_MCU_NODE" || refuse "LVTS MCU node is not mt6873"
+fi
+for n in "$LVTS_AP_NODE" "$LVTS_MCU_NODE"; do
+	grep -q 'status = "okay";' <<<"$n" && ! grep -qE '^CONFIG_MTK_LVTS_THERMAL=m' "$KCONF" \
+		&& refuse "LVTS node enabled without the audited module"
+done
 # Panel rule (AGENTS.md rule 3), Display Stage 3: mediatek-drm and the
 # SH8802B panel only as modules (blacklisted on the rootfs), and the panel
 # driver pinned to the audited source (stock tables only; any change
