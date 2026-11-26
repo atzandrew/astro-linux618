@@ -82,7 +82,7 @@ PANFROST_GPU_SHA=861feb65c26bfefd4ad196e1e8ad4854ae342cd453bb58e401ae658368a50e2
 # Thermal T-S1: audited LVTS delta (MT6873 vendor sequence).
 LVTS_SHA=de9e97ac7450d4edccd0af06010a67c9ae9df5679b4cf1dab815ea8ab83572fd
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
-PANEL_SHA=b75532375556ced0e99dc121d7908c234fbec9454be2ea7f14d9991946556980
+PANEL_SHA=94de3f0a960ce13134483a77ad5607649bc0511651fad126a016f94198b7c702
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts

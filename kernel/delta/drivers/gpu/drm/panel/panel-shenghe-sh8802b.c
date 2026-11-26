@@ -49,6 +49,8 @@ struct sh8802b {
 	bool bootloader_on;
 	/* between enable and disable: brightness commands may be sent */
 	bool lit;
+	/* mounting, from the DT "rotation" property */
+	enum drm_panel_orientation orientation;
 };
 
 static inline struct sh8802b *to_sh8802b(struct drm_panel *panel)
@@ -615,12 +617,18 @@ static int sh8802b_get_modes(struct drm_panel *panel,
 	return drm_connector_helper_get_modes_fixed(connector, &sh8802b_mode);
 }
 
+static enum drm_panel_orientation sh8802b_get_orientation(struct drm_panel *panel)
+{
+	return to_sh8802b(panel)->orientation;
+}
+
 static const struct drm_panel_funcs sh8802b_panel_funcs = {
 	.prepare = sh8802b_prepare,
 	.unprepare = sh8802b_unprepare,
 	.enable = sh8802b_enable,
 	.disable = sh8802b_disable,
 	.get_modes = sh8802b_get_modes,
+	.get_orientation = sh8802b_get_orientation,
 };
 
 static int sh8802b_bl_update_status(struct backlight_device *bl)
@@ -669,6 +677,10 @@ static int sh8802b_probe(struct mipi_dsi_device *dsi)
 			return dev_err_probe(dev, PTR_ERR(ctx->bias_gpio[i]),
 					     "failed to get bias gpio %d\n", i);
 	}
+
+	ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
+	if (ret)
+		return dev_err_probe(dev, ret, "invalid rotation\n");
 
 	ctx->dsi = dsi;
 	ctx->bootloader_on = true;

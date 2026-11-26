@@ -101,7 +101,11 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   **GPU G-S3 done (2026-11-25)**: panfrost devfreq over the 22 stock
   points (358–748 MHz, vgpu 0.5625–0.69375 V), GPU thermal throttling;
   vgpu does not yet switch off at idle (sync_state, see gpu-stock.md).
-  Next: Plasma on panfrost.
+  **Desktop P1 done (2026-11-25, `docs/desktop.md`)**: Plasma 6 Wayland
+  on panfrost, landscape via the panel orientation property, powerdevil
+  dim 30 s / off 60 s; started by hand (`startplasma-wayland` on tty1),
+  keyboard only. Next candidates: touchscreen, login manager, vgpu
+  idle-off.
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive

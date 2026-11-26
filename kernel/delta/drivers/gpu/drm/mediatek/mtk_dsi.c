@@ -1198,6 +1198,11 @@ static int mtk_dsi_encoder_init(struct drm_device *drm, struct mtk_dsi *dsi)
 	}
 	drm_connector_attach_encoder(dsi->connector, &dsi->encoder);
 
+	/* panel mounting (DT "rotation") for fbcon and compositors */
+	if (dsi->panel)
+		drm_connector_set_orientation_from_panel(dsi->connector,
+							 dsi->panel);
+
 	return 0;
 
 err_cleanup_encoder:

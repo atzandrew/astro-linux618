@@ -1383,3 +1383,9 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   Correction (same day): the first G-S3 kmscube runs never started (card
   path `.1.auto` vs `.2.auto`); rerun with the path looked up: 748 MHz
   ~60 fps for 22 s and the full sweep under load, user saw the cube.
+- **Desktop P1 passed** (2026-11-25, `boot-p1.img` `8a58efbc…`,
+  `docs/desktop.md`): panel orientation from the DT (`rotation = <90>`,
+  panel get_orientation + mtk_dsi connector property), Plasma 6.3.6
+  installed, panfrost and lvts_thermal load at boot. startplasma-wayland
+  on tty1: landscape, rendering on panfrost, dim 30 s / off 60 s / wake /
+  logout all fine (user). Keyboard only for now (no touchscreen driver).

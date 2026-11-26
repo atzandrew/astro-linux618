@@ -666,6 +666,11 @@
 		/* stock dtbo panel2@0: reset-gpios GPIO42, bias-gpios GPIO87, GPIO88 */
 		reset-gpios = <&pio 42 GPIO_ACTIVE_LOW>;
 		bias-gpios = <&pio 87 GPIO_ACTIVE_HIGH>, <&pio 88 GPIO_ACTIVE_HIGH>;
+		/*
+		 * Desktop P1: mounted so that the landscape (keyboard) view is
+		 * the panel turned 90 degrees (fbcon=rotate:1 = FB_ROTATE_CW).
+		 */
+		rotation = <90>;
 
 		port {
 			panel_in: endpoint {
