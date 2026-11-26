@@ -1338,3 +1338,14 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   never produced commits, so the command-mode panel froze after a wake
   (module ec1a2330). User: console, 60 s blank, keypress wake, typing, and
   blank while logged in all work.
+- **Stage 5b guard** (2026-11-25, mediatek-drm 01e12d0b): command-mode
+  idle-off guard in mtk_dsi (`mediatek_drm.idle_off_s`, default 600 s):
+  no frame for N s while enabled -> panel driver disable+unprepare (stock
+  off); next frame -> stock screen-on first. Test with N = 20, cursor
+  blink off: off at 48 s (GPIO42 low, bl_power 4), keypress at 92 s ->
+  screen-on, power mode 0x9C, TXRX 0x1023C; user at the login prompt.
+  Defaults restored. Next: cma=256M on the cmdline (boot image).
+- **Stage 5b done** (2026-11-25): user flashed `boot-d5b.img` `c81d2e19…`
+  (kernel #19, + `cma=256M`): CmaTotal 262144 kB (243 MiB free after the
+  console fb), console on mediatek-drm, power mode 0x9C, Wi-Fi up, 0xa12
+  0x21e0. mediatek-drm 0aa9ec9c (guard, log fix) installed.

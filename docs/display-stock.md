@@ -726,6 +726,22 @@ gone). Frames ~5/s with the cursor blink.
 Open for Stage 5b: hang-proof off path (R5) before unattended use, CMA
 (32 MiB) or IOMMU for a desktop, KDE screen-off (DPMS), then panfrost.
 
+**Stage 5b (2026-11-25).**
+- Idle-off guard (`mediatek_drm.idle_off_s`, default 600 s; module only):
+  tested with 20 s and the cursor blink off: stock off after 20 s without a
+  frame, keypress → stock screen-on, `0x9C`. Defaults restored.
+- Pre-flash check, `boot-d5b.img` `c81d2e19…4703` (writes `boot_a`):
+  kernel #19 unchanged (`Image.gz` `d23428d8…317b`, DTB `e3e22955…1695`);
+  the only change is `cma=256M` on the command line (was the 32 MiB
+  default, placed at `0xfb800000`, 13 MiB in use by the console). CMA comes
+  from free memory below 4 GiB; LK's mblocks are all in `/reserved-memory`.
+  No PMIC, display or panel change; `mediatek-drm.ko` `0aa9ec9c…90bc`
+  (guard log fix) installed and synced. Check after boot: `CmaTotal`
+  262144 kB, console on mediatek-drm, 0xa12.
+- Result: flashed by the user; `CmaTotal` 262144 kB (243 MiB free with
+  the console up), console on mediatek-drm (`0x9C`), Wi-Fi up, 0xa12
+  `0x21e0`.
+
 ### Pre-flash check template (each stage fills it in)
 
 1. Images and sha256; partitions written.

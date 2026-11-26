@@ -234,7 +234,24 @@ struct mtk_dsi {
 	u32 irq_data;
 	wait_queue_head_t irq_wait_queue;
 	const struct mtk_dsi_driver_data *driver_data;
+
+	/* command mode: panel switched off after idle_off_s without frames */
+	struct drm_panel *panel;
+	struct delayed_work idle_work;
+	struct mutex idle_lock;
+	bool idle_off;
 };
+
+/*
+ * Burn-in guard for command-mode (AMOLED) panels: a command-mode panel shows
+ * its last frame for ever. If no frame has been sent for idle_off_s seconds
+ * while the output is enabled (e.g. a hung compositor), the panel is
+ * switched off through its driver (its stock off sequence); the next frame
+ * switches it on again first. 0 disables the guard.
+ */
+static unsigned int idle_off_s = 600;
+module_param(idle_off_s, uint, 0644);
+MODULE_PARM_DESC(idle_off_s, "Command mode: switch the panel off after this many seconds without a frame (0 = never)");
 
 static inline struct mtk_dsi *bridge_to_dsi(struct drm_bridge *b)
 {
@@ -944,6 +961,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 		 */
 		mtk_dsi_mask(dsi, DSI_TXRX_CTRL, DIS_EOT | EXT_TE_EN, EXT_TE_EN);
 		mtk_dsi_clk_hs_mode(dsi, 1);
+		dsi->idle_off = false;
 		dsi->enabled = true;
 		return;
 	}
@@ -960,7 +978,43 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 	if (!dsi->enabled)
 		return;
 
+	if (mtk_dsi_is_cmd_mode(dsi))
+		cancel_delayed_work_sync(&dsi->idle_work);
+
 	dsi->enabled = false;
+}
+
+static void mtk_dsi_idle_work(struct work_struct *work)
+{
+	struct mtk_dsi *dsi = container_of(to_delayed_work(work), struct mtk_dsi,
+					   idle_work);
+
+	mutex_lock(&dsi->idle_lock);
+	if (dsi->enabled && !dsi->idle_off && dsi->panel) {
+		dev_info(dsi->host.dev, "no frame for %u s: switching the panel off\n",
+			 idle_off_s);
+		mtk_dsi_wait_for_idle(dsi);
+		drm_panel_disable(dsi->panel);
+		drm_panel_unprepare(dsi->panel);
+		dsi->idle_off = true;
+	}
+	mutex_unlock(&dsi->idle_lock);
+}
+
+/* Called with idle_lock held, before a frame, when the guard had fired. */
+static void mtk_dsi_idle_wake(struct mtk_dsi *dsi)
+{
+	dev_info(dsi->host.dev, "frame after idle off: switching the panel on\n");
+	/* as a normal enable: init commands with the link's init setup */
+	mtk_dsi_clk_hs_mode(dsi, 0);
+	mtk_dsi_rxtx_control(dsi);
+	drm_panel_prepare(dsi->panel);
+	if (!dsi->panel->prepared)
+		return;
+	mtk_dsi_mask(dsi, DSI_TXRX_CTRL, DIS_EOT | EXT_TE_EN, EXT_TE_EN);
+	mtk_dsi_clk_hs_mode(dsi, 1);
+	drm_panel_enable(dsi->panel);
+	dsi->idle_off = false;
 }
 
 static int mtk_dsi_bridge_attach(struct drm_bridge *bridge,
@@ -1095,6 +1149,13 @@ void mtk_dsi_ddp_trigger(struct device *dev, struct mtk_mutex *mutex)
 	if (!dsi->enabled)
 		return;
 
+	mutex_lock(&dsi->idle_lock);
+	if (dsi->idle_off)
+		mtk_dsi_idle_wake(dsi);
+	if (idle_off_s && dsi->panel)
+		mod_delayed_work(system_wq, &dsi->idle_work, idle_off_s * HZ);
+	mutex_unlock(&dsi->idle_lock);
+
 	mtk_dsi_wait_for_idle(dsi);
 	mtk_mutex_disable(mutex);
 	mtk_mutex_enable(mutex);
@@ -1197,6 +1258,9 @@ static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 	dsi->lanes = device->lanes;
 	dsi->format = device->format;
 	dsi->mode_flags = device->mode_flags;
+	dsi->panel = of_drm_find_panel(device->dev.of_node);
+	if (IS_ERR(dsi->panel))
+		dsi->panel = NULL;
 	dsi->next_bridge = devm_drm_of_get_bridge(dev, dev->of_node, 1, 0);
 	if (IS_ERR(dsi->next_bridge)) {
 		ret = PTR_ERR(dsi->next_bridge);
@@ -1226,6 +1290,8 @@ static int mtk_dsi_host_detach(struct mipi_dsi_host *host,
 {
 	struct mtk_dsi *dsi = host_to_dsi(host);
 
+	cancel_delayed_work_sync(&dsi->idle_work);
+	dsi->panel = NULL;
 	component_del(host->dev, &mtk_dsi_component_ops);
 	drm_bridge_remove(&dsi->bridge);
 	return 0;
@@ -1496,6 +1562,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	dsi->host.dev = dev;
 
 	init_waitqueue_head(&dsi->irq_wait_queue);
+	INIT_DELAYED_WORK(&dsi->idle_work, mtk_dsi_idle_work);
+	mutex_init(&dsi->idle_lock);
 
 	platform_set_drvdata(pdev, dsi);
 
@@ -1521,6 +1589,7 @@ static void mtk_dsi_remove(struct platform_device *pdev)
 	struct mtk_dsi *dsi = platform_get_drvdata(pdev);
 
 	mtk_output_dsi_disable(dsi);
+	cancel_delayed_work_sync(&dsi->idle_work);
 	mipi_dsi_host_unregister(&dsi->host);
 }
 
