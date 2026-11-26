@@ -63,7 +63,10 @@ Next candidates:
    `DEVICE=astro`, 2026-11-25): only sdc + sdc56 writable, systemd owns
    the watchdog, tripwire, console on the panel, SSH via Monolith
    (`ssh -J atzero@192.168.0.235 atzero@10.15.21.1`), NAT through
-   Monolith's `astro-usb` profile. Next: Wi-Fi. Rootfs to-dos: ping
+   Monolith's `astro-usb` profile. Next: Wi-Fi (W1 done 2026-11-25:
+   vendor WMT/BTIF/gen4m stack from zinwa-q25-linux builds as modules on
+   6.18, `docs/wifi-stock.md`; W2 = DT nodes + MT6359P regulators, needs
+   a pre-flash check). Rootfs to-dos: ping
    (ping_group_range), smaller image.
 0c. **To-do: charge voltage 4.40 V** (user, 2026-11-25: queued, not
    urgent). LK sets CV 4.35 V every boot (`mt6360_set_cv: cv = 4350`);

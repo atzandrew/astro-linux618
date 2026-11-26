@@ -1075,3 +1075,35 @@ escape with this image.
     the Cosmo).
 - Rootfs to-dos: `net.ipv4.ping_group_range` (ping fails for users);
   smaller IMAGE_SIZE (≈1.5 G: 670 MB used, growfs fills the partition).
+
+## 2026-11-25 — Wi-Fi W0/W1: stock research, driver stack builds on 6.18
+
+No flash, no device writes (read-only SSH queries; vendor/nvdata read from
+the P0 backup on Monolith with lpunpack + debugfs). Details:
+`docs/wifi-stock.md`; provenance and every change:
+`kernel/delta/drivers/misc/mediatek-connectivity/README.astro`.
+- W0: not in mainline. Stock = WMT/STP over BTIF (like the Cosmo) +
+  gen4m `connac2x2` (AXI) + A-die MT6635, built from alps-mp-r0.mp1.
+  Firmware `soc2_0_*_3b_1`.
+- Base chosen: zinwa-q25-linux (MT6789 = soc2_1x1, gen4m Wi-Fi working on
+  mainline 7.3; its tree carries `mt6873.c` and gen4m `soc2_2x2`).
+  Stock-module log-format match: Motorola R gen4m 92.8 %, zinwa 89.5 %.
+  Protocol headers zinwa vs R: RX descriptors additive only;
+  nic_cmd_event.h mostly reserved -> version fields, DFS radar report,
+  sched-scan SSID count 16 -> 10 (watch sched scan).
+- Firmware names resolve to the stock files: `WIFI_RAM_CODE_soc2_0_3b_1.bin`
+  (IP set 3 + flavor 'b'). Load addresses from the headers: patch_mcu
+  0x0001c000, ram_mcu 0xf0000000, ram_wifi 0xf01d0000 (= plat Wi-Fi EMI
+  offset 0x1D0000), ram_bt 0xf0110000. zinwa had hard-coded MT6789 ones
+  (Wi-Fi 0x2a…, BT 0x17…): replaced by an in-kernel launcher that reads
+  the headers (Cosmo wcn_launcher + `srh_rom_patch`).
+- PMIC audit (rule 5 input for W2): mt6873.c writes the MT6359P through
+  the MFD regmap only at 17 addresses 0x188e–0x202e (VS2 buck voter/vosel,
+  VCN18/VCN13/VCN33_1/VCN33_2 op-mode, VCN13 VOCAL); all match Planet's
+  `include/linux/mfd/mt6359p/registers.h`; none near STRUP_CON12 0xa12.
+- W1 build: btif_drv, connadp, wmt_drv, wmt_chrdev_wifi,
+  wlan_drv_gen4m_6873 build as modules against kernel #12 (vermagic
+  6.18.58-astro, same tree as the running kernel, no modversions/signing)
+  out of tree, and in tree (`CONFIG_MTK_WCN_CONSYS=m`, `CONFIG_MTK_WCN_GEN4M=m`,
+  `depends on m`) in a separate obj dir: 174 objects, identical set;
+  .config differs only by those two symbols. build/obj left at #12.

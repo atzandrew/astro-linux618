@@ -1,0 +1,52 @@
+MT6873 CONSYS (Wi-Fi/BT) drivers for the Astro Slide on 6.18
+================================================================
+
+Source: github.com/wolf109909/zinwa-q25-linux @ ce9e3a4 (2026-11-23),
+drivers/mediatek/{btif,include,connectivity/{common,power_throttling,
+wlan/adaptor,wlan/core/gen4m}} and drivers/include (-> q25inc/). That tree
+is MediaTek's vendor 5.10 connectivity code (GPL / dual BSD-GPL) ported to
+mainline 7.3 for the Zinwa Q25 (MT6789, gen4m soc2_1x1). The Astro's chip
+is the 2x2 sibling, gen4m soc2_2x2 (= connac2x2 in the stock alps-mp-r0.mp1
+modules), WMT platform file common_main/platform/mt6873.c (vendor, unported
+by zinwa).
+
+Changes for the Astro (W1, 2026-11-25; docs/wifi-stock.md):
+
+Build
+- $(srctree)/drivers/misc/mediatek -> $(MTK_ROOT) in every vendor Makefile;
+  zinwa's absolute /home/maxsun/... include path -> $(MTK_ROOT)/q25inc.
+- Makefile (this dir) exports the variables the vendor Makefiles expect
+  (CONSYS_6873, SOC2_2X2, WLAN_CHIP_ID 6873, WIFI_IP_SET 3, AXI).
+- wlan/core/gen4m/Makefile: chip SOC2_2X2 / 6873 / WIFI_IP_SET 3 (was
+  zinwa's SOC2_1X1 / 6789 / 1).
+- Pruned: gen4m chips other than common + soc2_2x2, their coda headers,
+  os/linux/plat other than mt6873.
+
+6.18 (zinwa targets 7.3)
+- gl_init.c: 6.18 branch of the cfg80211_ops wrappers (key/station ops
+  take a net_device; remain_on_channel/mgmt_tx return the cookie through a
+  pointer; zinwa's 7.3 by-value cookie never reached cfg80211).
+- gl_p2p_kal.c: cfg80211_new_sta/del_sta get the net_device (Q25_STA_DEV).
+- q25inc/linux/q25_compat.h: alarm_start_relative only remapped on >= 6.19;
+  dropped the forced CONFIG_MTK_ECCCI_DRIVER_MODULE (no modem driver here;
+  mt6873.c then skips the MD direct path cleanly).
+
+MT6873
+- os/linux/plat/mt6873/plat_priv.c: rebuilt from zinwa's ported mt6789 file
+  (cpufreq/pm_qos instead of MTK cpu_ctrl) with the vendor mt6873 values:
+  Wi-Fi EMI offset 0x1D0000 size 0x140000, big cores cpu4-7, flavor 'b'
+  (-> WIFI_RAM_CODE_soc2_0_3b_1.bin).
+- connectivity/common/astro_emimpu_stub.c: logging no-op mtk_emimpu_* (no
+  EMI MPU driver in mainline; zinwa's MT6789 makes no EMI MPU call).
+- connectivity/common/wcn_launcher.[ch]: in-kernel wmt_loader/wmt_launcher
+  (from cosmo-linux618), started from wmt_detect init: consys hw init,
+  SoC chip id, common driver init, STP mode; answers "srh_patch"
+  (soc2_0_patch_mcu_3b_1) and "srh_rom_patch" (soc2_0_ram_{bt,wifi,mcu}_3b_1)
+  from the firmware headers.
+- common_main/core/wmt_ctrl.c: stock "srh_rom_patch" request restored in
+  wmt_ctrl_get_rom_patch_info(); zinwa had hard-coded its MT6789 files and
+  addresses there (Wi-Fi 0x2a, BT 0x17), wrong for the Astro (0x1d, 0x11).
+
+Kept as zinwa has it, to revisit: q25_compat.h shims (strncpy -> strscpy,
+wireless_send_event no-op), -I$(srctree)/ for kernel/sched/sched.h in
+connadp.

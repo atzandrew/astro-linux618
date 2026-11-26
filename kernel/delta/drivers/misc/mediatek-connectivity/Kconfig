@@ -1,0 +1,22 @@
+config MTK_WCN_CONSYS
+	tristate "MediaTek MT6873 CONSYS: BTIF, WMT core, Wi-Fi char device"
+	depends on m && OF && HAS_IOMEM && REGULATOR && PINCTRL && MFD_MT6397
+	help
+	  Stock MediaTek drivers for the on-die connectivity subsystem of the
+	  MT6873 (CONNAC2X2, A-die MT6635), from the vendor 5.10 tree as
+	  ported to 7.3 by zinwa-q25-linux, back to 6.18 here: the BTIF
+	  transport (btif_drv), the connectivity adapter (connadp), the WMT
+	  core (wmt_drv) and the Wi-Fi function char device (wmt_chrdev_wifi).
+	  The WMT module also does the job of the stock Android wmt_loader /
+	  wmt_launcher daemons (common/wcn_launcher.c). Modules only.
+	  Firmware from the stock vendor partition: soc2_0_patch_mcu_3b_1,
+	  soc2_0_ram_{mcu,wifi,bt}_3b_1 (_hdr.bin), WMT_SOC.cfg.
+
+config MTK_WCN_GEN4M
+	tristate "MediaTek MT6873 CONSYS Wi-Fi (wlan gen4m, soc2_2x2)"
+	depends on m && MTK_WCN_CONSYS && CFG80211
+	help
+	  Stock MediaTek wlan gen4m 802.11 driver (wlan_drv_gen4m_6873) for
+	  the MT6873 CONSYS Wi-Fi, AXI host interface. Firmware:
+	  WIFI_RAM_CODE_soc2_0_3b_1.bin from the stock vendor partition;
+	  per-unit NVRAM from nvdata.
