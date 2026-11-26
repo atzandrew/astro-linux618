@@ -795,3 +795,45 @@ panel ran its OTP gamma. The released source is not what shipped.
 Our driver (decision 1 above, based on the source) sends all 12 after the
 first off/on. That is not the stock steady state. Pending the user's
 decision: drop the 12 gamma writes so our table = shipped kernel = LK.
+
+## Stage G1 pre-flash check (2026-11-26) — awaiting approval
+
+Change (modules only, kernel #23 unchanged, no boot image, no mtk write):
+`panel-shenghe-sh8802b.ko` `16129a3f…` (source `e1c03287…`, PANEL_SHA in
+build-boot-img.sh updated) and `mediatek-drm.ko` `0b630611…`, built from
+kernel/delta (build log out/build-gam1.log), vermagic
+`6.18.58-astro SMP preempt mod_unload aarch64` = running kernel.
+
+1. **Panel init table = the shipped Android kernel's** (correction above):
+   the 12 gamma writes C3–CE removed; the remaining 42 writes are byte- and
+   order-identical to the stock source minus gamma, and all 31 long ones sit
+   in the shipped binary's rodata in the same order. Then 35 00, 11, 200 ms,
+   29, 10 ms as before. Reset/bias GPIO order and delays unchanged. Only
+   fewer writes; nothing added. Takeover after boot still sends nothing.
+2. **Read-only debugfs `sh8802b/dcs_regs`** (test aid): four 1-byte standard
+   DCS reads, the same packet type as the existing 0Ah power-mode read —
+   0Ah RDDPM, 54h RDCTRLD1, 56h RDCTRLD2 (ACL), 59h RD_CE (SRE). No
+   set-maximum-return-size packet (panel default 1), no write. Refused
+   unless the panel is lit; serialised with brightness writes and
+   enable/disable by a driver mutex.
+3. **mtk_dsi**: host transfers (commands, reads) and command-mode frame
+   triggers now take one mutex, so a read/command never overlaps a frame
+   (each already waited for the link to be idle; the gap was between those
+   checks). Lock order idle_lock → xfer_lock and panel lock → xfer_lock
+   only; no path takes them the other way.
+
+Rules: **R1** no OTP/MTP/NVM command. **R2** shipped stock bytes only
+(fewer than before); reads are standard DCS. **R3** no rail or GPIO change.
+**R4** brightness path unchanged (default 512, cap 0x3FF). **R5** idle-off
+guard, fbcon blank, greeter and Plasma idle unchanged. **R6** link, lanes,
+format, timing unchanged. **R7** the previous modules stay on the device.
+
+Deploy: copy both .ko into /lib/modules/6.18.58-astro (old ones kept),
+depmod, sync, reboot.
+Test (user watching): (a) boot, takeover as before (power mode 0x9C);
+read dcs_regs = LK state. (b) let it blank, wake: first init without gamma;
+power mode 0x9C; read dcs_regs again. (c) pattern + Plasma text at 512 and
+1023, compared with the earlier photos.
+Expected reads (sister-chip defaults): 54h 0x28 (BCTRL, DISP_DIM),
+56h 0x00 (ACL off), 59h 0x00 (SRE off). Anything else is reported, not
+changed.

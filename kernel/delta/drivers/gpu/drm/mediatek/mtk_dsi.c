@@ -240,6 +240,11 @@ struct mtk_dsi {
 	struct delayed_work idle_work;
 	struct mutex idle_lock;
 	bool idle_off;
+	/*
+	 * command mode: a host transfer (panel command or read) and a frame
+	 * trigger never overlap; each waits for the link to be idle first
+	 */
+	struct mutex xfer_lock;
 };
 
 /*
@@ -1156,6 +1161,7 @@ void mtk_dsi_ddp_trigger(struct device *dev, struct mtk_mutex *mutex)
 		mod_delayed_work(system_wq, &dsi->idle_work, idle_off_s * HZ);
 	mutex_unlock(&dsi->idle_lock);
 
+	mutex_lock(&dsi->xfer_lock);
 	mtk_dsi_wait_for_idle(dsi);
 	mtk_mutex_disable(mutex);
 	mtk_mutex_enable(mutex);
@@ -1167,6 +1173,7 @@ void mtk_dsi_ddp_trigger(struct device *dev, struct mtk_mutex *mutex)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, 1);
 	mtk_dsi_irq_data_clear(dsi, CMD_DONE_INT_FLAG);
 	mtk_dsi_start(dsi);
+	mutex_unlock(&dsi->xfer_lock);
 }
 
 static int mtk_dsi_encoder_init(struct drm_device *drm, struct mtk_dsi *dsi)
@@ -1457,6 +1464,7 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
 	u32 dsi_mode;
 	int ret, i;
 
+	mutex_lock(&dsi->xfer_lock);
 	dsi_mode = readl(dsi->regs + DSI_MODE_CTRL);
 	if (dsi_mode & MODE) {
 		mtk_dsi_stop(dsi);
@@ -1512,6 +1520,7 @@ restore_dsi_mode:
 		mtk_dsi_set_mode(dsi);
 		mtk_dsi_start(dsi);
 	}
+	mutex_unlock(&dsi->xfer_lock);
 
 	return ret < 0 ? ret : recv_cnt;
 }
@@ -1569,6 +1578,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	init_waitqueue_head(&dsi->irq_wait_queue);
 	INIT_DELAYED_WORK(&dsi->idle_work, mtk_dsi_idle_work);
 	mutex_init(&dsi->idle_lock);
+	mutex_init(&dsi->xfer_lock);
 
 	platform_set_drvdata(pdev, dsi);
 
