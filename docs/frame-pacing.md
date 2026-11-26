@@ -45,8 +45,8 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
    core (Mali-G57 Panfrost, Mesa 25.0.7). ~2000-3000/s
    `GL_INVALID_OPERATION in glVertexAttribPointer(no array object bound)` /
    `glDrawElements` (+ one `glEnable(GL_POINT_SPRITE)`) whenever the
-   rotated output repaints; none with effects unloaded? no (unchanged);
-   **none with the output in native portrait**. journald spends 80-136 ms
+   rotated output repaints; unchanged with blur/contrast/shakecursor/zoom
+   unloaded, **none with the output in native portrait**. journald spends 80-136 ms
    CPU per second logging them during animations. Next: KWin on GLES
    (`KWIN_COMPOSE=O2ES`), needs a relogin.
 4. **Start menu: full-screen composites ~15-20 ms of GPU each** at 748 MHz
