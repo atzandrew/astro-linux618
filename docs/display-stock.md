@@ -861,4 +861,20 @@ LcmGamma 2.2 (float), DRE and ESS level controllable by the kernel.
 So under Android the COLOR/AAL/DRE blocks processed the image in user space
 (MediaTek's proprietary AAL/PQ algorithms, partly ambient-light driven).
 Mainline here keeps all of them in bypass/identity: the panel receives the
-framebuffer pixels unmodified. Not planned to reproduce (closed algorithms).
+framebuffer pixels unmodified.
+Static parts decoded (libpq_cust_base.so): `cust_gamma` = 15 presets x RGB x
+512 (u16); preset 7 is identity, 0-6 scale blue down (warmer), 8-14 red
+down (cooler): a colour-temperature slider, nothing panel-specific.
+`gamut_matrix_en` 1, `BT709_c*` in 13-bit fixed point (8192 = 1.0):
+[1.069 -0.061 -0.008; -0.031 1.039 -0.008; -0.031 -0.030 1.092], a
+saturation boost; the name suggests video (BT.709) content, scope unknown.
+`pqparam_table` 7 rows of the 15-field DISP_PQ_PARAM (sharpness, global sat,
+partial Y, hue adj x4, sat adj x4, contrast, brightness, ccorr, ...), e.g.
+row 0 {2,4,0, 9,9,12,12, 0,6,10,10, 4,4,0,0}: region (skin/grass/sky) hue and
+saturation tweaks for the COLOR engine. That engine is region-based (not a
+matrix or 1D LUT), undocumented, and not programmable through mainline DRM.
+Decision: no reproduction for now. The dynamic AAL/DRE/readability part is
+closed and content/ambient driven; the static part is a colour-temperature
+set (Plasma Night Light covers it), a vivid-style saturation matrix, and
+COLOR-engine region tweaks with no mainline interface. None is a panel
+correction; the panel's own OTP gamma is in use.
