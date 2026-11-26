@@ -1123,3 +1123,8 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
 - Images `boot-w2.img` `b2290457…bf84`, `boot-w2-wdtest.img`
   `50534c4e…7c47` (kernel #13) on Monolith. Guard extended, negative
   tests 5/5 refused, control passes.
+- Pre-flash check approved by the user (2026-11-25). Stage A prep on the
+  Debian root: #13 module tree installed in /lib/modules/6.18.58-astro
+  (#12 kept as /lib/modules/6.18.58-astro.k12),
+  /etc/modprobe.d/astro-w2.conf `blacklist mt6359-regulator` (alias
+  lookup resolves to nothing; by-name load still works for stage B).
