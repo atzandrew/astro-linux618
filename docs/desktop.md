@@ -130,3 +130,18 @@ greeter, Xorg screen-off after 1 min).
   off) + `touchscreen-inverted-x`. Modules unchanged (core = mainline,
   `8bc3a87c…`). Guard: vtp exactly 2.6 V, Goodix core unmodified mainline
   (negative test refused).
+
+### P2 greeter on KWin (2026-11-26)
+
+The X11 greeter (software rendering, ShadowFB) was too slow (user: SDDM
+animations very slow). SDDM now runs `kwin_wayland --drm` as on the Cosmo
+(gemini-debian `cbf149c`): KWin renders on panfrost, takes the rotation from
+the greeter's kwinoutputconfig.json (= the Plasma session's, Rotated270,
+scale 2) and maps touch itself. Burn-in: KWin starts
+`/usr/libexec/astro-greeter-idle` (swayidle on ext-idle-notify-v1 →
+`kscreen-doctor --dpms off` at 60 s, on at input). Result (user, after a
+reboot): greeter smooth, touch correct, panel blanked within 70 s and woke
+on input; login to Plasma fine. Also this boot: `androidboot.bootreason=
+PowerKey` after last night's power-off (power-key boot from off works).
+Still open: Plasma touch corners/drag with inverted-x, power-off with USB
+plugged in, text rendering (user: rougher after mediatek-drm loads).

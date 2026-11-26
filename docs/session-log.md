@@ -1406,3 +1406,10 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   import prime FD as pixmap: 22"). Next: Wayland greeter (KWin, as the
   Cosmo) with a verified idle screen-off for burn-in, or fix the X
   DRI3/glamor import.
+- **Greeter on KWin** (2026-11-26, rootfs only, gemini-debian `cbf149c`):
+  SDDM Wayland greeter with KWin + swayidle idle screen-off at 60 s; user:
+  smooth, touch correct, blanks and wakes. Power-key boot after power-off
+  confirmed (bootreason PowerKey). Open: Plasma touch check, poweroff with
+  USB, text rendering (Plasma uses RGB subpixel AA + hintfull on a rotated
+  OLED; console path adds COLOR/CCORR/AAL/GAMMA/POSTMASK/DITHER and stock
+  panel gamma after the first off/on).
