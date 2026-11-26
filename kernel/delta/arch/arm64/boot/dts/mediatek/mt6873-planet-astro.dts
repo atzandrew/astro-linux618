@@ -1398,9 +1398,8 @@
  * parent while the PLL relocks (mainpll is 2184 MHz here).
  *
  * C2: Vproc and Vsram follow the stock table up to 0.800 V: A55 500-1541
- * MHz, A76 774-1548 MHz. The CCI still has no driver, so mediatek-cpufreq
- * never drops a rail below its boot value (A55/CCI rail >= LK's 0.71875 V,
- * which covers the CCI's 730 MHz = 0.650 V).
+ * MHz, A76 774-1548 MHz. C3: CCI devfreq with the stock pairing; the
+ * A55/CCI rail may now go below LK's 0.71875 V (CCI holds its own vote).
  */
 &apmixedsys {
 	compatible = "mediatek,mt6873-apmixedsys", "mediatek,mt8192-apmixedsys",
@@ -1416,10 +1415,68 @@
 };
 
 / {
+	/*
+	 * C3: CCI devfreq (mtk-cci-devfreq, passive on cpufreq). Rails shared
+	 * with the A55 cluster (vbuck3, vsram_proc2); the regulator core runs
+	 * them at the higher request. OPPs: the stock CCI points the normal
+	 * map can select (500-1017 MHz, 0.600-0.7125 V). Pairing: stock
+	 * CCI_6873Tbl "Normal CCI Map" = min(a[A55 index], b[A76 index]) for
+	 * every entry, so each CPU OPP requires its own CCI OPP and the
+	 * passive governor's maximum reproduces the map (rows read as A55).
+	 */
 	cci: cci {
 		compatible = "mediatek,mt6873-cci";
 		clocks = <&mcusys CLK_MCU_ARMPLL_BUS_SEL>, <&clk26m>;
 		clock-names = "cci", "intermediate";
+		operating-points-v2 = <&cci_opp>;
+		proc-supply = <&mt6315_6_vbuck3>;
+		sram-supply = <&mt6359_vsram_proc2_ldo_reg>;
+	};
+
+	cci_opp: opp-table-cci {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		cci_opp_500: opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <600000>;
+		};
+		cci_opp_557: opp-557000000 {
+			opp-hz = /bits/ 64 <557000000>;
+			opp-microvolt = <612500>;
+		};
+		cci_opp_615: opp-615000000 {
+			opp-hz = /bits/ 64 <615000000>;
+			opp-microvolt = <625000>;
+		};
+		cci_opp_672: opp-672000000 {
+			opp-hz = /bits/ 64 <672000000>;
+			opp-microvolt = <637500>;
+		};
+		cci_opp_730: opp-730000000 {
+			opp-hz = /bits/ 64 <730000000>;
+			opp-microvolt = <650000>;
+		};
+		cci_opp_816: opp-816000000 {
+			opp-hz = /bits/ 64 <816000000>;
+			opp-microvolt = <668750>;
+		};
+		cci_opp_873: opp-873000000 {
+			opp-hz = /bits/ 64 <873000000>;
+			opp-microvolt = <681250>;
+		};
+		cci_opp_902: opp-902000000 {
+			opp-hz = /bits/ 64 <902000000>;
+			opp-microvolt = <687500>;
+		};
+		cci_opp_960: opp-960000000 {
+			opp-hz = /bits/ 64 <960000000>;
+			opp-microvolt = <700000>;
+		};
+		cci_opp_1017: opp-1017000000 {
+			opp-hz = /bits/ 64 <1017000000>;
+			opp-microvolt = <712500>;
+		};
 	};
 
 	cluster0_opp: opp-table-cluster0 {
@@ -1429,42 +1486,52 @@
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <600000>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-650000000 {
 			opp-hz = /bits/ 64 <650000000>;
 			opp-microvolt = <600000>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-756000000 {
 			opp-hz = /bits/ 64 <756000000>;
 			opp-microvolt = <625000>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-862000000 {
 			opp-hz = /bits/ 64 <862000000>;
 			opp-microvolt = <643750>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-968000000 {
 			opp-hz = /bits/ 64 <968000000>;
 			opp-microvolt = <668750>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-1075000000 {
 			opp-hz = /bits/ 64 <1075000000>;
 			opp-microvolt = <693750>;
+			required-opps = <&cci_opp_557>;
 		};
 		opp-1181000000 {
 			opp-hz = /bits/ 64 <1181000000>;
 			opp-microvolt = <712500>;
+			required-opps = <&cci_opp_615>;
 		};
 		opp-1358000000 {
 			opp-hz = /bits/ 64 <1358000000>;
 			opp-microvolt = <750000>;
+			required-opps = <&cci_opp_672>;
 		};
 		opp-1500000000 {
 			opp-hz = /bits/ 64 <1500000000>;
 			opp-microvolt = <781250>;
+			required-opps = <&cci_opp_730>;
 		};
 		opp-1541000000 {
 			opp-hz = /bits/ 64 <1541000000>;
 			opp-microvolt = <800000>;
+			required-opps = <&cci_opp_730>;
 		};
 	};
 
@@ -1475,38 +1542,47 @@
 		opp-774000000 {
 			opp-hz = /bits/ 64 <774000000>;
 			opp-microvolt = <600000>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-841000000 {
 			opp-hz = /bits/ 64 <841000000>;
 			opp-microvolt = <618750>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-925000000 {
 			opp-hz = /bits/ 64 <925000000>;
 			opp-microvolt = <637500>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-1008000000 {
 			opp-hz = /bits/ 64 <1008000000>;
 			opp-microvolt = <656250>;
+			required-opps = <&cci_opp_500>;
 		};
 		opp-1091000000 {
 			opp-hz = /bits/ 64 <1091000000>;
 			opp-microvolt = <675000>;
+			required-opps = <&cci_opp_557>;
 		};
 		opp-1175000000 {
 			opp-hz = /bits/ 64 <1175000000>;
 			opp-microvolt = <700000>;
+			required-opps = <&cci_opp_615>;
 		};
 		opp-1258000000 {
 			opp-hz = /bits/ 64 <1258000000>;
 			opp-microvolt = <718750>;
+			required-opps = <&cci_opp_615>;
 		};
 		opp-1383000000 {
 			opp-hz = /bits/ 64 <1383000000>;
 			opp-microvolt = <750000>;
+			required-opps = <&cci_opp_672>;
 		};
 		opp-1548000000 {
 			opp-hz = /bits/ 64 <1548000000>;
 			opp-microvolt = <800000>;
+			required-opps = <&cci_opp_816>;
 		};
 	};
 };

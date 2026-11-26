@@ -209,3 +209,58 @@ Stages (as the Cosmo C1-C4):
   859-867; peak 50.7 °C. stress 60 at min: 0 mismatches.
 - No kernel ftrace in #24 (CONFIG_FTRACE off); worth enabling at the next
   kernel build for the CCI stage.
+
+## C3 pre-flash check (boot-c3.img, kernel #25)
+
+- Image: `out/boot-c3.img` `59831c2e…7cf550`, Image.gz `afcb9b45…`, DTB
+  `fe7e18ab…`. Kernel #25 = #24 + `CONFIG_ARM_MEDIATEK_CCI_DEVFREQ=m`
+  (module; selects the passive governor, already a module).
+- Delta: `drivers/devfreq/mtk-cci-devfreq.c`: `mediatek,mt6873-cci` with
+  the same Vproc/Vsram rule as mediatek-cpufreq's mt6873 data.
+- DTS: cci node gets proc-supply vbuck3 (shared with the A55 cluster),
+  sram-supply vsram_proc2, and the stock CCI OPPs the normal map can
+  select: 500-1017 MHz at 0.600-0.7125 V. Every CPU OPP gets
+  `required-opps` from the stock `CCI_6873Tbl` normal map. That map is
+  exactly `min(a[A55 index], b[A76 index])` for all 256 entries, with
+  a = 6 7 8 9 10 10 11 11 12 13 14 15 15 15 15 15 and
+  b = 6 7 7 8 8 9 10 10 12 13 13 14 15 15 15 15, so the passive governor's
+  maximum reproduces the map. Rows are read as A55 (the vendor code does
+  not name them); a swap would only pick a neighbouring CCI point, never a
+  lower voltage than the chosen CCI point needs. C3 pairings: A55 1541/1500
+  → 730, 1358 → 672, 1181 → 615, 1075 → 557, below → 500; A76 1548 → 816,
+  1383 → 672, 1258/1175 → 615, 1091 → 557, below → 500 MHz.
+- Rail and range constraints unchanged from C2 (guard unchanged).
+- Risk flags: **new kernel config** (one module) and **new kernel**. First
+  CCI rate changes (stock range; highest 816 MHz at 0.66875 V). The A55/CCI
+  rail may now go down to 0.600 V (the stock floor; C2 held it at
+  0.71875 V); each consumer keeps its own vote, the core runs the higher.
+  CCIPLL post dividers per stock (/2 at 816 and above, /4 at 730 and below).
+  The CCI parks on 26 MHz while CCIPLL relocks (as the Cosmo's C2).
+- Boot: no change (both modules blacklisted, loaded by hand). At
+  `modprobe mtk-cci-devfreq` the driver first raises the shared rail to the
+  CCI's top OPP voltage (0.7125 V, inside the constraint).
+- Escapes: power-key reset and watchdog observed, paths unchanged. After
+  the flash: 0xa12 (single-register read).
+- Test: `modprobe mediatek-cpufreq mtk-cci-devfreq`; devfreq `cci` on the
+  passive governor; `steps` (other cluster at its minimum): PLL readback,
+  CCI hw = devfreq = paired OPP, Vproc_little = max(A55, CCI) table value,
+  Vproc_big = table, Vsram = Vproc + 100 mV; `vfrun.sh big|little`
+  (vfcheck now also checks CCIPLL against the A55 rail): 0 LOW; stress max
+  and min: 0 md5 mismatches. Fail: any hang/reset, any FAIL/LOW line.
+- Rollback: `mtk w boot_a boot-c2.img` plus the #24 module tree (kept as
+  `/lib/modules/6.18.58-astro.k24`; swap back before rebooting into C2).
+
+### C3 result: PASS (2026-11-26, boot-c3.img `59831c2e…`, kernel #25)
+
+- Boot: #25, 0xa12 0x21e0, rails at LK's values. `modprobe
+  mediatek-cpufreq mtk-cci-devfreq`: devfreq `cci` on passive, 500-1017
+  MHz listed; CCI left LK's 730 MHz at once (557 MHz at idle).
+- steps: 19/19 PASS: CCI hw = devfreq = stock-map OPP at every step
+  (A55 sweep 500 → 730 MHz, A76 sweep 500 → 816 MHz); Vproc_little = max(A55,
+  CCI) table value, now down to 0.600 V; during the A76 sweep the A55 rail
+  follows the CCI's own vote (0.66875 V at CCI 816 MHz).
+- vfcheck (CCIPLL against the A55 rail added), schedutil + bursty load:
+  2 x 40000 samples, 0 under the stock voltage; CCI 500-816 MHz visited.
+- stress 120 max: 0 md5 mismatches, runs 948-951 (A55, C2 914-928: CCI
+  816 vs 730 MHz) / 1676-1700 (A76); peak 50.4 °C. stress 60 min (both
+  rails 0.600 V, CCI 500 MHz, Vsram 0.750 V): 0 mismatches.

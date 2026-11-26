@@ -1,5 +1,5 @@
 #!/bin/sh
-# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C2 onwards; C1 = commit e71fd7d). Run as root.
+# CPU DVFS checks on the Astro (docs/cpufreq-stock.md, C3 onwards; C1 = e71fd7d, C2 = eb94af0). Run as root.
 #   c-test.sh hw            PLL/mux readback of the three CPU clocks + rails
 #   c-test.sh steps         every OPP of both policies (userspace), readback
 #   c-test.sh stress SECS [min]  8 md5 workers at max (or min) OPP, temps
@@ -57,16 +57,40 @@ v_big() {
 	esac
 }
 clampc() { v=$1; [ $v -lt $2 ] && v=$2; [ $v -gt $3 ] && v=$3; echo $v; }
-# C2: no CCI driver, so mediatek-cpufreq keeps each rail >= its boot value
-V_BOOT_BIG=600000; V_BOOT_LIT=718750
-# Vproc = max(table, boot), Vsram = clamp(Vproc + 100 mV, 0.75, 1.0) V.
-# Empty output = OK. Only valid while nothing moves (steps).
+v_cci() {
+	case $1 in
+	500000) echo 600000;; 557000) echo 612500;; 615000) echo 625000;;
+	672000) echo 637500;; 730000) echo 650000;; 816000) echo 668750;;
+	873000) echo 681250;; 902000) echo 687500;; 960000) echo 700000;;
+	1017000) echo 712500;; *) echo 0;;
+	esac
+}
+# CCI kHz each cluster OPP requires (stock normal CCI map, DTS required-opps)
+cci_little() {
+	case $1 in
+	1541000|1500000) echo 730000;; 1358000) echo 672000;; 1181000) echo 615000;;
+	1075000) echo 557000;; *) echo 500000;;
+	esac
+}
+cci_big() {
+	case $1 in
+	1548000) echo 816000;; 1383000) echo 672000;; 1258000|1175000) echo 615000;;
+	1091000) echo 557000;; *) echo 500000;;
+	esac
+}
+DF=$(for d in /sys/class/devfreq/*; do [ -e "$d" ] && grep -q cci $d/device/uevent 2>/dev/null && echo $d; done | head -1)
+# C3: Vproc_big = table; Vproc_little = max(A55 table, CCI table);
+# Vsram = clamp(Vproc + 100 mV, 0.75, 1.0) V; CCI = max of the two
+# required OPPs. Empty output = OK. Only valid while nothing moves (steps).
 check_pins() {
 	f0=$(cat $CF/policy0/cpuinfo_cur_freq); f4=$(cat $CF/policy4/cpuinfo_cur_freq)
-	# cpuinfo can read 1 kHz low: round to the table's whole MHz
 	f0=$(( (f0 + 500) / 1000 * 1000 )); f4=$(( (f4 + 500) / 1000 * 1000 ))
-	eb=$(v_big $f4); [ $eb -lt $V_BOOT_BIG ] && eb=$V_BOOT_BIG
-	el=$(v_little $f0); [ $el -lt $V_BOOT_LIT ] && el=$V_BOOT_LIT
+	c1=$(cci_little $f0); c2=$(cci_big $f4); wc=$c1; [ $c2 -gt $wc ] && wc=$c2
+	ch=$(hw_khz CCI); ch=$(( (ch + 500) / 1000 * 1000 ))
+	cd=$(( $(cat $DF/cur_freq) / 1000 ))
+	[ $ch = $wc ] && [ $cd = $wc ] || echo "FAIL cci hw $ch devfreq $cd want $wc"
+	eb=$(v_big $f4)
+	el=$(v_little $f0); ec=$(v_cci $wc); [ $ec -gt $el ] && el=$ec
 	b=$(cat $(reg Vproc_big)/microvolts); l=$(cat $(reg Vproc_little)/microvolts)
 	s1=$(cat $(reg vsram_proc1)/microvolts); s2=$(cat $(reg vsram_proc2)/microvolts)
 	[ $b = $eb ] || echo "FAIL Vproc_big $b want $eb"
@@ -96,7 +120,7 @@ steps() {
 			# cpuinfo_cur_freq = clk rate, may be 1 kHz under the OPP
 			[ $ok = 1 ] && [ $(( cur > f ? cur - f : f - cur )) -le 1 ] || ok=0
 			if [ $ok = 1 ]; then
-				echo "PASS policy$p $f kHz: cur $cur hw $h  $(volts)"
+				echo "PASS policy$p $f kHz: cur $cur hw $h cci $(hw_khz CCI)  $(volts)"
 			else
 				echo "FAIL policy$p $f kHz: cur $cur hw $h $v"; fail=1
 			fi
@@ -104,7 +128,6 @@ steps() {
 		echo $(cat $pol/scaling_min_freq) > $pol/scaling_setspeed
 	done
 	for p in 0 4; do echo schedutil > $CF/policy$p/scaling_governor; done
-	c=$(hw_khz CCI); [ "$c" = "$cci0" ] || { echo "FAIL CCI moved $cci0 -> $c"; fail=1; }
 	hw
 	[ $fail = 0 ] && echo "steps PASS" || echo "steps FAIL"
 }

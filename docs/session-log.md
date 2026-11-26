@@ -1450,4 +1450,10 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   vfcheck 0 samples under the stock voltage (2 x 40000 under schedutil),
   stress max/min 0 md5 mismatches, peak 50.7 °C. Rollback: boot-c1.img.
   Next: C3 (CCI devfreq + stock CCI pairing), then C4 (to 2.0 GHz).
+- C3 (kernel #25 = #24 + mtk-cci-devfreq module, `boot-c3.img`
+  `59831c2e…`; #24 modules kept as `.k24`): CCI devfreq with the stock
+  normal CCI map (exactly min(a[A55], b[A76]) → per-OPP required-opps).
+  **PASS**: steps 19/19 with CCI pairing, vfcheck 0 under-voltage samples
+  incl. CCIPLL, stress max/min 0 md5 mismatches, A55/CCI rail down to the
+  stock 0.600 V floor. Next: C4 (full tables to 2.0 GHz, thermal).
 

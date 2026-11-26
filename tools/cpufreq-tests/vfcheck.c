@@ -4,7 +4,7 @@
  * PLL rate read between them. Read only (/dev/mem + regulator sysfs).
  * Run pinned to a CPU whose load does not move the cluster under test.
  *   vfcheck SAMPLES INTERVAL_US BIG_REG_DIR LITTLE_REG_DIR
- * docs/cpufreq-stock.md (C2).
+ * docs/cpufreq-stock.md (C2; C3 adds the CCI on the A55 rail).
  */
 #include <fcntl.h>
 #include <stdint.h>
@@ -21,6 +21,10 @@ static const struct opp ll[] = { {500,600000},{650,600000},{756,625000},{862,643
 static const struct opp bl[] = { {774,600000},{841,618750},{925,637500},{1008,656250},
 	{1091,675000},{1175,700000},{1258,718750},{1383,750000},{1548,800000},{1633,806250},
 	{1716,831250},{1800,850000},{1850,868750},{1900,887500},{1950,906250},{2000,925000} };
+
+static const struct opp cci[] = { {500,600000},{557,612500},{615,625000},{672,637500},
+	{730,650000},{816,668750},{873,681250},{902,687500},{960,700000},{1017,712500},
+	{1103,731250},{1190,750000},{1258,800000},{1265,837500},{1308,887500},{1340,925000} };
 
 /* lowest table voltage for an OPP at or above the rate (rate in kHz) */
 static unsigned need(const struct opp *t, unsigned khz)
@@ -62,7 +66,7 @@ int main(int argc, char **argv)
 	volatile uint32_t *apm = mmap(0, 4096, PROT_READ, MAP_SHARED, mem, 0x1000c000);
 	volatile uint32_t *mcu = mmap(0, 4096, PROT_READ, MAP_SHARED, mem, 0x0c53a000);
 	if (apm == MAP_FAILED || mcu == MAP_FAILED) { perror("mmap"); return 1; }
-	long bad = 0, hist_b[17] = {0}, hist_l[17] = {0}, odd = 0;
+	long bad = 0, hist_b[17] = {0}, hist_l[17] = {0}, hist_c[17] = {0}, odd = 0;
 	for (long i = 0; i < n; i++) {
 		int s, v1, v2, w1, w2;
 		v1 = rd_uv(fb); unsigned fbk = khz(apm, mcu, 0x21c, 0x2a4, &s); v2 = rd_uv(fb);
@@ -73,6 +77,16 @@ int main(int argc, char **argv)
 				bad++; printf("LOW big %u kHz needs %u, read %d / %d\n", fbk, r, v1, v2);
 			}
 			for (int k = 0; k < 16; k++) if (bl[k].mhz * 1000 + 1 >= fbk) { hist_b[k]++; break; }
+		}
+		/* CCI shares the A55 rail */
+		w1 = rd_uv(fl); unsigned fck = khz(apm, mcu, 0x25c, 0x2e0, &s); w2 = rd_uv(fl);
+		if (fck == 0) odd++;
+		else if (s == 1) {
+			unsigned r = need(cci, fck);
+			if ((w1 > w2 ? w1 : w2) < (int)r) {
+				bad++; printf("LOW cci %u kHz needs %u, read %d / %d\n", fck, r, w1, w2);
+			}
+			for (int k = 0; k < 16; k++) if (cci[k].mhz * 1000 + 1 >= fck) { hist_c[k]++; break; }
 		}
 		w1 = rd_uv(fl); unsigned flk = khz(apm, mcu, 0x20c, 0x2a0, &s); w2 = rd_uv(fl);
 		if (flk == 0) odd++;
@@ -89,6 +103,8 @@ int main(int argc, char **argv)
 	for (int k = 0; k < 16; k++) if (hist_b[k]) printf(" %u:%ld", bl[k].mhz, hist_b[k]);
 	printf("\nlittle:");
 	for (int k = 0; k < 16; k++) if (hist_l[k]) printf(" %u:%ld", ll[k].mhz, hist_l[k]);
+	printf("\ncci:");
+	for (int k = 0; k < 16; k++) if (hist_c[k]) printf(" %u:%ld", cci[k].mhz, hist_c[k]);
 	printf("\n");
 	return bad ? 1 : 0;
 }
