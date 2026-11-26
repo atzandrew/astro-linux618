@@ -848,3 +848,17 @@ off in both states. Pattern at 512 and 1023 (user): "both tests looked much
 better than before"; text also better. The stock-source gamma tables were
 the main cause of the rough text after the first wake. Side finding: the
 greeter ran at backlight 114, not 512 (KWin output config brightness 0.5).
+
+## Android's SoC-side picture processing (2026-11-26)
+
+From the P0 `super.bin` (vendor_a, read-only, on Monolith): vendor
+build.prop `ro.vendor.mtk_pq_support=2`, `ro.vendor.mtk_aal_support=1`,
+`ro.vendor.mtk_pq_color_mode=1`; service `vendor.mediatek.hardware.pq@2.2`.
+Customer tuning in `libpq_cust_base.so` (pqparam tables, cust_gamma, DRE,
+gamut matrix, MDP sharpness) and `libaal_cust.so`: ReadabilityEnhancementMode
+25, ReadabilityLevel 207, ESS_alg_mode 31, SmartBacklightStrength/Range 128,
+LcmGamma 2.2 (float), DRE and ESS level controllable by the kernel.
+So under Android the COLOR/AAL/DRE blocks processed the image in user space
+(MediaTek's proprietary AAL/PQ algorithms, partly ambient-light driven).
+Mainline here keeps all of them in bypass/identity: the panel receives the
+framebuffer pixels unmodified. Not planned to reproduce (closed algorithms).
