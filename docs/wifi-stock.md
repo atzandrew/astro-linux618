@@ -157,3 +157,70 @@ API on `vcn18`, `vcn13`, `vcn33_1_bt`, `vcn33_1_wifi`, `vcn33_2_wifi`.
   genpd special case (domain not powered at attach).
 - EMI MPU: stubbed; if the CONN MCU faults on its EMI window, implement
   the TF-A SMC (MTK_SIP_EMIMPU_CONTROL) as stock does.
+
+## W2 pre-flash check (2026-11-25) — awaiting an explicit yes
+
+Images (kernel #13, `6.18.58-astro`, on Monolith `~/Build/astro-backup/`):
+`boot-w2.img` `b2290457…bf84`, `boot-w2-wdtest.img` `50534c4e…7c47`;
+Image.gz `88f20e75…`, DTB `07569816…`. Rollback: `boot-root3.img` (#12).
+
+What changes vs root3 (#12):
+- Built in: `CONFIG_MTK_SCPSYS_PM_DOMAINS=y`. DT `spm` reduced to the CONN
+  domain (AUDIO, MFG0 tree, DISP tree deleted). CONN is
+  `MTK_SCPD_KEEP_DEFAULT_OFF`: registration only reads its status
+  (`scpsys_domain_is_on`) and inits genpd off — **no SPM/bus-protect write
+  at boot**. Mainline CONN = Planet `clk-mt6873-pg.c` (PWR_CON 0x304,
+  status bit 1 at 0x16c/0x170, protect 0x2a0/0x2a4/0x228 BIT13|18 + BIT14,
+  0x2a8/0x2ac/0x258 BIT10, clock infra_pmic_conn sw_cg_0 b3). Live
+  (#12): 0x304 = 0x12 (off, ISO + CLK_DIS), 0x16c/0x170 bit 1 = 0. Only
+  other spm consumers: video-codec children (parent disabled) and
+  mt8192-afe-pcm (not bound today) — unchanged in practice.
+- Module `CONFIG_REGULATOR_MT6359=m` (only module that autoloads:
+  `platform:mt6359-regulator`). DT describes only ldo_vcn18 (1.8 fixed),
+  ldo_vcn13 (1.3/1.3), ldo_vcn33_1_bt/_1_wifi/_2_wifi (3.3–3.5 V), no
+  always-on/boot-on. Probe reads HWCID only; rails without a node get no
+  constraints and are never written; the five described ones need no
+  write at registration (LK state in range: VCN13 VOSEL 4 = 1.3 V, VCN33
+  VOSEL 0xf = 3.5 V; all five EN = 0). `regulator_ignore_unused`,
+  `pd_ignore_unused`, `clk_ignore_unused` stay on the cmdline.
+- DT nodes btif/consys/wifi (stock values, clocks mapped and checked by
+  register/bit), reserved `consys-emi@60000000` 4 MiB no-map (clear of
+  every LK mblock incl. scratch 0x4e000000–0x56000000 and load areas
+  0x40080000–0x4bcfffff), Wi-Fi 6 MiB dynamic shared-dma-pool as stock.
+  No driver for them is loaded at boot (no DT aliases); they only run when
+  insmod'ed by hand.
+- Driver fix: `mt6873.c` regulator_get() ERR_PTR handled, all-or-none.
+
+PMIC writes possible, only once Wi-Fi is switched on by hand (stage C):
+regulator API on the five rails (EN 0x1c2e, 0x1c1c, 0x1be2 b0, 0x1bf4
+b15, 0x1c1a b15; VOSEL 0x202e, 0x1f98, 0x1f9c) and mt6873.c raw regmap at
+0x188e/0x18ac/0x18ae/0x18b4 (VS2: VOSEL 0x35 and sleep 0x2e while on,
+stock behaviour), VCN op-mode SET/CLR registers, 0x202e VOCAL. All equal
+to Planet's MT6359P registers.h; nothing near STRUP_CON12 0xa12.
+Pre snapshot: `backup/pre-w2-vcn-regs.txt` (0xa12 = 0x21e0).
+
+Guard (`bin/build-boot-img.sh`): regulators child only as exactly the five
+rails with the audited ranges and nothing but name/min/max; driver =m with
+pinned source; spm only `power-domain@1` with pinned mtk-pm-domains.c and
+mt8192 table, CONN KEEP_DEFAULT_OFF. Negative tests 5/5 refused
+(always-on, extra vemc rail, 3.6 V max, extra spm domain, =y); control
+passes.
+
+Test stages (each needs the previous one):
+- A. Before flashing: install #13 modules on the Debian root (old tree kept
+  as `/lib/modules/6.18.58-astro.k12`), `blacklist mt6359-regulator` in
+  `/etc/modprobe.d/astro-w2.conf`. Flash `boot-w2.img`. Check: boots,
+  0xa12 = 0x21e0, spm probe log (CONN registered, no "default off … ON"),
+  VCN regs = snapshot. **Power-key escape**; then `boot-w2-wdtest.img`
+  **watchdog escape**; back to `boot-w2.img`.
+- B. `modprobe mt6359-regulator`: five rails in /sys/class/regulator,
+  register snapshot unchanged, 0xa12 unchanged.
+- C. Firmware from the unit's vendor (Monolith extraction) and NVRAM WIFI
+  from nvdata (read-only) into /lib/firmware; insmod btif_drv, connadp,
+  wmt_drv (launcher: chip id, patches), wmt_chrdev_wifi,
+  wlan_drv_gen4m_6873; NVRAM to /dev/wmtWifi, then "1". Expect wlan0 and a
+  scan. Then power-key escape again with Wi-Fi on.
+Failure handling: every stage-B/C step is a manual insmod, nothing
+persists at boot; a hang ends in the watchdog reset (observed under Debian,
+31 s) and the next boot is a plain Debian boot. Rollback: `mtk w boot_a
+boot-root3.img` and restore the k12 module tree.

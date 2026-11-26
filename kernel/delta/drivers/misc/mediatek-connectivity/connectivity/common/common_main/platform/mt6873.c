@@ -529,24 +529,48 @@ static INT32 consys_clk_get_from_dts(struct platform_device *pdev)
 	return 0;
 }
 
+static struct regulator *consys_get_reg(struct platform_device *pdev,
+					const char *id)
+{
+	struct regulator *reg = regulator_get(&pdev->dev, id);
+
+	/*
+	 * [astro] stock only tested !reg; regulator_get() returns an ERR_PTR
+	 * (e.g. -EPROBE_DEFER before mt6359-regulator is loaded), which the
+	 * enable path would then dereference. Keep NULL on failure: every
+	 * user checks the pointer before regulator_enable().
+	 */
+	if (IS_ERR_OR_NULL(reg)) {
+		WMT_PLAT_PR_ERR("regulator_get(%s) fail (%ld)\n", id,
+				reg ? PTR_ERR(reg) : 0L);
+		return NULL;
+	}
+	return reg;
+}
+
 static INT32 consys_pmic_get_from_dts(struct platform_device *pdev)
 {
 #if CONSYS_PMIC_CTRL_ENABLE
-	reg_VCN18 = regulator_get(&pdev->dev, "vcn18");
-	if (!reg_VCN18)
-		WMT_PLAT_PR_ERR("Regulator_get VCN_1V8 fail\n");
-	reg_VCN13 = regulator_get(&pdev->dev, "vcn13");
-	if (!reg_VCN13)
-		WMT_PLAT_PR_ERR("Regulator_get VCN_1V3 fail\n");
-	reg_VCN33_1_BT = regulator_get(&pdev->dev, "vcn33_1_bt");
-	if (!reg_VCN33_1_BT)
-		WMT_PLAT_PR_ERR("Regulator_get VCN33_1_BT fail\n");
-	reg_VCN33_1_WIFI = regulator_get(&pdev->dev, "vcn33_1_wifi");
-	if (!reg_VCN33_1_WIFI)
-		WMT_PLAT_PR_ERR("Regulator_get VCN33_1_WIFI fail\n");
-	reg_VCN33_2_WIFI = regulator_get(&pdev->dev, "vcn33_2_wifi");
-	if (!reg_VCN33_2_WIFI)
-		WMT_PLAT_PR_ERR("Regulator_get VCN33_2_WIFI fail\n");
+	reg_VCN18 = consys_get_reg(pdev, "vcn18");
+	reg_VCN13 = consys_get_reg(pdev, "vcn13");
+	reg_VCN33_1_BT = consys_get_reg(pdev, "vcn33_1_bt");
+	reg_VCN33_1_WIFI = consys_get_reg(pdev, "vcn33_1_wifi");
+	reg_VCN33_2_WIFI = consys_get_reg(pdev, "vcn33_2_wifi");
+	if (!reg_VCN18 || !reg_VCN13 || !reg_VCN33_1_BT ||
+	    !reg_VCN33_1_WIFI || !reg_VCN33_2_WIFI) {
+		/* all or none: never power a partial set of CONSYS rails */
+		struct regulator **all[] = { &reg_VCN18, &reg_VCN13,
+			&reg_VCN33_1_BT, &reg_VCN33_1_WIFI, &reg_VCN33_2_WIFI };
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(all); i++) {
+			if (*all[i])
+				regulator_put(*all[i]);
+			*all[i] = NULL;
+		}
+		WMT_PLAT_PR_ERR("CONSYS regulators incomplete: none used\n");
+		return -EPROBE_DEFER;
+	}
 #endif
 
 	return 0;

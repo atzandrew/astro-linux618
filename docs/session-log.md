@@ -1107,3 +1107,19 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   out of tree, and in tree (`CONFIG_MTK_WCN_CONSYS=m`, `CONFIG_MTK_WCN_GEN4M=m`,
   `depends on m`) in a separate obj dir: 174 objects, identical set;
   .config differs only by those two symbols. build/obj left at #12.
+
+## 2026-11-25 — Wi-Fi W2: DT + regulators + CONN domain — PRE-FLASH CHECK
+
+- Full check: `docs/wifi-stock.md` "W2 pre-flash check". Not flashed.
+- Live reads (kernel #12, read-only): PMIC via pwrap regmap debugfs
+  (validated: 0xa12 = 0x21e0, 0x14a = 0x0225); all CONSYS LDOs off, VCN33
+  VOSEL 3.5 V, VCN13 1.3 V, VS2 0x2c (`backup/pre-w2-vcn-regs.txt`). SPM
+  CONN off (0x304 = 0x12, status bit 1 = 0); bus protect 0x228 bit 18 and
+  0x258 bit 10 set.
+- Found and avoided: vendor mt6873.c direct-SPM path (compiled out on
+  stock) clears ON/ON_2ND while "de-asserting" reset (`&= RST_BIT`): not
+  used, mainline genpd instead. mt6873.c regulator_get() checked only for
+  NULL: fixed (ERR_PTR, all-or-none).
+- Images `boot-w2.img` `b2290457…bf84`, `boot-w2-wdtest.img`
+  `50534c4e…7c47` (kernel #13) on Monolith. Guard extended, negative
+  tests 5/5 refused, control passes.

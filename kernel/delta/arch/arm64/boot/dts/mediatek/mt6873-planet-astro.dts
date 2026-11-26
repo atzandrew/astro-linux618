@@ -130,6 +130,27 @@
 			no-map;
 		};
 
+		/*
+		 * Wi-Fi W2: CONSYS EMI window (stock: 4 MiB, 16 MiB aligned,
+		 * dynamic in 0x40000000-0xc0000000). Fixed here, in the free
+		 * 0x60000000-0x77ff0000 gap of LK's map (p0-findings; checked
+		 * again against every mblock LK logged, 2026-11-25), clear of
+		 * LK's scratch (0x4e000000-0x56000000) and load areas.
+		 */
+		consys_emi: consys-emi@60000000 {
+			reg = <0 0x60000000 0 0x400000>;
+			no-map;
+		};
+
+		/* Wi-Fi DMA pool, as stock (gen4m reads "size") */
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0x600000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
 			no-map;
@@ -392,6 +413,54 @@
 			compatible = "mediatek,mt6359-auxadc";
 			#io-channel-cells = <1>;
 			shunt-resistor-micro-ohms = <5000>;
+		};
+
+		/*
+		 * Wi-Fi W2 (docs/wifi-stock.md): only the five CONSYS rails, for
+		 * the vendor mt6873.c consumer. Every other MT6359P regulator
+		 * has no node, so the core gives it no constraints and never
+		 * writes it (and regulator_ignore_unused is on the cmdline).
+		 * No always-on/boot-on: nothing is enabled at registration.
+		 * Ranges cover what LK leaves (VCN33 VOSEL 0xf = 3.5 V, VCN13
+		 * 1.3 V, 2026-11-25 read-out) so registration writes nothing;
+		 * mt6873.c sets 1.8/1.3/3.3 V itself when Wi-Fi powers on.
+		 * Addresses (mainline mt6359p table = Planet registers.h):
+		 * VCN18 EN 0x1c2e, VCN13 EN 0x1c1c VOSEL 0x202e, VCN33_1 EN
+		 * 0x1be2 b0 / 0x1bf4 b15 VOSEL 0x1f98, VCN33_2 EN 0x1c1a b15
+		 * VOSEL 0x1f9c. Nothing near STRUP_CON12 (0xa12).
+		 */
+		regulators {
+			compatible = "mediatek,mt6359-regulator";
+
+			mt6359_vcn18_ldo_reg: ldo_vcn18 {
+				regulator-name = "vcn18";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			mt6359_vcn13_ldo_reg: ldo_vcn13 {
+				regulator-name = "vcn13";
+				regulator-min-microvolt = <1300000>;
+				regulator-max-microvolt = <1300000>;
+			};
+
+			mt6359_vcn33_1_bt_ldo_reg: ldo_vcn33_1_bt {
+				regulator-name = "vcn33_1_bt";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3500000>;
+			};
+
+			mt6359_vcn33_1_wifi_ldo_reg: ldo_vcn33_1_wifi {
+				regulator-name = "vcn33_1_wifi";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3500000>;
+			};
+
+			mt6359_vcn33_2_wifi_ldo_reg: ldo_vcn33_2_wifi {
+				regulator-name = "vcn33_2_wifi";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3500000>;
+			};
 		};
 
 		keys {
@@ -898,5 +967,85 @@
 			input-enable;
 			bias-pull-up;
 		};
+	};
+};
+
+/*
+ * Wi-Fi W2: SCPSYS power domains, CONN only. mt8192.dtsi lists AUDIO, CONN,
+ * MFG0 (+MFG1-6) and DISP (+IPE/ISP/MDP/VENC/VDEC/CAM...); mtk-pm-domains
+ * powers every listed domain on at probe except KEEP_DEFAULT_OFF ones, the
+ * reason it was off (astro.config). Only CONN stays: KEEP_DEFAULT_OFF, so
+ * nothing is powered at probe. Mainline MT8192 CONN = Planet's MT6873
+ * clk-mt6873-pg.c: PWR_CON 0x304, status bit 1 at 0x16c/0x170, bus
+ * protect INFRA 0x2a0/0x2a4/0x228 BIT13|18 then BIT14, 0x2a8/0x2ac/0x258
+ * BIT10; domain clock infra_pmic_conn (sw_cg_0 bit 3 in both).
+ */
+&spm {
+	/delete-node/ power-domain@MT8192_POWER_DOMAIN_AUDIO;
+	/delete-node/ power-domain@MT8192_POWER_DOMAIN_MFG0;
+	/delete-node/ power-domain@MT8192_POWER_DOMAIN_DISP;
+};
+
+/*
+ * Wi-Fi W2: MT6873 CONSYS (CONNAC2X2, A-die MT6635) for the vendor
+ * WMT/BTIF/gen4m modules (drivers/misc/mediatek-connectivity). reg, IRQs
+ * and clock gates as the stock DTB (backup/boot_a.dtb.0.dts); vendor clock
+ * IDs mapped by name and checked by register/bit: INFRACFG_AO_BTIF_CG 28 =
+ * CLK_INFRA_BTIF (0x80 b31), AP_DMA_CG 129 = CLK_INFRA_AP_DMA (0xd0 b31),
+ * CCIF4_AP_CG 113 = CLK_INFRA_CCIF4_AP (0xc0 b28). The stock "conn" clock
+ * (vendor scpsys SYS_CONN) is the CONN power domain on mainline (mt6873.c's
+ * >= 5.4 path uses pm_runtime). No pinctrl: stock consys_default is
+ * empty and GPS (LNA pin) is not used.
+ */
+&{/soc} {
+	btif: btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x1000>,
+		      <0 0x10217d80 0 0x80>,
+		      <0 0x10217e00 0 0x80>;
+		interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&infracfg CLK_INFRA_BTIF>,
+			 <&infracfg CLK_INFRA_AP_DMA>;
+		clock-names = "btifc", "apdmac";
+	};
+
+	consys: consys@18002000 {
+		compatible = "mediatek,mt6873-consys";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		reg = <0 0x18002000 0 0x1000>,
+		      <0 0x10007000 0 0x100>,
+		      <0 0x10001000 0 0x1000>,
+		      <0 0x10006000 0 0x1000>,
+		      <0 0x18007000 0 0x1000>,
+		      <0 0x180b1000 0 0x1000>,
+		      <0 0x180a3000 0 0x1000>,
+		      <0 0x180a5000 0 0x800>,
+		      <0 0x180c1000 0 0x1000>,
+		      <0 0x18004000 0 0x1000>,
+		      <0 0x1024c000 0 0x40>,
+		      <0 0x10003000 0 0x1000>;
+		interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&spm MT8192_POWER_DOMAIN_CONN>;
+		clocks = <&infracfg CLK_INFRA_CCIF4_AP>;
+		clock-names = "ccif";
+		memory-region = <&consys_emi>;
+		pmic = <&pmic>;
+		vcn18-supply = <&mt6359_vcn18_ldo_reg>;
+		vcn13-supply = <&mt6359_vcn13_ldo_reg>;
+		vcn33_1_bt-supply = <&mt6359_vcn33_1_bt_ldo_reg>;
+		vcn33_1_wifi-supply = <&mt6359_vcn33_1_wifi_ldo_reg>;
+		vcn33_2_wifi-supply = <&mt6359_vcn33_2_wifi_ldo_reg>;
+	};
+
+	wifi: wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x100000>;
+		interrupts = <GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH 0>;
+		memory-region = <&wifi_mem>;
 	};
 };

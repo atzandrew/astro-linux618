@@ -64,6 +64,13 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # (docs/pmic-plan.md step 3: reset 0xf90 under key 0xfb4, requests
 # 0x1108/0x110a, IMP0 0x1208; no STRUP). Any change re-opens the audit.
 AUXADC_SHA=1468d6538002322c80f5847d45e656a728d64036522787d892d524c495342675
+# Wi-Fi W2 (docs/wifi-stock.md "W2 pre-flash check"): the MT6359 regulator
+# driver (module only) with exactly the five CONSYS rails described, and
+# SCPSYS power domains with the spm node reduced to CONN (KEEP_DEFAULT_OFF).
+# Both sources pinned as audited (unmodified v6.18.58).
+REG6359_SHA=86b9d129c5664aa280fdd7837c7c5bdad96b49096a764bb368b5e1bf97821841
+PMDOM_SHA=5c3bc0d05499bf624ba0dc9f602f81e4f72592719fb5312d38d02efc8b53a04c
+PMDOM8192_SHA=776ce01e0eac0f24a9eb3257b7f13d55af0839410adac69417f6510a0dfe3e6b
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -112,9 +119,32 @@ else
 	# PMIC children: none, "keys", "adc", or both.
 	KIDS="$(grep -P '^\t\t\t\t[a-z][^ ]* \{$' <<<"$PWRAP_NODE" | tr -d '\t' | sort | tr '\n' ' ')"
 	case "$KIDS" in
-	""|"keys { "|"adc { "|"adc { keys { ") ;;
-	*) refuse "mt6359 node has children other than adc/keys: $KIDS" ;;
+	""|"keys { "|"adc { "|"adc { keys { "|"adc { keys { regulators { "|"keys { regulators { "|"regulators { "|"adc { regulators { ") ;;
+	*) refuse "mt6359 node has children other than adc/keys/regulators: $KIDS" ;;
 	esac
+	if [[ "$KIDS" == *"regulators {"* ]]; then
+		REGS_NODE="$(awk '/^\t\t\t\tregulators \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
+		grep -q 'compatible = "mediatek,mt6359-regulator";' <<<"$REGS_NODE" || refuse "regulators is not mediatek,mt6359-regulator"
+		[[ "$(grep -P '^\t\t\t\t\t[a-z][^ ]* \{$' <<<"$REGS_NODE" | tr -d '\t' | sort | tr '\n' ' ')" \
+			== "ldo_vcn13 { ldo_vcn18 { ldo_vcn33_1_bt { ldo_vcn33_1_wifi { ldo_vcn33_2_wifi { " ]] \
+			|| refuse "regulators node describes rails other than the five CONSYS LDOs"
+		grep -qE 'regulator-(always-on|boot-on)|regulator-initial|regulator-pull-down|regulator-allowed-modes|regulator-over-current|regulator-active-discharge|regulator-ramp' <<<"$REGS_NODE" \
+			&& refuse "regulators node sets something beyond name/min/max"
+		# every property line in a rail: name, min, max, phandle - nothing else
+		[[ -z "$(grep -P '^\t\t\t\t\t\t' <<<"$REGS_NODE" | grep -vE 'regulator-name = |regulator-(min|max)-microvolt = |phandle = ')" ]] \
+			|| refuse "a CONSYS rail node has properties beyond name/min/max"
+		chk_rail() { # node name min max
+			local n
+			n="$(awk -v r="$1" '$0 ~ "^\t\t\t\t\t"r" \\{$"{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$REGS_NODE")"
+			grep -q "regulator-min-microvolt = <$2>;" <<<"$n" && grep -q "regulator-max-microvolt = <$3>;" <<<"$n" \
+				|| refuse "$1 voltage range is not the audited one"
+		}
+		chk_rail ldo_vcn18 0x1b7740 0x1b7740        # 1.8 V (fixed LDO)
+		chk_rail ldo_vcn13 0x13d620 0x13d620        # 1.3 V = LK's VOSEL 4
+		chk_rail ldo_vcn33_1_bt 0x325aa0 0x3567e0   # 3.3-3.5 V (LK: 3.5)
+		chk_rail ldo_vcn33_1_wifi 0x325aa0 0x3567e0
+		chk_rail ldo_vcn33_2_wifi 0x325aa0 0x3567e0
+	fi
 	if [[ "$KIDS" == *"adc {"* ]]; then
 		ADC_NODE="$(awk '/^\t\t\t\tadc \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
 		[[ "$(grep -cP '^\t\t\t\t\t' <<<"$ADC_NODE")" == 4 ]] \
@@ -150,7 +180,30 @@ if grep -qE '^CONFIG_MEDIATEK_MT6359_AUXADC=' "$KCONF"; then
 fi
 grep -qE 'mediatek,mt63[0-9]+-auxadc' <<<"$DTS_TEXT" && [[ -z "${ADC_NODE:-}" ]] \
 	&& refuse "PMIC auxadc outside the checked adc node"
-for c in REGULATOR_MT6359 RTC_DRV_MT6397 SND_SOC_MT6359 \
+if grep -qE '^CONFIG_REGULATOR_MT6359=' "$KCONF"; then
+	grep -qE '^CONFIG_REGULATOR_MT6359=m$' "$KCONF" || refuse "REGULATOR_MT6359 built in (module only)"
+	[[ -n "${REGS_NODE:-}" ]] || refuse "MT6359 regulator driver without the checked regulators node"
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/regulator/mt6359-regulator.c" | cut -d' ' -f1)" == "$REG6359_SHA" ]] \
+		|| refuse "mt6359-regulator.c is not the audited W2 source"
+fi
+grep -q 'compatible = "mediatek,mt6359-regulator";' <<<"$DTS_TEXT" && [[ -z "${REGS_NODE:-}" ]] \
+	&& refuse "MT6359 regulators outside the checked node"
+# SCPSYS power domains (Wi-Fi W2): only the CONN domain may be listed.
+SPM_NODE="$(awk '/^\t\t\tpower-controller \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$DTS_TEXT")"
+if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
+	[[ -n "$SPM_NODE" ]] || refuse "SCPSYS power domains on but no spm node"
+	[[ "$(grep -cP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$SPM_NODE")" == 1 ]] \
+		&& grep -qP '^\t\t\t\tpower-domain@1 \{$' <<<"$SPM_NODE" \
+		|| refuse "spm lists power domains other than CONN (MT8192_POWER_DOMAIN_CONN = 1)"
+	[[ "$(grep -c 'power-domain@' <<<"$SPM_NODE")" == 1 ]] || refuse "spm has nested power domains"
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mtk-pm-domains.c" | cut -d' ' -f1)" == "$PMDOM_SHA" ]] \
+		&& [[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" | cut -d' ' -f1)" == "$PMDOM8192_SHA" ]] \
+		|| refuse "mtk-pm-domains / mt8192 table is not the audited W2 source"
+	awk '/\[MT8192_POWER_DOMAIN_CONN\]/{f=1;next} f&&/\[MT8192_POWER_DOMAIN_/{exit} f' \
+		"$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" \
+		| grep -q 'MTK_SCPD_KEEP_DEFAULT_OFF' || refuse "CONN domain is not KEEP_DEFAULT_OFF"
+fi
+for c in RTC_DRV_MT6397 SND_SOC_MT6359 \
 	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
 done
