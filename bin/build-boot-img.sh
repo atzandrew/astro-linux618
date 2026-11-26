@@ -88,7 +88,7 @@ GOODIX_CORE_SHA=aa897b60353dce96be21273f841debde6fa4536f964e5006d6991153860413ff
 # Thermal T-S1: audited LVTS delta (MT6873 vendor sequence).
 LVTS_SHA=de9e97ac7450d4edccd0af06010a67c9ae9df5679b4cf1dab815ea8ab83572fd
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
-PANEL_SHA=e1c0328754cdcd04f2a5dcaed90aff2d273c02d5ae16098c2a91a33234d620a7
+PANEL_SHA=63780c0ef6443beb5b0d8c25f00a24dd603486b2b69162a01a0735ae6318d97d  # frame pacing (2026-11-26): mode HFP 59 -> 21 only (63.00 Hz, porches not sent in command mode)
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -172,7 +172,7 @@ else
 		for b in ldo_vsram_proc1 ldo_vsram_proc2; do
 			VSP="$(awk -v r="$b" '$0 ~ "^\t\t\t\t\t"r" \\{$"{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$REGS_NODE" \
 				| grep -oP '^\t\t\t\t\t\t\K.*;$' | grep -v '^phandle = ' | tr '\n' '|')"
-			[[ "$VSP" == "regulator-name = \"${b#ldo_}\";|regulator-min-microvolt = <0xb71b0>;|regulator-max-microvolt = <0xf4240>;|regulator-ramp-delay = <0x1388>;|regulator-always-on;|" ]] \
+			[[ "$VSP" == "regulator-name = \"${b#ldo_}\";|regulator-min-microvolt = <0xb71b0>;|regulator-max-microvolt = <0xf4240>;|regulator-ramp-delay = <0x30d4>;|regulator-always-on;|" ]] \
 				|| refuse "$b constraints are not the audited C4 ones: $VSP"
 		done
 		# the CONSYS rails: everything below applies to them only
@@ -287,7 +287,7 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 	# G-S3: MT6315@7 vbuck1 (vgpu) with exactly the audited constraints.
 	# cpufreq C4 (docs/cpufreq-stock.md): MT6315@6 vbuck1/vbuck3 (CPU rails)
 	# with exactly the audited C4 constraints (0.600-0.925 V = stock FY
-	# floor/top, software ramp 5 mV/us, always on).
+	# floor/top, software ramp 12.5 mV/us = stock UP_SRATE, always on).
 	# pmic@3 stays bare.
 	PMIC7="$(awk '/^\t\t\tpmic@7 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
 	PMIC6="$(awk '/^\t\t\tpmic@6 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
@@ -300,8 +300,8 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 		VBP="$(awk "/^\t\t\t\t\t$b \{\$/{f=1} f{print} f&&/^\t\t\t\t\t};\$/{exit}" <<<"$PMIC6" \
 			| grep -oP '^\t\t\t\t\t\t\K.*;$' | grep -v '^phandle = ' | tr '\n' '|')"
 		case $b in
-		vbuck1) want='regulator-name = "Vproc_big";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0xe1d48>;|regulator-ramp-delay = <0x1388>;|regulator-always-on;|' ;;
-		vbuck3) want='regulator-name = "Vproc_little";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0xe1d48>;|regulator-ramp-delay = <0x1388>;|regulator-always-on;|' ;;
+		vbuck1) want='regulator-name = "Vproc_big";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0xe1d48>;|regulator-ramp-delay = <0x30d4>;|regulator-always-on;|' ;;
+		vbuck3) want='regulator-name = "Vproc_little";|regulator-min-microvolt = <0x927c0>;|regulator-max-microvolt = <0xe1d48>;|regulator-ramp-delay = <0x30d4>;|regulator-always-on;|' ;;
 		esac
 		[[ "$VBP" == "$want" ]] || refuse "CPU rail pmic@6 $b constraints are not the audited C4 ones: $VBP"
 	done

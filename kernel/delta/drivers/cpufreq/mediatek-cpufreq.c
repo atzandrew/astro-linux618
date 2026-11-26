@@ -603,6 +603,14 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	policy->freq_table = freq_table;
 	policy->driver_data = info;
 	policy->clk = info->cpu_clk;
+	/*
+	 * As cpufreq-dt: the OPP table's clock-latency-ns (0 if absent, then
+	 * the core's 1 ms default rate limit applies as before). Each change
+	 * here is a PLL relock plus regulator writes with their ramp, so the
+	 * latency is worth describing.
+	 */
+	policy->cpuinfo.transition_latency =
+		dev_pm_opp_get_max_transition_latency(info->cpu_dev);
 
 	return 0;
 }

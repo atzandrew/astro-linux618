@@ -438,16 +438,20 @@ static int sh8802b_disable(struct drm_panel *panel)
 
 static const struct drm_display_mode sh8802b_mode = {
 	/*
-	 * Vendor porches (HFP 59, HSA 10, HBP 64, VFP 12, VSA 2, VBP 10). The
-	 * clock gives the stock link rate, 1050 Mbps/lane (vendor pll_clk 525
-	 * MHz): 175000 kHz * 24 bpp / 4 lanes. Command mode: the panel's own
-	 * timing sets the refresh.
+	 * The clock gives the stock link rate, 1050 Mbps/lane (vendor pll_clk
+	 * 525 MHz): 175000 kHz * 24 bpp / 4 lanes. Command mode: the panel's
+	 * own oscillator sets the refresh (TE measured 62.98 Hz, 15.877 ms,
+	 * docs/frame-pacing.md) and the DSI sends no porches, so they only
+	 * describe the mode: vendor HSA 10, HBP 64, VFP 12, VSA 2, VBP 10 and
+	 * HFP 21 (vendor 59) so that the mode's refresh is the real one,
+	 * 175000 kHz / (1175 x 2364) = 63.00 Hz (the vendor's 59 gave 61.03 Hz,
+	 * and compositors scheduled for the wrong period).
 	 */
 	.clock = 175000,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 59,
-	.hsync_end = 1080 + 59 + 10,
-	.htotal = 1080 + 59 + 10 + 64,
+	.hsync_start = 1080 + 21,
+	.hsync_end = 1080 + 21 + 10,
+	.htotal = 1080 + 21 + 10 + 64,
 	.vdisplay = 2340,
 	.vsync_start = 2340 + 12,
 	.vsync_end = 2340 + 12 + 2,

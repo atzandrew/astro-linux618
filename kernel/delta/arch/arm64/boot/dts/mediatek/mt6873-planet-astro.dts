@@ -476,7 +476,7 @@
 				regulator-name = "vsram_proc1";
 				regulator-min-microvolt = <750000>;
 				regulator-max-microvolt = <1000000>;
-				regulator-ramp-delay = <5000>;
+				regulator-ramp-delay = <12500>;
 				regulator-always-on;
 			};
 
@@ -484,7 +484,7 @@
 				regulator-name = "vsram_proc2";
 				regulator-min-microvolt = <750000>;
 				regulator-max-microvolt = <1000000>;
-				regulator-ramp-delay = <5000>;
+				regulator-ramp-delay = <12500>;
 				regulator-always-on;
 			};
 		};
@@ -549,17 +549,18 @@
 		 * 6_vbuck1 = proc1 = A76 cluster, 6_vbuck3 = proc2 = A55
 		 * cluster + CCI). Range 0.600-0.925 V: the stock FY table's
 		 * floor and top; LK's 0.600 / 0.71875 V lie inside, so the
-		 * regulator core writes nothing at registration. Ramp 5 mV/us
-		 * = the stock down rate (up is 12.5 mV/us): software wait only
-		 * (the MT6315 driver has no ramp setting). Always on: no Linux
-		 * path may switch a CPU rail off.
+		 * regulator core writes nothing at registration. Ramp 12.5
+		 * mV/us = the stock rate (vendor UP_SRATE 1250; as mt8186-corsola
+		 * declares its CPU buck): software wait only (the MT6315 driver
+		 * has no ramp setting). Always on: no Linux path may switch a
+		 * CPU rail off.
 		 */
 		regulators {
 			mt6315_6_vbuck1: vbuck1 {
 				regulator-name = "Vproc_big";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <925000>;
-				regulator-ramp-delay = <5000>;
+				regulator-ramp-delay = <12500>;
 				regulator-always-on;
 			};
 
@@ -567,7 +568,7 @@
 				regulator-name = "Vproc_little";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <925000>;
-				regulator-ramp-delay = <5000>;
+				regulator-ramp-delay = <12500>;
 				regulator-always-on;
 			};
 		};
@@ -1483,6 +1484,13 @@
 		compatible = "operating-points-v2";
 		opp-shared;
 
+		/*
+		 * Measured transition time (fttrans.py, kernel #25, 5 mV/us ramp):
+		 * 0.47-1.0 ms per change; schedutil then waits 1.5x between
+		 * updates (cpufreq_policy_transition_delay_us).
+		 */
+		clock-latency-ns = <1000000>;
+
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <600000>;
@@ -1568,6 +1576,8 @@
 	cluster1_opp: opp-table-cluster1 {
 		compatible = "operating-points-v2";
 		opp-shared;
+
+		clock-latency-ns = <1000000>;
 
 		opp-774000000 {
 			opp-hz = /bits/ 64 <774000000>;
