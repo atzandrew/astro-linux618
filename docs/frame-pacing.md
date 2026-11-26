@@ -55,3 +55,21 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
    ms). GPU devfreq (simple_ondemand, 50 ms) swings 461 <-> 748 MHz;
    pinning 748 MHz did not change the menu intervals. Mainline OVL has no
    AFBC for mt8192 (only mt8195): all buffers linear.
+
+## Mesa 26.1.6 and KWin on GLES (2026-11-26, same tr1 kernel)
+
+- Mesa 26.1.6 from trixie-backports (as the Cosmo; gemini-debian d977ca8).
+  KWin still desktop GL 3.1 core: pointer motion 0 GL errors (25.0.7:
+  ~5000 / 2 s), but full repaints still flood (~35000 lines in 3 min).
+- `KWIN_COMPOSE=O2ES` (user env file, test): KWin on OpenGL ES 3.1. **0 GL
+  errors** in pointer motion and in the menu run; journald quiet. Drag
+  unchanged: 15.87 ms median, input -> flip median 8 ms.
+- Start menu still alternates 16 / 31 ms. KWin GPU per menu frame ~15-19
+  ms with blur+contrast (3045 jobs in 13 s, KWin queue wait median 13 ms
+  behind plasmashell's QSGRenderThread jobs); ~10-11 ms without them (467
+  jobs, queue wait 0.12 ms). First open of the session: plasmashell 677-902
+  ms of GPU (first-use shader compiles), first frame 100-210 ms after the
+  toggle; later opens 45-136 ms.
+- Direct scanout of client buffers fails: `mtk_gem_prime_import_sg_table:
+  sg_table is not contiguous` / `swiotlb buffer is full` (no display IOMMU),
+  so KWin always composites.
