@@ -64,8 +64,10 @@ configure() {
 	# (including every =n that keeps Linux away from the PMIC and the
 	# display) live in astro.config.
 	"${MK[@]}" defconfig
+	# KFRAG=file adds a test-only fragment on top (e.g. trace.config for
+	# a tracing kernel; pair it with KLOCAL=-tr1 for its own module tree).
 	"$SRC/scripts/kconfig/merge_config.sh" -m -O "$OBJ" \
-		"$OBJ/.config" "$ROOT/kernel/config/astro.config"
+		"$OBJ/.config" "$ROOT/kernel/config/astro.config" ${KFRAG:+"$KFRAG"}
 	"${MK[@]}" olddefconfig
 	# Fail loudly if the fragment asked for something Kconfig dropped.
 	local missing=0

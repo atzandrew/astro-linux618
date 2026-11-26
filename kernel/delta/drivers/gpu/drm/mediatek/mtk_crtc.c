@@ -42,6 +42,18 @@ static bool cmd_debug;
 module_param(cmd_debug, bool, 0644);
 MODULE_PARM_DESC(cmd_debug, "Log command-mode frame triggers and frame-done interrupts");
 
+/*
+ * Command mode: send the page-flip event when the frame is triggered instead
+ * of when its transfer ends (the vblank count still moves at frame done). The trigger of frame N waits
+ * for frame N-1's transfer, so N-1's buffer is free when the event for N is
+ * sent, and the compositor can render N+1 during N's ~15.9 ms transfer
+ * (1080x2340x24 at 4 x 1050 Mbps). Completing at frame done serialised
+ * render and transfer: 30.6 ms per frame (32.7 Hz) under KWin.
+ */
+static bool cmd_early_flip = true;
+module_param(cmd_early_flip, bool, 0644);
+MODULE_PARM_DESC(cmd_early_flip, "Command mode: send the page-flip event at frame trigger, not at frame done (1 = default)");
+
 struct mtk_crtc {
 	struct drm_crtc			base;
 	bool				enabled;
@@ -672,6 +684,15 @@ static void mtk_crtc_update_config(struct mtk_crtc *mtk_crtc, bool needs_vblank)
 		if (cmd_debug)
 			pr_info("mtk_crtc cmd: trigger, needs_vblank %d event %p\n",
 			 mtk_crtc->pending_needs_vblank, mtk_crtc->event);
+		if (cmd_early_flip) {
+			/* event now; the vblank count still moves at frame done */
+			spin_lock_irqsave(&mtk_crtc->config_lock, flags);
+			if (mtk_crtc->pending_needs_vblank) {
+				mtk_crtc_finish_page_flip(mtk_crtc);
+				mtk_crtc->pending_needs_vblank = false;
+			}
+			spin_unlock_irqrestore(&mtk_crtc->config_lock, flags);
+		}
 		goto update_config_unlock;
 	}
 
@@ -698,6 +719,12 @@ static void mtk_crtc_ddp_irq(void *data)
 			pr_info("mtk_crtc cmd: frame done, pending %d updating %d event %p\n",
 			 mtk_crtc->pending_needs_vblank, mtk_crtc->config_updating,
 			 mtk_crtc->event);
+		/*
+		 * Count the vblank here in both modes: commits without an event
+		 * (drm_atomic_helper_wait_for_vblanks) wait for the count to move
+		 * after their frame. With cmd_early_flip the event went out at
+		 * the trigger, so pending_needs_vblank is already clear.
+		 */
 		mtk_drm_finish_page_flip(mtk_crtc);
 		return;
 	}
