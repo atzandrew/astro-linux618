@@ -1214,3 +1214,13 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   the unit address, astro-wifi 2.7 s, astro-bt 5.3 s, system running.
 - Note: build without LOCALVERSION= gives "-astro-dirty" vermagic and
   "Exec format error"; always build via bin/build-kernel.sh or pass it.
+- B3 (2026-11-25): DualSense (PS5 controller) paired over BR/EDR. Two
+  userspace snags, no driver issue: non-interactive `bluetoothctl pair`
+  has no agent ("Authentication attempt without agent"; pair inside one
+  session with `agent NoInputNoOutput` + `default-agent`), and `trust`
+  sent while the controller was mid-connect did not stick → bluetoothd
+  rejected the HID channel ("Access denied") until trusted. Then PS
+  button → reconnects by itself: hid-playstation (new: HID_PLAYSTATION=m,
+  PLAYSTATION_FF=y; modules only) registers gamepad, motion sensors and
+  touchpad (event2-4, via uhid), hw 0x513 fw 0x0110002a, battery 100 %
+  Full, light bar set by the driver. No joydev (js*) built; evdev only.
