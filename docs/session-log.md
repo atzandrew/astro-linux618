@@ -1183,3 +1183,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   away: all 7 files + 2 records extracted, byte-identical; wlan0 up in
   4.5 s; NM reconnected; SSH over Wi-Fi ~20 s after reboot; 0xa12 =
   0x21e0. Stage-A regulator blacklist removed.
+- Log noise (2026-11-25): gen4m default mask 0x2f gave ~720 lines/min
+  (asicFillCmdTxdInfo, wlanTxCmdDoneCb, kalPerMonUpdate,
+  wlanLinkQualityMonitor, kalDumpHifStats …). gemini-debian astro-wifi now
+  writes `0xFF:0x03` to /proc/net/wlan/dbgLevel (→ 7–10 lines/min, dropped
+  gratuitous-ARP warnings) and sysctl `kernel.printk = 4 4 1 7` (console:
+  errors only). Remaining console line at boot: mt8192-afe-pcm probe
+  -110 (its AUDIO power domain is not in the CONN-only spm node; audio
+  not brought up yet).
