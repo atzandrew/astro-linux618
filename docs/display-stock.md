@@ -796,7 +796,7 @@ Our driver (decision 1 above, based on the source) sends all 12 after the
 first off/on. That is not the stock steady state. Pending the user's
 decision: drop the 12 gamma writes so our table = shipped kernel = LK.
 
-## Stage G1 pre-flash check (2026-11-26) — awaiting approval
+## Stage G1 pre-flash check (2026-11-26) — approved ("ready")
 
 Change (modules only, kernel #23 unchanged, no boot image, no mtk write):
 `panel-shenghe-sh8802b.ko` `16129a3f…` (source `e1c03287…`, PANEL_SHA in
@@ -837,3 +837,14 @@ power mode 0x9C; read dcs_regs again. (c) pattern + Plasma text at 512 and
 Expected reads (sister-chip defaults): 54h 0x28 (BCTRL, DISP_DIM),
 56h 0x00 (ACL off), 59h 0x00 (SRE off). Anything else is reported, not
 changed.
+
+**Stage G1 result (2026-11-26): passed.** Modules installed on kernel #23
+(old ones in /var/tmp/modules-pre-g1), reboot. Takeover as before (power
+mode 0x9C). dcs_regs in the bootloader's state: 0Ah 0x9C, 54h **0x20**
+(BCTRL on, DISP_DIM off; the sister chip's default is 0x28), 56h 0x00 (ACL
+off), 59h 0x00 (SRE off). First Linux screen-on without the gamma tables
+(greeter blank → key): power mode 0x9C, same four values. So SRE and ACL are
+off in both states. Pattern at 512 and 1023 (user): "both tests looked much
+better than before"; text also better. The stock-source gamma tables were
+the main cause of the rough text after the first wake. Side finding: the
+greeter ran at backlight 114, not 512 (KWin output config brightness 0.5).
