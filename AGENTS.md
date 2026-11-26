@@ -95,6 +95,10 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   lvts_thermal`), 17 zones, passive 85 °C / critical 100 °C; no HW
   thermal reset yet (stock 117 °C via TOPRGU, optional later). G-S3
   research is in `docs/gpu-stock.md` (stock top 748 MHz on MT6873).
+  **GPU G-S3 done (2026-11-25)**: panfrost devfreq over the 22 stock
+  points (358–748 MHz, vgpu 0.5625–0.69375 V), GPU thermal throttling;
+  vgpu does not yet switch off at idle (sync_state, see gpu-stock.md).
+  Next: Plasma on panfrost.
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive

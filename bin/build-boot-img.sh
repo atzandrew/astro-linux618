@@ -225,7 +225,12 @@ if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 	[[ "$ALL" == "1 2 3 4 5 6 7 8 9 " ]] || refuse "spm domains are not exactly CONN, MFG0-6, DISP: $ALL"
 	DISP_NODE="$(awk '/^\t\t\t\tpower-domain@9 \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$SPM_NODE")"
 	grep -q 'power-domain@[0-9a-f]* {' <<<"$(tail -n +2 <<<"$DISP_NODE")" && refuse "DISP has child domains"
-	grep -q 'domain-supply' <<<"$SPM_NODE" && refuse "a power domain has a domain-supply (rail control)"
+	# G-S3: one domain-supply, on MFG0 (power-domain@2 at the top level),
+	# checked against the vgpu phandle in the GPU section below.
+	[[ "$(grep -c 'domain-supply' <<<"$SPM_NODE")" -le 1 ]] || refuse "more than one domain-supply"
+	MFG0_SUPPLY="$(awk '/^\t\t\t\tpower-domain@2 \{$/{f=1} f&&/^\t\t\t\t\tdomain-supply = /{print $3} f&&/^\t\t\t\t};$/{exit}' <<<"$SPM_NODE" | tr -d ';')"
+	[[ "$(grep -c 'domain-supply' <<<"$SPM_NODE")" == "$([[ -n "$MFG0_SUPPLY" ]] && echo 1 || echo 0)" ]] \
+		|| refuse "a domain-supply outside MFG0"
 	[[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mtk-pm-domains.c" | cut -d' ' -f1)" == "$PMDOM_SHA" ]] \
 		&& [[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" | cut -d' ' -f1)" == "$PMDOM8192_SHA" ]] \
 		|| refuse "mtk-pm-domains / mt8192 table is not the audited W2 source"
@@ -251,19 +256,42 @@ if grep -qE '^CONFIG_(SPMI_MTK_PMIF|REGULATOR_MT6315)=' "$KCONF"; then
 	grep -q 'compatible = "mediatek,mt6873-spmi";' <<<"$SPMI_NODE" || refuse "spmi node is not mediatek,mt6873-spmi"
 	KIDS="$(grep -oP '^\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPMI_NODE" | sort | tr '\n' ' ')"
 	[[ "$KIDS" == "pmic@3 pmic@6 pmic@7 " ]] || refuse "spmi children are not exactly pmic@3/6/7: $KIDS"
-	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$SPMI_NODE" && refuse "an MT6315 node has child nodes (regulators?)"
-	grep -qE 'regulator-|always-on|boot-on' <<<"$SPMI_NODE" && refuse "regulator constraints under spmi"
+	# G-S3: the only described rail is MT6315@7 vbuck1 (vgpu), with exactly
+	# the audited constraints; pmic@3 and pmic@6 (CPU rails) stay bare.
+	PMIC7="$(awk '/^\t\t\tpmic@7 \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$SPMI_NODE")"
+	OTHERS="$(awk '/^\t\t\tpmic@7 \{$/{f=1} !f{print} f&&/^\t\t\t};$/{f=0}' <<<"$SPMI_NODE")"
+	grep -qP '^\t\t\t\t[a-z#][^=]* \{$' <<<"$OTHERS" && refuse "pmic@3/pmic@6 have child nodes"
+	grep -qE 'regulator-|always-on|boot-on' <<<"$OTHERS" && refuse "regulator constraints on pmic@3/pmic@6"
+	[[ "$(grep -oP '^\t\t\t\t\t?\K[a-z0-9]+(?= \{$)' <<<"$PMIC7" | tr '\n' ' ')" == "regulators vbuck1 " ]] \
+		|| refuse "pmic@7 describes more than regulators/vbuck1"
+	VB1="$(awk '/^\t\t\t\t\tvbuck1 \{$/{f=1} f{print} f&&/^\t\t\t\t\t};$/{exit}' <<<"$PMIC7")"
+	VB1_PROPS="$(grep -oP '^\t\t\t\t\t\t\K.*;$' <<<"$VB1" | grep -v '^phandle = ' | tr '\n' '|')"
+	[[ "$VB1_PROPS" == 'regulator-name = "Vgpu";|regulator-min-microvolt = <0x89544>;|regulator-max-microvolt = <0xb71b0>;|regulator-enable-ramp-delay = <0x100>;|regulator-settling-time-us = <0x28>;|' ]] \
+		|| refuse "vgpu (pmic@7 vbuck1) constraints are not the audited ones: $VB1_PROPS"
+	VGPU_PH="$(grep -oP '^\t\t\t\t\t\tphandle = \K<0x[0-9a-f]+>' <<<"$VB1")"
+	[[ -n "$VGPU_PH" ]] || refuse "vgpu has no phandle"
 	[[ "$(grep -c 'compatible = "mediatek,mt6315-regulator";' <<<"$SPMI_NODE")" == 3 ]] || refuse "MT6315 nodes are not the 3 regulator PMICs"
 fi
-# GPU G-S2: panfrost only as a module, pinned core-mask delta, and a GPU
-# node that cannot touch a rail or a rate (no OPP table, no mali-supply),
-# with the stock MT6873 4-core mask.
+# GPU G-S2/G-S3: panfrost only as a module, pinned core-mask delta, the
+# stock MT6873 4-core mask, and only stock rates and vgpu voltages.
 GPU_NODE="$(awk '/^\t\tgpu@13000000 \{$/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
 grep -qE '^CONFIG_DRM_PANFROST=y' "$KCONF" && refuse "DRM_PANFROST built in (module only)"
 if grep -qE '^CONFIG_DRM_PANFROST=m' "$KCONF"; then
 	[[ "$(sha256sum < "$ROOT/build/src/drivers/gpu/drm/panfrost/panfrost_gpu.c" | cut -d' ' -f1)" == "$PANFROST_GPU_SHA" ]] \
 		|| refuse "panfrost_gpu.c is not the audited core-mask delta"
-	grep -qE 'operating-points|mali-supply|sram-supply' <<<"$GPU_NODE" && refuse "GPU node can change rails or rates"
+	# G-S3: rail = vgpu only (no sram-supply, vsram stays as LK left it),
+	# MFG0 supplied by the same vgpu, OPP table = the 22 stock MT6873
+	# points (vendor g_opp_table_segment_1 idx 17-38), nothing above.
+	grep -q 'sram-supply' <<<"$GPU_NODE" && refuse "GPU node has an sram-supply"
+	[[ -n "${VGPU_PH:-}" ]] || refuse "GPU without the audited vgpu node"
+	grep -qF "mali-supply = $VGPU_PH;" <<<"$GPU_NODE" || refuse "GPU mali-supply is not vgpu"
+	[[ "${MFG0_SUPPLY:-}" == "$VGPU_PH" ]] || refuse "MFG0 domain-supply is not vgpu"
+	OPP_PH="$(grep -oP '^\t\t\toperating-points-v2 = \K<0x[0-9a-f]+>' <<<"$GPU_NODE")"
+	OPP_NODE="$(awk -v ph="phandle = $OPP_PH;" '/^\t[a-z][^ ]* \{$/{buf=""; f=1} f{buf=buf $0 "\n"} f&&/^\t};$/{if (index(buf, ph)) {printf "%s", buf; exit} f=0}' <<<"$DTS_TEXT")"
+	OPP_LIST="$(grep -oP '(opp-hz = <\K0x[0-9a-f]+ 0x[0-9a-f]+|opp-microvolt = <\K0x[0-9a-f]+)' <<<"$OPP_NODE" | paste -d' ' - - | while read -r hi lo uv; do echo "$(( (hi << 32) + lo )):$((uv))"; done | sort -n | tr '\n' ' ')"
+	OPP_WANT="358000000:562500 378000000:568750 399000000:575000 420000000:581250 440000000:587500 461000000:593750 482000000:600000 502000000:606250 523000000:612500 543000000:618750 564000000:625000 585000000:631250 605000000:637500 626000000:643750 647000000:650000 667000000:656250 688000000:662500 700000000:668750 712000000:675000 724000000:681250 736000000:687500 748000000:693750 "
+	[[ "$OPP_LIST" == "$OPP_WANT" ]] || refuse "GPU OPP table is not the stock MT6873 table: $OPP_LIST"
+	grep -qE 'opp-supported-hw|turbo|opp-microvolt-' <<<"$OPP_NODE" && refuse "GPU OPP table has extra properties"
 	grep -q 'mediatek,shader-core-mask = <0x00 0x50005>;' <<<"$GPU_NODE" || refuse "GPU node without the stock 4-core mask"
 fi
 # Thermal T-S1: LVTS only as a module, pinned to the audited MT6873 delta;

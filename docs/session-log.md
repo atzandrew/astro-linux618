@@ -1372,3 +1372,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   (last filtered value) after 12–55 % valid-bit misses. 17 zones
   28.6–30.6 °C idle, CPU +3.5 °C under 30 s all-core load. 0xa12 0x21e0.
   lvts_thermal blacklisted, loaded by hand. Next: G-S3 pre-flash check.
+- **GPU G-S3 passed** (2026-11-25, `boot-g3.img` `14454521…`, DT only on
+  kernel #22): vgpu constraints 0.5625–0.75 V (no write at boot), MFG0
+  domain-supply, stock 22-point OPP table, GPU cooling maps. panfrost
+  devfreq: vgpu 0.75 → 0.5625 V at 358 MHz, every point 358–748 MHz
+  verified (PLL + vgpu), 748 MHz pinned 20 s fine, 0xa12 0x21e0. Open:
+  vgpu stays on at idle (power-controller sync_state pending on
+  never-bound devices); MFG1 picks up MFG0's supply via the regulator
+  child-node fallback (order unaffected). Next: Plasma on panfrost.

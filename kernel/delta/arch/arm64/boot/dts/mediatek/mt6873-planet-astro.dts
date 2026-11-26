@@ -512,6 +512,23 @@
 	mt6315_7: pmic@7 {
 		compatible = "mediatek,mt6315-regulator";
 		reg = <0x7 SPMI_USID>;
+
+		/*
+		 * GPU G-S3: vgpu (stock DT 7_vbuck1). Range = the stock MT6873
+		 * OPPs (0.5625-0.69375 V) up to the 0.75 V LK leaves, so the
+		 * regulator core writes nothing at registration. Enable ramp
+		 * 256 us as the stock DT; 40 us settling covers every stock
+		 * DVFS wait (max 36 us). No modes, not always-on.
+		 */
+		regulators {
+			mt6315_7_vbuck1: vbuck1 {
+				regulator-name = "Vgpu";
+				regulator-min-microvolt = <562500>;
+				regulator-max-microvolt = <750000>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-settling-time-us = <40>;
+			};
+		};
 	};
 
 	mt6315_3: pmic@3 {
@@ -554,17 +571,69 @@
 };
 
 /*
- * GPU G-S2 (docs/gpu-stock.md): Mali-G57 on panfrost at the clock the
- * bootloader set (MFGPLL 358 MHz = the stock lowest point), with vgpu and
- * vsram untouched (0.75 V each): no OPP table and no mali-supply, so
- * panfrost changes no rail and no rate. The MT6873 segment runs 4 shader
- * cores (vendor shader_present 0x50005): mediatek,shader-core-mask
- * (panfrost delta) keeps it so. panfrost is a module, loaded by hand.
+ * GPU G-S3 (docs/gpu-stock.md): Mali-G57 on panfrost with devfreq over the
+ * stock MT6873 range (vendor g_opp_table_segment_1, idx 17-38; the MT6873
+ * segment starts at idx 17 = 748 MHz). vgpu per OPP; vsram_others stays
+ * at 0.75 V (stock: vsram = 0.75 V for every vgpu <= 0.75 V), not
+ * described. The MT6873 segment runs 4 shader cores (vendor shader_present
+ * 0x50005): mediatek,shader-core-mask (panfrost delta) keeps it so.
+ * panfrost is a module, loaded by hand. Cooling device for gpu-thermal.
  */
+/delete-node/ &gpu_opp_table;
+
+/ {
+	gpu_opp_table_mt6873: opp-table-gpu {
+		compatible = "operating-points-v2";
+
+		opp-358000000 { opp-hz = /bits/ 64 <358000000>; opp-microvolt = <562500>; };
+		opp-378000000 { opp-hz = /bits/ 64 <378000000>; opp-microvolt = <568750>; };
+		opp-399000000 { opp-hz = /bits/ 64 <399000000>; opp-microvolt = <575000>; };
+		opp-420000000 { opp-hz = /bits/ 64 <420000000>; opp-microvolt = <581250>; };
+		opp-440000000 { opp-hz = /bits/ 64 <440000000>; opp-microvolt = <587500>; };
+		opp-461000000 { opp-hz = /bits/ 64 <461000000>; opp-microvolt = <593750>; };
+		opp-482000000 { opp-hz = /bits/ 64 <482000000>; opp-microvolt = <600000>; };
+		opp-502000000 { opp-hz = /bits/ 64 <502000000>; opp-microvolt = <606250>; };
+		opp-523000000 { opp-hz = /bits/ 64 <523000000>; opp-microvolt = <612500>; };
+		opp-543000000 { opp-hz = /bits/ 64 <543000000>; opp-microvolt = <618750>; };
+		opp-564000000 { opp-hz = /bits/ 64 <564000000>; opp-microvolt = <625000>; };
+		opp-585000000 { opp-hz = /bits/ 64 <585000000>; opp-microvolt = <631250>; };
+		opp-605000000 { opp-hz = /bits/ 64 <605000000>; opp-microvolt = <637500>; };
+		opp-626000000 { opp-hz = /bits/ 64 <626000000>; opp-microvolt = <643750>; };
+		opp-647000000 { opp-hz = /bits/ 64 <647000000>; opp-microvolt = <650000>; };
+		opp-667000000 { opp-hz = /bits/ 64 <667000000>; opp-microvolt = <656250>; };
+		opp-688000000 { opp-hz = /bits/ 64 <688000000>; opp-microvolt = <662500>; };
+		opp-700000000 { opp-hz = /bits/ 64 <700000000>; opp-microvolt = <668750>; };
+		opp-712000000 { opp-hz = /bits/ 64 <712000000>; opp-microvolt = <675000>; };
+		opp-724000000 { opp-hz = /bits/ 64 <724000000>; opp-microvolt = <681250>; };
+		opp-736000000 { opp-hz = /bits/ 64 <736000000>; opp-microvolt = <687500>; };
+		opp-748000000 { opp-hz = /bits/ 64 <748000000>; opp-microvolt = <693750>; };
+	};
+};
+
 &gpu {
-	/delete-property/ operating-points-v2;
+	operating-points-v2 = <&gpu_opp_table_mt6873>;
+	mali-supply = <&mt6315_7_vbuck1>;
+	#cooling-cells = <2>;
 	mediatek,shader-core-mask = /bits/ 64 <0x50005>;
 	status = "okay";
+};
+
+&{/thermal-zones/gpu-thermal} {
+	cooling-maps {
+		map0 {
+			trip = <&gpu0_alert>;
+			cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/gpu1-thermal} {
+	cooling-maps {
+		map0 {
+			trip = <&gpu1_alert>;
+			cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
 };
 
 /*
@@ -1103,8 +1172,9 @@
 	 * handover; scpsys powers them on at probe with the stock MT6873 MTCMOS
 	 * sequence and bus-protect masks (clk-mt6873-pg.c MFG1_PROT_STEP*; the
 	 * vendor "way_en" bits INFRA_MFG_SECURE_CTRL0 0x1800 are already set).
-	 * No domain-supply: vgpu (MT6315@7 vbuck1) and vsram_others stay as the
-	 * bootloader left them (0.75 V each, on).
+	 * G-S3: MFG0's domain-supply is vgpu, so vgpu goes off after MFG0
+	 * (MFG6..MFG0 first) and on before it, the vendor order
+	 * (mt_gpufreq_power_control). MFG1 has none: vsram_others stays on.
 	 */
 
 	/*
@@ -1189,4 +1259,8 @@
 		interrupts = <GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH 0>;
 		memory-region = <&wifi_mem>;
 	};
+};
+
+&mfg0 {
+	domain-supply = <&mt6315_7_vbuck1>;
 };

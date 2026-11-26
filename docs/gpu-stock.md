@@ -246,6 +246,75 @@ is a stock point (855 MHz / 0.75 V / vsram 0.75 V).
   stock driver throttles the GPU; mainline mt8192 has LVTS with a
   gpu-thermal zone (passive 85 °C, critical 100 °C), not enabled here.
 
+## G-S3 pre-flash check (2026-11-25) — approved ("go ahead")
+
+Prerequisite done: thermal T-S1 (`docs/thermal-stock.md`).
+
+1. **Image**: `boot-g3.img` sha256
+   `1445452118fb30175345af48fe9b93e7b9d8aba1b9c6cec4b4922d29950d3379`
+   (Monolith `~/Build/astro-backup/`), kernel **#22 unchanged** (`Image.gz`
+   `b053088b…`, the one running), DTB `653b1ad1…`. Writes `boot_a`. No
+   module or rootfs change (panfrost and lvts_thermal stay blacklisted).
+2. **DT changes vs T-S1** (only DT):
+   - `pmic@7` gets `regulators/vbuck1` "Vgpu": 562500–750000 µV,
+     enable ramp 256 µs, settling 40 µs; nothing else (pmic@3/@6 bare).
+   - `&mfg0 { domain-supply = vgpu }`; MFG1 none (vsram_others stays on,
+     undescribed).
+   - GPU: `mali-supply = vgpu`, OPP table = the 22 stock points
+     (358 MHz/0.5625 V … 748 MHz/0.69375 V), mt8192's table deleted,
+     `#cooling-cells`; `gpu-thermal`/`gpu1-thermal` passive 85 °C trips map
+     to the GPU.
+   - Guard: vgpu node props exact, one domain-supply (MFG0 = vgpu),
+     mali-supply = vgpu, no sram-supply, OPP list exactly the stock 22
+     (five negative tests refused: a voltage, a 760 MHz point,
+     always-on, sram-supply, no MFG0 supply).
+3. **At boot**: MT6315 probe reads only; the regulator core finds 0.75 V
+   inside the range → **no write**. scpsys enables vgpu for MFG0 (already
+   on → no write), MFG0–6 power up as in G-S2. **No rail write at boot.**
+4. **The test** (agent; you watch the panel only for the kmscube parts):
+   1. read 0xa12, vgpu (sysfs + MT6315@7 VOSEL via regmap debugfs: 0x78 =
+      0.75 V), MFG status;
+   2. `modprobe lvts_thermal`, then `modprobe panfrost` → devfreq at the
+      current 358 MHz → **first rail write: vgpu 0.75 → 0.5625 V** (stock
+      probe does the same), rate unchanged;
+   3. idle: panfrost autosuspends → MFG6…MFG0 off → **vgpu off**
+      (vendor order); reads confirm;
+   4. kmscube 20 s: vgpu on (256 µs) → MFG on → ondemand picks OPPs;
+      devfreq `trans_stat`, vgpu and temps sampled;
+   5. top point: devfreq `min_freq = 748000000` during a 20 s kmscube
+      (vgpu 0.69375 V), then restored; temps sampled;
+   6. 0xa12 again.
+5. **R-rules**: only vgpu moves, only to the stock table voltages
+   (no PTPOD/SVS lowering: at or above stock); vsram untouched (0.75 V,
+   the stock value for this whole range); rates only the stock 22; CPU
+   rails untouched; no MT6359P write. Thermal: GPU throttles at 85 °C,
+   orderly power-off at 100 °C.
+6. **Escapes**: 0xa12 unaffected; a GPU hang → panfrost job timeout/reset;
+   a bus hang → watchdog reset in ~31 s.
+
+## G-S3 result (2026-11-25) — passed
+
+- `boot-g3.img` `14454521…` flashed (kernel #22, DT only). At boot vgpu
+  0.75 V enabled, no write; 0xa12 = 0x21e0 before and after.
+- `modprobe panfrost`: devfreq (simple_ondemand) over the 22 stock points,
+  cooling device `devfreq-13000000.gpu` bound to gpu/gpu1-thermal; vgpu
+  **0.75 → 0.5625 V** at the unchanged 358 MHz (stock probe behaviour).
+- Sweep under kmscube, every point: PLL = the predicted mainline rate
+  (≤ 0.4 kHz under stock) and vgpu = the table voltage (358 MHz 0.5625 V …
+  748 MHz 0.69375 V). 20 s pinned at 748 MHz: GPU sensors ~30 °C
+  (kmscube is light), no fault/timeout/regulator error. Ondemand stays at
+  358 MHz for kmscube (below the 45 % up-threshold).
+- **Deviation found — vgpu never switches off at idle**: the power
+  controller's `sync_state()` is pending on devices that never bind
+  (postmask, dither, afe-pcm), so genpd keeps every domain on; vgpu stays
+  on at the current OPP voltage (as in G-S2, safe; stock switches it off).
+  Follow-up: clear the sync_state blockers (or bind those devices).
+- **MFG1 also holds vgpu**: `of_get_regulator()` falls back to the
+  power-controller's children, so MFG1 (no domain-supply) finds MFG0's.
+  Order is unchanged (MFG1 is under MFG0: vgpu on before MFG0, off only
+  after both), just a second reference. Upstream boards give MFG1 its own
+  supply (vsram); worth an explicit fix with the sync_state follow-up.
+
 ## Staged plan
 
 Each stage with a write has its own pre-flash check and waits for a yes.
