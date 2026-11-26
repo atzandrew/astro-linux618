@@ -73,3 +73,25 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
 - Direct scanout of client buffers fails: `mtk_gem_prime_import_sg_table:
   sg_table is not contiguous` / `swiotlb buffer is full` (no display IOMMU),
   so KWin always composites.
+
+## AFBC off, rootfs defaults, and where the menu's GPU time goes
+
+- `PAN_MESA_DEBUG=noafbc` (as the Cosmo): plasmashell's QSGRenderThread
+  2536 GPU jobs / 188 ms queue wait -> 164 / 0.26 ms in a 6-toggle menu run.
+  KWin unchanged. Now the default with KWIN_COMPOSE=O2ES in gemini-debian
+  `overlay-astro/etc/xdg/plasma-workspace/env/astro.sh` and the SDDM
+  greeter's CompositorCommand (c1d1ac4).
+- The menu frame cost is **one KWin GPU job of 13-25 ms per frame** (the
+  main pass; ~50 small jobs around it), also with the GPU pinned at 748 MHz
+  (devfreq had only 11 changes in that run).
+- `tools/frame-pacing/gpufill.c` (offscreen EGL/GLES, 748 MHz, 1080x2340):
+  | test | panfrost texture | GBM scanout surface (mediatek-drm, kmsro) |
+  |---|---|---|
+  | clear | 0.20 ms (AFBC) / 0.57 ms (noafbc) | 0.57 ms |
+  | 1 textured quad | 0.85 / 0.89 ms | 0.89 ms |
+  | 1 quad rotated 90 | 0.86 / 0.89 ms | 0.88 ms |
+  | 4 blended layers rotated 90 | 2.22 / 2.13 ms | 2.14 ms |
+  So the GPU, the scanout buffers, the rotation and AFBC are not it: KWin's
+  main pass costs 6-10x the raw work of a 4-layer composite. Next: what
+  KWin's passes do (shader variants, number and size of render passes,
+  load/store of full-size offscreen targets for blur/contrast).

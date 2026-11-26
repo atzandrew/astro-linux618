@@ -1,0 +1,177 @@
+/*
+ * gpufill: raw GPU cost of compositor-like passes on panfrost, offscreen
+ * (EGL on the render node via GBM, no display), so it runs next to KWin.
+ * Each test draws full-screen quads into a W x H RGBA8 texture FBO,
+ * sampling a source texture, and times N frames with glFinish.
+ *   gpufill [W H [FRAMES [CARD]]]  default 1080 2340 60
+ * With CARD (a KMS node, e.g. /dev/dri/card0) the target is a GBM surface
+ * on that device with SCANOUT|RENDERING, as KWin's output buffers
+ * (mediatek-drm allocates, panfrost renders through kmsro).
+ * Tests: clear only; 1 textured quad (copy); 1 quad rotated 90 degrees
+ * (KWin's landscape-on-portrait); 4 blended layers (wallpaper + 3 windows).
+ * astro-linux618 docs/frame-pacing.md.
+ */
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES3/gl3.h>
+#include <gbm.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+static double now(void)
+{
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return t.tv_sec + t.tv_nsec / 1e9;
+}
+
+static GLuint shader(GLenum type, const char *src)
+{
+	GLuint s = glCreateShader(type);
+	GLint ok;
+	glShaderSource(s, 1, &src, NULL);
+	glCompileShader(s);
+	glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+	if (!ok) {
+		char log[512];
+		glGetShaderInfoLog(s, sizeof(log), NULL, log);
+		fprintf(stderr, "shader: %s\n", log);
+		exit(1);
+	}
+	return s;
+}
+
+static const char *vs =
+	"#version 300 es\n"
+	"in vec2 pos; uniform mat2 rot; out vec2 uv;\n"
+	"void main() { uv = (rot * pos) * 0.5 + 0.5; gl_Position = vec4(pos, 0.0, 1.0); }\n";
+static const char *fs =
+	"#version 300 es\nprecision mediump float;\n"
+	"in vec2 uv; uniform sampler2D tex; uniform float alpha; out vec4 o;\n"
+	"void main() { o = vec4(texture(tex, uv).rgb, alpha); }\n";
+
+int main(int argc, char **argv)
+{
+	int W = argc > 2 ? atoi(argv[1]) : 1080, H = argc > 2 ? atoi(argv[2]) : 2340;
+	int N = argc > 3 ? atoi(argv[3]) : 60;
+	const char *card = argc > 4 ? argv[4] : NULL;
+	int fd = open(card ? card : "/dev/dri/renderD128", O_RDWR);
+	struct gbm_device *gbm = fd >= 0 ? gbm_create_device(fd) : NULL;
+	if (!gbm) { perror("render node"); return 1; }
+	PFNEGLGETPLATFORMDISPLAYEXTPROC gpd =
+		(void *)eglGetProcAddress("eglGetPlatformDisplayEXT");
+	EGLDisplay dpy = gpd(EGL_PLATFORM_GBM_KHR, gbm, NULL);
+	EGLint maj, min;
+	if (!eglInitialize(dpy, &maj, &min)) { fprintf(stderr, "eglInitialize\n"); return 1; }
+	eglBindAPI(EGL_OPENGL_ES_API);
+	EGLint cattr[] = { EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+			   EGL_SURFACE_TYPE, card ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT,
+			   EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8,
+			   EGL_ALPHA_SIZE, 0, EGL_NONE };
+	EGLConfig cfgs[64], cfg = NULL; EGLint n;
+	eglChooseConfig(dpy, cattr, cfgs, 64, &n);
+	for (int i = 0; i < n && card; i++) {
+		EGLint id;
+		eglGetConfigAttrib(dpy, cfgs[i], EGL_NATIVE_VISUAL_ID, &id);
+		if (id == GBM_FORMAT_XRGB8888) { cfg = cfgs[i]; break; }
+	}
+	if (!cfg) cfg = cfgs[0];
+	EGLint ctxa[] = { EGL_CONTEXT_MAJOR_VERSION, 3, EGL_NONE };
+	EGLContext ctx = eglCreateContext(dpy, cfg, EGL_NO_CONTEXT, ctxa);
+	struct gbm_surface *gs = NULL;
+	EGLSurface surf = EGL_NO_SURFACE;
+	if (card) {
+		gs = gbm_surface_create(gbm, W, H, GBM_FORMAT_XRGB8888,
+					GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+		if (!gs) { perror("gbm_surface_create"); return 1; }
+		surf = eglCreateWindowSurface(dpy, cfg, (EGLNativeWindowType)gs, NULL);
+		if (surf == EGL_NO_SURFACE) { fprintf(stderr, "window surface 0x%x\n", eglGetError()); return 1; }
+	}
+	if (!eglMakeCurrent(dpy, surf, surf, ctx)) {
+		fprintf(stderr, "make current failed\n"); return 1;
+	}
+	printf("%s / %s, target %dx%d %s, %d frames per test\n",
+	       glGetString(GL_RENDERER), glGetString(GL_VERSION), W, H,
+	       card ? "GBM scanout surface" : "panfrost texture", N);
+
+	/* target texture + FBO */
+	GLuint dst, fbo, src;
+	glGenTextures(1, &dst);
+	glBindTexture(GL_TEXTURE_2D, dst);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, W, H);
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dst, 0);
+	if (card)
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);	/* the GBM scanout surface */
+	/* source: a landscape H x W image (the rotated desktop), noise */
+	unsigned *pix = malloc((size_t)W * H * 4);
+	for (size_t i = 0; i < (size_t)W * H; i++)
+		pix[i] = (unsigned)rand() | 0xff000000u;
+	glGenTextures(1, &src);
+	glBindTexture(GL_TEXTURE_2D, src);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, H, W);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, H, W, GL_RGBA, GL_UNSIGNED_BYTE, pix);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	GLuint p = glCreateProgram();
+	glAttachShader(p, shader(GL_VERTEX_SHADER, vs));
+	glAttachShader(p, shader(GL_FRAGMENT_SHADER, fs));
+	glBindAttribLocation(p, 0, "pos");
+	glLinkProgram(p);
+	glUseProgram(p);
+	GLint urot = glGetUniformLocation(p, "rot"), ualpha = glGetUniformLocation(p, "alpha");
+	float quad[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+	GLuint vbo, vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+	glViewport(0, 0, W, H);
+	const float ident[] = { 1, 0, 0, 1 }, rot90[] = { 0, 1, -1, 0 };
+
+	struct { const char *name; int layers; const float *rot; } t[] = {
+		{ "clear only", 0, ident },
+		{ "1 quad, same orientation", 1, ident },
+		{ "1 quad, rotated 90", 1, rot90 },
+		{ "4 blended layers, rotated 90", 4, rot90 },
+	};
+	for (unsigned k = 0; k < sizeof(t) / sizeof(t[0]); k++) {
+		glUniformMatrix2fv(urot, 1, GL_FALSE, t[k].rot);
+		for (int warm = 0; warm < 2; warm++) {
+			double t0 = now();
+			for (int f = 0; f < (warm ? N : 5); f++) {
+				glClearColor(0.1f, 0.2f, 0.3f, 1);
+				glClear(GL_COLOR_BUFFER_BIT);
+				for (int l = 0; l < t[k].layers; l++) {
+					if (l) { glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
+					glUniform1f(ualpha, l ? 0.8f : 1.0f);
+					glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				}
+				glDisable(GL_BLEND);
+				if (card) {
+					struct gbm_bo *bo;
+					eglSwapBuffers(dpy, surf);
+					bo = gbm_surface_lock_front_buffer(gs);
+					glFinish();
+					gbm_surface_release_buffer(gs, bo);
+				} else {
+					glFinish();
+				}
+			}
+			double ms = (now() - t0) * 1000 / N;
+			if (warm)
+				printf("%-30s %6.2f ms/frame  (%.0f Mpix/s written)\n", t[k].name, ms,
+				       (double)W * H * (t[k].layers ? t[k].layers : 1) / ms / 1e3);
+		}
+	}
+	return 0;
+}
