@@ -1128,3 +1128,12 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   (#12 kept as /lib/modules/6.18.58-astro.k12),
   /etc/modprobe.d/astro-w2.conf `blacklist mt6359-regulator` (alias
   lookup resolves to nothing; by-name load still works for stage B).
+- Stage A result (user flashed `boot-w2.img` `b2290457…`, kernel #13):
+  boots to Debian (running), bootreason PowerKey. **0xa12 = 0x21e0.**
+  All 35 snapshot PMIC registers identical to the pre-flash read
+  (`backup/post-boot-w2-regs.txt`). genpd: only `conn`, **off-0**; "Not
+  disabling unused power domains"; no "default off … ON" warning; SPM
+  0x304 = 0x12, 0x16c/0x170 unchanged. Reserved: consys-emi
+  0x60000000 4 MiB, wifi pool 0xbe000000 6 MiB. sync_state pending on
+  consys and afe-pcm (no drivers bound, expected). No CONSYS or
+  regulator module loaded. Next: power-key escape on W2.
