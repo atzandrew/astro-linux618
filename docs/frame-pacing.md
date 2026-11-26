@@ -128,3 +128,8 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
   in one debug login) and whether brightness/dimming or colour management
   puts the transform in every pixel; then the GPU-side fix (CRTC colour
   offload or the shader path).
+- tr2 (6.18.58-astro-tr2, boot-tr2.img 8b0479bb…) menu run: KWin's GPU time
+  is fragment work: fence context 43 (fragment) 1548 jobs / 1200 ms, all
+  39 jobs > 5 ms (max 21.5 ms); context 45 (vertex/tiler) 1621 jobs / 107
+  ms, max 0.93 ms. First shader-dump session got nothing: Mesa's disk
+  shader cache served every shader (no compiles).
