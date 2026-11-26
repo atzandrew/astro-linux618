@@ -50,7 +50,12 @@ mtk_drm_mode_fb_create(struct drm_device *dev,
 	if (info->num_planes != 1)
 		return ERR_PTR(-EINVAL);
 
-	return drm_gem_fb_create(dev, file, info, cmd);
+	/*
+	 * With a dirty callback, CPU drawing (fbdev/fbcon, DIRTYFB) becomes an
+	 * atomic commit: a command-mode panel only updates when a frame is
+	 * triggered, and frames are triggered on commit.
+	 */
+	return drm_gem_fb_create_with_dirty(dev, file, info, cmd);
 }
 
 static const struct drm_mode_config_funcs mtk_drm_mode_config_funcs = {

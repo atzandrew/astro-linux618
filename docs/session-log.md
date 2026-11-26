@@ -1332,3 +1332,9 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   0x9C, no errors, PHY after power-up equal to LK's, offs 0.21 s each,
   0xa12 0x21e0. The Stage 3 "slow off" was the script reading gated DSI
   registers.
+- **Stage 5a** (2026-11-25): mediatek-drm drives the console at boot
+  (gemini-debian astro-display.service; astro-console disabled, kept as
+  fallback; allow_init=1). Fixed: framebuffers without a dirty callback
+  never produced commits, so the command-mode panel froze after a wake
+  (module ec1a2330). User: console, 60 s blank, keypress wake, typing, and
+  blank while logged in all work.

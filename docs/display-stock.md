@@ -710,6 +710,22 @@ module with `allow_init=1`, script `35d78c00…2450`:
 **Stage 5 — console and desktop.** fbdev emulation on mediatek-drm, DPMS,
 idle off, retire `astro-disp`; then panfrost.
 
+**Stage 5a result (2026-11-25): console on mediatek-drm by default.**
+Rootfs only (gemini-debian `overlay-astro`): Stage 3 blacklist removed,
+`options panel_shenghe_sh8802b allow_init=1`, `astro-console.service`
+disabled, `astro-display.service` + `/usr/bin/astro-display-check`
+(waits ≤15 s for mediatek-drm, sets the console blank to 60 s, else starts
+astro-console on LK's path). One module fix: mediatek framebuffers get a
+dirty callback (`drm_gem_fb_create_with_dirty`), so fbcon drawing becomes
+commits and frames (without it the command-mode panel froze on the last
+commit; module `ec1a2330…5a56`). Results (user on glass): boot → console
+on mediatek-drm at 0x200; 60 s idle → stock off (GPIO42/87/88 low,
+`bl_power 4`); keypress → stock screen-on (`0x9C`, three cycles logged);
+typing shows; blanks while logged in too (the old astro-console limit is
+gone). Frames ~5/s with the cursor blink.
+Open for Stage 5b: hang-proof off path (R5) before unattended use, CMA
+(32 MiB) or IOMMU for a desktop, KDE screen-off (DPMS), then panfrost.
+
 ### Pre-flash check template (each stage fills it in)
 
 1. Images and sha256; partitions written.
