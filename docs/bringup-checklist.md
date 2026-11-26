@@ -81,7 +81,7 @@ and needs a written pre-flash check (no escape re-tests: AGENTS.md rule 5).
 
 | | Block | Part / location | Mainline | Notes | Order |
 |---|---|---|---|---|---|
-| 🔶 | Wi-Fi / BT / GPS | CONSYS 6873 (CONNAC2X2, A-die MT6635) | port: zinwa-q25-linux gen4m + WMT, Cosmo launcher | **Wi-Fi ✅** (2.4 + 5 GHz, at boot via gemini-debian astro-wifi); BT, GPS to do (`docs/wifi-stock.md`) | 9 |
+| 🔶 | Wi-Fi / BT / GPS | CONSYS 6873 (CONNAC2X2, A-die MT6635) | port: zinwa-q25-linux gen4m + WMT, Cosmo launcher | **Wi-Fi ✅** (2.4 + 5 GHz, at boot via gemini-debian astro-wifi); **BT ✅** (hci_stp, BR/EDR + LE scans, unit address; pairing/A2DP to test); GPS to do (`docs/wifi-stock.md`) | 9 |
 | ⬜ | Audio | MT8192-family AFE + MT6359 codec | yes (`mt8192-mt6359` template) | speaker enable GPIO30; amp part to check (AW6302?) | 9 |
 | ⬜ | NFC | `nfc@28` (i2c3) | check | | later |
 | ⬜ | Fingerprint | cdfinger FPS1098 (SPI) | new | | — |

@@ -66,7 +66,8 @@ Next candidates:
    Monolith's `astro-usb` profile. **Wi-Fi: working** (kernel #13,
    boot-w2.img, 2026-11-25): vendor WMT/BTIF/gen4m stack as modules, CONN
    genpd, five MT6359P rails; gemini-debian astro-wifi.service brings it up
-   at boot (`docs/wifi-stock.md`). Next: Bluetooth. Rootfs to-dos: ping
+   at boot (`docs/wifi-stock.md`). **Bluetooth: working** (hci_stp +
+   astro-bt.service, unit BD address; session log 2026-11-25). Next: pairing/A2DP test, GPS. Rootfs to-dos: ping
    (ping_group_range), smaller image.
 0c. **To-do: charge voltage 4.40 V** (user, 2026-11-25: queued, not
    urgent). LK sets CV 4.35 V every boot (`mt6360_set_cv: cv = 4350`);

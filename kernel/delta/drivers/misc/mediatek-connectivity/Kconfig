@@ -20,3 +20,13 @@ config MTK_WCN_GEN4M
 	  the MT6873 CONSYS Wi-Fi, AXI host interface. Firmware:
 	  WIFI_RAM_CODE_soc2_0_3b_1.bin from the stock vendor partition;
 	  per-unit NVRAM from nvdata.
+
+config MTK_WCN_BT_HCI
+	tristate "MediaTek MT6873 CONSYS Bluetooth (BlueZ HCI over STP)"
+	depends on m && MTK_WCN_CONSYS && BT
+	help
+	  BlueZ HCI driver (hci0) for the Bluetooth half of the MT6873
+	  CONSYS, over the WMT/STP BT channel (hci_stp, from the MediaTek
+	  vendor BlueZ driver via cosmo-linux618). Needs the WMT core
+	  running (wmt_drv). Firmware: soc2_0_ram_bt_3b_1_hdr.bin (loaded
+	  into EMI by WMT at CONSYS power-on).

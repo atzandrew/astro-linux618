@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+# BlueZ HCI driver over the WMT/STP BT channel (hci_stp), from cosmo-linux618
+# (MT6771). Same STP/WMT exports on the MT6873 common tree.
+ccflags-y += -I$(MTK_ROOT)/include/mt-plat -I$(MTK_ROOT)/q25inc -include $(MTK_ROOT)/q25inc/linux/q25_compat.h
+ccflags-y += -I$(MTK_ROOT)/connectivity/common/common_main/include
+ccflags-y += -I$(MTK_ROOT)/connectivity/common/common_main/linux/include
+ccflags-y += -D WMT_IDC_SUPPORT=0 -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
+obj-$(CONFIG_MTK_WCN_BT_HCI) += hci_stp.o

@@ -25,4 +25,5 @@ export MTK_WLAN_SERVICE := yes
 
 obj-m += btif/
 obj-m += connectivity/
+obj-$(CONFIG_MTK_WCN_BT_HCI) += bt/
 endif

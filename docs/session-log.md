@@ -1191,3 +1191,26 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   errors only). Remaining console line at boot: mt8192-afe-pcm probe
   -110 (its AUDIO power domain is not in the CONN-only spm node; audio
   not brought up yet).
+
+## 2026-11-25 — Bluetooth (B1/B2): hci_stp on the MT6873
+
+- No flash: modules only on kernel #13 (built-in config unchanged: the
+  diff vs #13 is only BT_LE/RFCOMM/BNEP/HCIVHCI inside bluetooth.ko, UHID
+  and MTK_WCN_BT_HCI, all =m or bluetooth.ko bools). bluez 5.82 installed
+  (gemini-debian astro-base.list).
+- hci_stp from cosmo-linux618, unchanged except a new RX fix-up: the
+  MT6635 firmware sets LMP page-2 "Synchronization Train" but answers
+  0x0c77 with Unknown HCI Command (-56); 6.18 hci_init4_sync() treats it
+  as fatal and hci0 never reached mgmt ("Index list with 0 items").
+  `hide_sync_train` (default on) clears the bit in the page-2 reply.
+- Controller: HCI version 11 (5.2), manufacturer 70 (MediaTek), chip
+  default address 00:00:46:67:61:01; firmware lists its LE commands
+  (le_cmds fix-up not needed). BR/EDR + LE + SC powered.
+- Scans with Wi-Fi associated (no drop): bluetoothctl 30 devices in 15 s;
+  btmgmt find -l 68 LE reports (48 random, 20 public), find -b 2 BR/EDR.
+- B2: gemini-debian astro-bt.service (from cosmo-bt): BD address from
+  nvdata BT_Addr bytes 0-5 (00:03:AA… Planet prefix; record 440 bytes,
+  Cosmo layout), set via btmgmt public-addr. Reboot test: hci0 up with
+  the unit address, astro-wifi 2.7 s, astro-bt 5.3 s, system running.
+- Note: build without LOCALVERSION= gives "-astro-dirty" vermagic and
+  "Exec format error"; always build via bin/build-kernel.sh or pass it.
