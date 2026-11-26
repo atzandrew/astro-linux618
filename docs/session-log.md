@@ -1476,4 +1476,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   samples (all OPPs, CCI to 1017 MHz), stress 300 s at 2.0 GHz 0 md5
   mismatches, peak 78.9 °C (no throttling yet). CPU DVFS complete; the
   modules are still blacklisted (loaded by hand).
+- DVFS at boot (rootfs only, gemini-debian `69652df`): blacklist removed,
+  /etc/modules-load.d/astro-cpufreq.conf loads mediatek-cpufreq and
+  mtk-cci-devfreq. After a reboot: both modules loaded, policy0/4 on
+  schedutil (500/774-2000 MHz), devfreq cci passive, cooling devices
+  cpufreq-cpu0 / cpufreq-cpu4 registered, 0xa12 0x21e0, SDDM up. One
+  `mtk-ccifreq cci: failed to add devfreq device: -517` at 7.7 s (passive
+  governor not ready yet), retried and bound.
 

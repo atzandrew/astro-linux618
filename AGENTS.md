@@ -112,8 +112,8 @@ mediatek-cpufreq + mtk-cci-devfreq (the Cosmo route; stock runs DVFS in
 the MCUPM) with the stock FY tables: A55 500-2000 MHz, A76 774-2000 MHz,
 CCI 500-1017 MHz with the stock CCI map, Vproc 0.600-0.925 V on MT6315@6,
 Vsram tracked +100 mV on MT6359P VSRAM_PROC1/2. Stages C1-C4 passed
-(kernel #25, boot-c4.img). Modules blacklisted, `modprobe mediatek-cpufreq
-mtk-cci-devfreq` by hand until enabled at boot. DRAM already at 4266 Mbps
+(kernel #25, boot-c4.img). Both modules load at boot (gemini-debian
+modules-load.d, 2026-11-26). DRAM already at 4266 Mbps
 and UFS at HS-G3B x2 (read 2026-11-26). Flashing host: livingwall
 192.168.0.8.
 
