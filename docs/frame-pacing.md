@@ -106,3 +106,25 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
 - Miss: `clock-latency-ns` was on the OPP table node; opp-v2-base.yaml
   defines it per OPP node, so transition_latency stayed 0 (rate limit 1000
   us). Fixed per OPP in boot-k26b.img (DTB only, fcc90910…).
+
+## GPU-side: what makes KWin's pass expensive (gpufill, 748 MHz, GBM scanout target)
+
+| test (1080x2340, rotated 90, noafbc) | ms/frame |
+|---|---|
+| 4 blended layers, native textures | 2.23 |
+| 4 layers sampling linear dmabuf EGLImages (client buffers) | 2.40 |
+| 4 layers + 20 scissored partial passes into a full-size offscreen target | 2.92 |
+| 4 layers with an sRGB linearise -> 3x3 matrix -> re-encode shader (highp pow) | **9.99** |
+
+- dmabuf imports and partial passes are cheap (panfrost limits fragment
+  work to the scissor). A per-pixel colour transform costs 4x and matches
+  KWin's ~10-11 ms base per full-screen frame.
+- Display side offers what KWin would need to avoid shader work: CRTC
+  CTM, GAMMA_LUT (+size); backlight 14010000.dsi.0 (raw, DBV 114/1023)
+  under the DSI panel. KWin: Color profile source sRGB, brightness 37 %,
+  "dimming to 30%", Color power preference "prefer accuracy",
+  allowSdrSoftwareBrightness false.
+- Next: confirm KWin's fragment shaders (panfrost `PAN_MESA_DEBUG=shaders`
+  in one debug login) and whether brightness/dimming or colour management
+  puts the transform in every pixel; then the GPU-side fix (CRTC colour
+  offload or the shader path).

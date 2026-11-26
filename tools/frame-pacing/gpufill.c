@@ -8,12 +8,17 @@
  * on that device with SCANOUT|RENDERING, as KWin's output buffers
  * (mediatek-drm allocates, panfrost renders through kmsro).
  * Tests: clear only; 1 textured quad (copy); 1 quad rotated 90 degrees
- * (KWin's landscape-on-portrait); 4 blended layers (wallpaper + 3 windows).
+ * (KWin's landscape-on-portrait); 4 blended layers (wallpaper + 3 windows);
+ * then the same quads sampling a client-style buffer: a linear GBM bo on
+ * the render node imported as a dmabuf EGLImage (how KWin samples Wayland
+ * clients' buffers).
  * astro-linux618 docs/frame-pacing.md.
  */
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES3/gl3.h>
+#include <GLES2/gl2ext.h>
+#include <drm_fourcc.h>
 #include <gbm.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -49,6 +54,12 @@ static const char *vs =
 	"#version 300 es\n"
 	"in vec2 pos; uniform mat2 rot; out vec2 uv;\n"
 	"void main() { uv = (rot * pos) * 0.5 + 0.5; gl_Position = vec4(pos, 0.0, 1.0); }\n";
+static const char *fs_cm =
+	"#version 300 es\nprecision highp float;\n"
+	"in vec2 uv; uniform sampler2D tex; uniform float alpha; out vec4 o;\n"
+	"vec3 lin(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }\n"
+	"vec3 enc(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }\n"
+	"void main() { vec3 c = lin(texture(tex, uv).rgb); c = mat3(0.9,0.05,0.05, 0.05,0.9,0.05, 0.05,0.05,0.9) * c; o = vec4(enc(c), alpha); }\n";
 static const char *fs =
 	"#version 300 es\nprecision mediump float;\n"
 	"in vec2 uv; uniform sampler2D tex; uniform float alpha; out vec4 o;\n"
@@ -119,6 +130,47 @@ int main(int argc, char **argv)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+	/* client-style source: linear GBM bo -> dmabuf -> EGLImage -> texture */
+	GLuint img_tex = 0;
+	{
+		struct gbm_device *rg = gbm;
+		int rfd = -1;
+		if (card) {
+			rfd = open("/dev/dri/renderD128", O_RDWR);
+			rg = gbm_create_device(rfd);
+		}
+		uint64_t mod = DRM_FORMAT_MOD_LINEAR;
+		struct gbm_bo *bo = gbm_bo_create_with_modifiers2(rg, H, W, GBM_FORMAT_ARGB8888,
+								  &mod, 1, GBM_BO_USE_RENDERING);
+		if (!bo) { perror("gbm_bo_create linear"); return 1; }
+		int dfd = gbm_bo_get_fd(bo);
+		EGLAttrib ia[] = {
+			EGL_WIDTH, H, EGL_HEIGHT, W,
+			EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ARGB8888,
+			EGL_DMA_BUF_PLANE0_FD_EXT, dfd,
+			EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+			EGL_DMA_BUF_PLANE0_PITCH_EXT, gbm_bo_get_stride(bo),
+			EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, (EGLAttrib)(mod & 0xffffffff),
+			EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, (EGLAttrib)(mod >> 32),
+			EGL_NONE };
+		EGLImage im = eglCreateImage(dpy, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, ia);
+		if (im == EGL_NO_IMAGE) { fprintf(stderr, "eglCreateImage 0x%x\n", eglGetError()); return 1; }
+		PFNGLEGLIMAGETARGETTEXTURE2DOESPROC tgt =
+			(void *)eglGetProcAddress("glEGLImageTargetTexture2DOES");
+		glGenTextures(1, &img_tex);
+		glBindTexture(GL_TEXTURE_2D, img_tex);
+		tgt(GL_TEXTURE_2D, im);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		/* fill it once by rendering (as a GL client would) */
+		GLuint f2; glGenFramebuffers(1, &f2);
+		glBindFramebuffer(GL_FRAMEBUFFER, f2);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, img_tex, 0);
+		glClearColor(0.3f, 0.6f, 0.9f, 1); glClear(GL_COLOR_BUFFER_BIT); glFinish();
+		glBindFramebuffer(GL_FRAMEBUFFER, card ? 0 : fbo);
+		glBindTexture(GL_TEXTURE_2D, src);
+	}
+
 	GLuint p = glCreateProgram();
 	glAttachShader(p, shader(GL_VERTEX_SHADER, vs));
 	glAttachShader(p, shader(GL_FRAGMENT_SHADER, fs));
@@ -126,6 +178,23 @@ int main(int argc, char **argv)
 	glLinkProgram(p);
 	glUseProgram(p);
 	GLint urot = glGetUniformLocation(p, "rot"), ualpha = glGetUniformLocation(p, "alpha");
+	GLuint pc = glCreateProgram();
+	glAttachShader(pc, shader(GL_VERTEX_SHADER, vs));
+	glAttachShader(pc, shader(GL_FRAGMENT_SHADER, fs_cm));
+	glBindAttribLocation(pc, 0, "pos");
+	glLinkProgram(pc);
+	GLint urotc = glGetUniformLocation(pc, "rot"), ualphac = glGetUniformLocation(pc, "alpha");
+	/* full-size offscreen target for partial passes (blur-like) */
+	GLuint off, offfbo;
+	glGenTextures(1, &off);
+	glBindTexture(GL_TEXTURE_2D, off);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, W, H);
+	glGenFramebuffers(1, &offfbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, offfbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, off, 0);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glBindFramebuffer(GL_FRAMEBUFFER, card ? 0 : fbo);
+	glBindTexture(GL_TEXTURE_2D, src);
 	float quad[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
 	GLuint vbo, vao;
 	glGenVertexArrays(1, &vao);
@@ -138,14 +207,21 @@ int main(int argc, char **argv)
 	glViewport(0, 0, W, H);
 	const float ident[] = { 1, 0, 0, 1 }, rot90[] = { 0, 1, -1, 0 };
 
-	struct { const char *name; int layers; const float *rot; } t[] = {
-		{ "clear only", 0, ident },
-		{ "1 quad, same orientation", 1, ident },
-		{ "1 quad, rotated 90", 1, rot90 },
-		{ "4 blended layers, rotated 90", 4, rot90 },
+	struct { const char *name; int layers; const float *rot; int dmabuf; int cm; int partial; } t[] = {
+		{ "clear only", 0, ident, 0, 0, 0 },
+		{ "1 quad, same orientation", 1, ident, 0, 0, 0 },
+		{ "1 quad, rotated 90", 1, rot90, 0, 0, 0 },
+		{ "4 blended layers, rotated 90", 4, rot90, 0, 0, 0 },
+		{ "dmabuf: 1 quad, rotated 90", 1, rot90, 1, 0, 0 },
+		{ "dmabuf: 4 layers, rotated 90", 4, rot90, 1, 0, 0 },
+		{ "colour transform: 4 layers", 4, rot90, 1, 1, 0 },
+		{ "4 layers + 20 partial passes", 4, rot90, 1, 0, 20 },
 	};
 	for (unsigned k = 0; k < sizeof(t) / sizeof(t[0]); k++) {
-		glUniformMatrix2fv(urot, 1, GL_FALSE, t[k].rot);
+		glBindTexture(GL_TEXTURE_2D, t[k].dmabuf ? img_tex : src);
+		glUseProgram(t[k].cm ? pc : p);
+		glUniformMatrix2fv(t[k].cm ? urotc : urot, 1, GL_FALSE, t[k].rot);
+		GLint ua = t[k].cm ? ualphac : ualpha;
 		for (int warm = 0; warm < 2; warm++) {
 			double t0 = now();
 			for (int f = 0; f < (warm ? N : 5); f++) {
@@ -153,10 +229,27 @@ int main(int argc, char **argv)
 				glClear(GL_COLOR_BUFFER_BIT);
 				for (int l = 0; l < t[k].layers; l++) {
 					if (l) { glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
-					glUniform1f(ualpha, l ? 0.8f : 1.0f);
+					glUniform1f(ua, l ? 0.8f : 1.0f);
 					glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 				}
 				glDisable(GL_BLEND);
+				/*
+				 * Blur-like partial passes: a 400x200 scissored quad into
+				 * the full-size offscreen target, no clear (contents kept),
+				 * each pass sampled by the next; then back to the output.
+				 */
+				for (int pp = 0; pp < t[k].partial; pp++) {
+					glBindFramebuffer(GL_FRAMEBUFFER, offfbo);
+					glEnable(GL_SCISSOR_TEST);
+					glScissor(100 + pp * 10, 100, 400, 200);
+					glBindTexture(GL_TEXTURE_2D, pp ? off : img_tex);
+					glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+					glDisable(GL_SCISSOR_TEST);
+				}
+				if (t[k].partial) {
+					glBindFramebuffer(GL_FRAMEBUFFER, card ? 0 : fbo);
+					glBindTexture(GL_TEXTURE_2D, img_tex);
+				}
 				if (card) {
 					struct gbm_bo *bo;
 					eglSwapBuffers(dpy, surf);
@@ -169,7 +262,7 @@ int main(int argc, char **argv)
 			}
 			double ms = (now() - t0) * 1000 / N;
 			if (warm)
-				printf("%-30s %6.2f ms/frame  (%.0f Mpix/s written)\n", t[k].name, ms,
+				printf("%-32s %6.2f ms/frame  (%.0f Mpix/s written)\n", t[k].name, ms,
 				       (double)W * H * (t[k].layers ? t[k].layers : 1) / ms / 1e3);
 		}
 	}
