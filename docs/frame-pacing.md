@@ -186,3 +186,38 @@ costs 4x on this GPU (9.99 vs 2.38 ms for 4 full-screen layers).
   15.87 ms period is the transfer-limited refresh (63 Hz) and the #26 mode
   (63.00 Hz) stands. Menu intervals of 22-24 ms come from KWin's per-frame
   GPU cost (colour-management shader), not from missing TE.
+
+## Why KWin's colour shader is so expensive here (KWin 6.3.6 / 6.8.3 source, Mesa 26.1.6 source)
+
+**KWin**: every window goes through TransformColorspace because the
+pipeline is never an identity. Client default `ColorDescription::sRGB` =
+gamma22 with min 0.2 / max 80 nits (`defaultMinLuminanceFor`,
+`defaultMaxLuminanceFor`); the SDR output (profile source sRGB) = gamma22
+with min 0.01 (`minSdrLuminance`, deliberate) / max 200 nits.
+`TransferFunction::operator==` compares those luminances, so
+`addInverseTransferFunction` does not cancel decode against encode
+(scene/itemrenderer_opengl.cpp: `ColorPipeline::create(node, target)` ->
+`!isIdentity()` -> TransformColorspace). Same in KWin 6.8.3. The output
+shadow pass (drm_egl_layer_surface.cpp) is off here (gamma22 output, no
+channel factors, no ICC).
+
+**Mesa (panfrost)**: KWin's shader picks decode/encode by uniforms
+(sourceNamedTransferFunction / destinationNamedTransferFunction; gamma22 =
+3). In the compiled NIR (docs/kwin-fs1-tr2.txt) the gamma22 decode block b7
+computes both PQ (pow 1/m2, pow 1/m1) and gamma22 (pow 2.2) for 3 channels,
+then selects: Bifrost/Valhall `nir_opt_peephole_select` runs with
+`.limit = 64, .expensive_alu_ok = true` (bifrost_nir.c; also midgard, panvk),
+flattening a uniform branch full of fpow. Decode + encode = 18 fpow per
+pixel where the gamma22 path needs 6. NIR's `expensive_alu_ok` covers
+fpow/fexp2/flog2/frcp/frsq/fsin/fcos/fdiv/idiv.
+
+gpufill (748 MHz, 1080x2340, 4 full-screen layers): plain 2.37 ms; gamma22
+path only 8.43 ms; KWin-style uniform-selected PQ/gamma22 (as compiled now)
+**21.91 ms**. The flattening alone is 2.6x, and 21.9 ms matches the 13-25 ms
+KWin fragment jobs per menu frame.
+
+Fix candidates: Mesa panfrost `expensive_alu_ok = false` in the Bifrost
+peephole-select options (keeps branches with transcendentals; upstreamable,
+needs a shader-db / benchmark check), and upstream KWin: SDR sRGB clients on
+an SDR gamma22 output differ only in black level (0.2 vs 0.01 nits), so a
+cheaper path or treating it as identity would avoid the shader entirely.

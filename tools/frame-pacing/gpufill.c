@@ -60,6 +60,25 @@ static const char *fs_cm =
 	"vec3 lin(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }\n"
 	"vec3 enc(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }\n"
 	"void main() { vec3 c = lin(texture(tex, uv).rgb); c = mat3(0.9,0.05,0.05, 0.05,0.9,0.05, 0.05,0.05,0.9) * c; o = vec4(enc(c), alpha); }\n";
+/* KWin 6.3 style: decode/encode picked by a uniform (PQ = 2, gamma22 = 3) */
+static const char *fs_kw =
+	"#version 300 es\nprecision highp float;\n"
+	"in vec2 uv; uniform sampler2D tex; uniform float alpha; uniform int tf; out vec4 o;\n"
+	"const float m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875;\n"
+	"vec3 dec(vec3 c) { if (tf == 2) { vec3 p = pow(max(c, 0.0), vec3(1.0 / m2));\n"
+	"  return 10000.0 * pow(max(p - c1, 0.0) / (c2 - c3 * p), vec3(1.0 / m1)); }\n"
+	"  else if (tf == 3) { return 0.01 + 199.99 * pow(max(c, 0.0), vec3(2.2)); } return c; }\n"
+	"vec3 enc(vec3 c) { if (tf == 2) { vec3 l = pow(max(c, 0.0) / 10000.0, vec3(m1));\n"
+	"  return pow((c1 + c2 * l) / (1.0 + c3 * l), vec3(m2)); }\n"
+	"  else if (tf == 3) { return pow(max((c - 0.01) / 199.99, 0.0), vec3(1.0 / 2.2)); } return c; }\n"
+	"void main() { vec3 c = dec(texture(tex, uv).rgb); c = mat3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0) * c * 1.000001; o = vec4(enc(c), alpha); }\n";
+/* the same with only the gamma22 path (what a real uniform branch executes) */
+static const char *fs_g22 =
+	"#version 300 es\nprecision highp float;\n"
+	"in vec2 uv; uniform sampler2D tex; uniform float alpha; uniform int tf; out vec4 o;\n"
+	"void main() { vec3 c = 0.01 + 199.99 * pow(max(texture(tex, uv).rgb, 0.0), vec3(2.2));\n"
+	"  c = mat3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0) * c * 1.000001;\n"
+	"  o = vec4(pow(max((c - 0.01) / 199.99, 0.0), vec3(1.0 / 2.2)), alpha); }\n";
 static const char *fs =
 	"#version 300 es\nprecision mediump float;\n"
 	"in vec2 uv; uniform sampler2D tex; uniform float alpha; out vec4 o;\n"
@@ -184,6 +203,14 @@ int main(int argc, char **argv)
 	glBindAttribLocation(pc, 0, "pos");
 	glLinkProgram(pc);
 	GLint urotc = glGetUniformLocation(pc, "rot"), ualphac = glGetUniformLocation(pc, "alpha");
+	GLuint pk = glCreateProgram(), pg = glCreateProgram();
+	glAttachShader(pk, shader(GL_VERTEX_SHADER, vs)); glAttachShader(pk, shader(GL_FRAGMENT_SHADER, fs_kw));
+	glAttachShader(pg, shader(GL_VERTEX_SHADER, vs)); glAttachShader(pg, shader(GL_FRAGMENT_SHADER, fs_g22));
+	glBindAttribLocation(pk, 0, "pos"); glBindAttribLocation(pg, 0, "pos");
+	glLinkProgram(pk); glLinkProgram(pg);
+	glUseProgram(pk); glUniform1i(glGetUniformLocation(pk, "tf"), 3);
+	glUseProgram(pg); glUniform1i(glGetUniformLocation(pg, "tf"), 3);
+	glUseProgram(p);
 	/* full-size offscreen target for partial passes (blur-like) */
 	GLuint off, offfbo;
 	glGenTextures(1, &off);
@@ -215,13 +242,16 @@ int main(int argc, char **argv)
 		{ "dmabuf: 1 quad, rotated 90", 1, rot90, 1, 0, 0 },
 		{ "dmabuf: 4 layers, rotated 90", 4, rot90, 1, 0, 0 },
 		{ "colour transform: 4 layers", 4, rot90, 1, 1, 0 },
+		{ "KWin-style uniform TF: 4 layers", 4, rot90, 1, 2, 0 },
+		{ "gamma22 path only: 4 layers", 4, rot90, 1, 3, 0 },
 		{ "4 layers + 20 partial passes", 4, rot90, 1, 0, 20 },
 	};
 	for (unsigned k = 0; k < sizeof(t) / sizeof(t[0]); k++) {
 		glBindTexture(GL_TEXTURE_2D, t[k].dmabuf ? img_tex : src);
-		glUseProgram(t[k].cm ? pc : p);
-		glUniformMatrix2fv(t[k].cm ? urotc : urot, 1, GL_FALSE, t[k].rot);
-		GLint ua = t[k].cm ? ualphac : ualpha;
+		GLuint prog = t[k].cm == 1 ? pc : t[k].cm == 2 ? pk : t[k].cm == 3 ? pg : p;
+		glUseProgram(prog);
+		glUniformMatrix2fv(glGetUniformLocation(prog, "rot"), 1, GL_FALSE, t[k].rot);
+		GLint ua = glGetUniformLocation(prog, "alpha");
 		for (int warm = 0; warm < 2; warm++) {
 			double t0 = now();
 			for (int f = 0; f < (warm ? N : 5); f++) {

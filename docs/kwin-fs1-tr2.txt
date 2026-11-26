@@ -1,0 +1,3536 @@
+shader: MESA_SHADER_FRAGMENT
+source_blake3: {0x56faf41b, 0xee7afd3d, 0x955fc480, 0x1d1c6808, 0x7d1c8aae, 0xe690ca1a, 0x3672b5e2, 0x56ac8cf8}
+name: GLSL1
+prev_stage: MESA_SHADER_VERTEX
+num_textures: 2
+num_ubos: 2
+inputs_read: 32
+outputs_written: 4
+textures_used: 0x00000000'00000000'00000000'00000003
+samplers_used: 0x00000003
+max_subgroup_size: 128
+min_subgroup_size: 1
+api_subgroup_size_draw_uniform: true
+bit_sizes_float: 0x30
+bit_sizes_int: 0x21
+first_ubo_is_default_ubo: true
+known_interpolation_qualifiers: true
+flrp_lowered: true
+needs_coarse_quad_helper_invocations: true
+inputs: 1
+outputs: 1
+uniforms: 17
+decl_var uniform INTERP_MODE_NONE none lowp sampler2D sampler (1, 0, 0)
+decl_var uniform INTERP_MODE_NONE none lowp sampler2D sampler1 (2, 1, 1)
+decl_var uniform INTERP_MODE_NONE none mediump int converter (3, 0, 0)
+decl_var uniform INTERP_MODE_NONE none highp vec4 modulation (4, 1, 0)
+decl_var uniform INTERP_MODE_NONE none highp float saturation (5, 5, 0)
+decl_var uniform INTERP_MODE_NONE none highp vec3 primaryBrightness (6, 6, 0)
+decl_var uniform INTERP_MODE_NONE none highp mat4 colorimetryTransform (7, 9, 0)
+decl_var uniform INTERP_MODE_NONE none mediump int sourceNamedTransferFunction (8, 25, 0)
+decl_var uniform INTERP_MODE_NONE none highp vec2 sourceTransferFunctionParams (9, 26, 0)
+decl_var uniform INTERP_MODE_NONE none mediump int destinationNamedTransferFunction (10, 28, 0)
+decl_var uniform INTERP_MODE_NONE none highp vec2 destinationTransferFunctionParams (11, 29, 0)
+decl_var uniform INTERP_MODE_NONE none highp float maxTonemappingLuminance (12, 31, 0)
+decl_var uniform INTERP_MODE_NONE none highp float destinationReferenceLuminance (13, 32, 0)
+decl_var uniform INTERP_MODE_NONE none highp float maxDestinationLuminance (14, 33, 0)
+decl_var uniform INTERP_MODE_NONE none highp mat4 destinationToLMS (15, 34, 0)
+decl_var uniform INTERP_MODE_NONE none highp mat4 lmsToDestination (16, 50, 0)
+decl_var shader_in INTERP_MODE_SMOOTH none highp vec2 VARYING_SLOT_VAR0 (VARYING_SLOT_VAR0.xy, 0, 0)
+decl_var shader_out INTERP_MODE_NONE none highp vec4 fragColor (FRAG_RESULT_DATA0.xyzw, 0, 0)
+decl_var ubo INTERP_MODE_NONE none vec4[17] uniform_0 (0, 0, 0)
+decl_function main () (entrypoint)
+impl main {
+    block b0:    // preds:
+    32x2    %0 = @load_barycentric_pixel (interp_mode=INTERP_MODE_SMOOTH)
+    32      %1 = load_const (0x00000000)
+    32      %2 = @load_ubo (%1 (0x0), %1 (0x0)) (access=none, align_mul=1073741824, align_offset=0, range_base=0, range=4)
+    32      %3 = ieq32 %2, %1 (0x0)
+    32      %4 = load_const (0x01000000 = 0.000000 = 16777216)
+    32x2    %5 = @load_var_pan (%4 (0x1000000), %0) (dest_type=float32, io location=32 slots=1)
+                 // succs: b1 b2
+    if %3 {
+        block b1:    // preds: b0
+        16x4    %6 = (float16)tex %5 (coord), 67108864 (texture), 50331648 (sampler), 2D
+        32      %7 = f2f32 %6.x
+        32      %8 = f2f32 %6.y
+        32      %9 = f2f32 %6.z
+        32     %10 = f2f32 %6.w
+                     // succs: b3
+    } else {
+        block b2:    // preds: b0
+        16x4   %11 = (float16)tex %5 (coord), 67108864 (texture), 50331648 (sampler), 2D
+        16     %12 = load_const (0xac00 = -0.062500)
+        16     %13 = fadd %11.x, %12 (-0.062500)
+        16     %14 = load_const (0x3ca8 = 1.164062)
+        16     %15 = fmul %14 (1.164062), %13
+        32     %16 = f2f32 %15
+        16x4   %17 = (float16)tex %5 (coord), 67108865 (texture), 50331649 (sampler), 2D
+        16     %18 = load_const (0xb800 = -0.500000)
+        16x2   %19 = fadd %17.xy, %18 (-0.500000).xx
+        32     %20 = f2f32 %19.x
+        32     %21 = f2f32 %19.y
+        32     %22 = load_const (0x3fcc4a9b = 1.596027)
+        32     %23 = ffma %22 (1.596027), %21, %16
+        32     %24 = load_const (0xbec89511 = -0.391762)
+        32     %25 = ffma %24 (-0.391762), %20, %16
+        32     %26 = load_const (0xbf501ea6 = -0.812968)
+        32     %27 = ffma %26 (-0.812968), %21, %25
+        32     %28 = load_const (0x40011a55 = 2.017232)
+        32     %29 = ffma %28 (2.017232), %20, %16
+        32     %30 = load_const (0x3f800000 = 1.000000)
+                     // succs: b3
+    }
+    block b3:    // preds: b1 b2
+    32     %31 = phi b1: %7, b2: %23
+    32     %32 = phi b1: %8, b2: %27
+    32     %33 = phi b1: %9, b2: %29
+    32     %34 = phi b1: %10, b2: %30 (1.000000)
+    32     %35 = load_const (0x3a83126f = 0.001000)
+    32     %36 = load_const (0x00000064 = 100)
+    32     %37 = @load_ubo (%1 (0x0), %36 (0x64)) (access=none, align_mul=1073741824, align_offset=100, range_base=100, range=4)
+    32     %38 = load_const (0x00000001)
+    32     %39 = load_const (0x00000002)
+    32     %40 = load_const (0x00000003)
+    32     %41 = load_const (0x00000068 = 104)
+    32x2   %42 = @load_ubo (%1 (0x0), %41 (0x68)) (access=none, align_mul=1073741824, align_offset=104, range_base=104, range=8)
+    32     %43 = ieq32 %37, %1 (0x0)
+                 // succs: b4 b5
+    if %43 {
+        block b4:    // preds: b3
+        32     %44 = fmax %34, %35 (0.001000) // preserve:inf,nan
+        32     %45 = frcp %44
+        32     %46 = fmul %31, %45
+        32     %47 = fmul %32, %45
+        32     %48 = fmul %33, %45
+        32     %49 = load_const (0x3d9e8391 = 0.077399)
+        32     %50 = fmul %46, %49 (0.077399)
+        32     %51 = fmul %47, %49 (0.077399)
+        32     %52 = fmul %48, %49 (0.077399)
+        32     %53 = load_const (0x3d6147ae = 0.055000)
+        32     %54 = fadd %46, %53 (0.055000)
+        32     %55 = fadd %47, %53 (0.055000)
+        32     %56 = fadd %48, %53 (0.055000)
+        32     %57 = load_const (0x3f72a76f = 0.947867)
+        32     %58 = fmul %54, %57 (0.947867)
+        32     %59 = fmul %55, %57 (0.947867)
+        32     %60 = fmul %56, %57 (0.947867)
+        32     %61 = load_const (0x4019999a = 2.400000)
+        32     %62 = fpow %58, %61 (2.400000)
+        32     %63 = fpow %59, %61 (2.400000)
+        32     %64 = fpow %60, %61 (2.400000)
+        32     %65 = load_const (0x3d25aee6 = 0.040450)
+        32     %66 = fge32 %65 (0.040450), %46 // preserve:inf
+        32     %67 = b32csel %66, %50, %62
+        32     %68 = fge32 %65 (0.040450), %47 // preserve:inf
+        32     %69 = b32csel %68, %51, %63
+        32     %70 = fge32 %65 (0.040450), %48 // preserve:inf
+        32     %71 = b32csel %70, %52, %64
+        32     %72 = ffma %67, %42.y, %42.x
+        32     %73 = ffma %69, %42.y, %42.x
+        32     %74 = ffma %71, %42.y, %42.x
+        32     %75 = fmul %72, %34
+        32     %76 = fmul %73, %34
+        32     %77 = fmul %74, %34
+                     // succs: b9
+    } else {
+        block b5:    // preds: b3
+        32     %78 = ieq32 %37, %38 (0x1)
+                     // succs: b6 b7
+        if %78 {
+            block b6:    // preds: b5
+            32     %79 = ffma %31, %42.y, %42.x
+            32     %80 = ffma %32, %42.y, %42.x
+            32     %81 = ffma %33, %42.y, %42.x
+                         // succs: b8
+        } else {
+            block b7:    // preds: b5
+            32     %82 = fmax %34, %35 (0.001000) // preserve:inf,nan
+            32     %83 = frcp %82
+            32     %84 = fmul %31, %83
+            32     %85 = fmul %32, %83
+            32     %86 = fmul %33, %83
+            32     %87 = fsat %84 // preserve:inf,nan
+            32     %88 = fsat %85 // preserve:inf,nan
+            32     %89 = fsat %86 // preserve:inf,nan
+            32     %90 = load_const (0x3c4fcdac = 0.012683)
+            32     %91 = fpow %87, %90 (0.012683)
+            32     %92 = fpow %88, %90 (0.012683)
+            32     %93 = fpow %89, %90 (0.012683)
+            32     %94 = load_const (0xbf560000 = -0.835938)
+            32     %95 = fadd %91, %94 (-0.835938)
+            32     %96 = fadd %92, %94 (-0.835938)
+            32     %97 = fadd %93, %94 (-0.835938)
+            32     %98 = fclamp_pos %95 // preserve:inf,nan
+            32     %99 = fclamp_pos %96 // preserve:inf,nan
+            32    %100 = fclamp_pos %97 // preserve:inf,nan
+            32    %101 = load_const (0xc1958000 = -18.687500)
+            32    %102 = load_const (0x4196d000 = 18.851562)
+            32    %103 = ffma %101 (-18.687500), %91, %102 (18.851562)
+            32    %104 = ffma %101 (-18.687500), %92, %102 (18.851562)
+            32    %105 = ffma %101 (-18.687500), %93, %102 (18.851562)
+            32    %106 = frcp %103
+            32    %107 = frcp %104
+            32    %108 = frcp %105
+            32    %109 = fmul %98, %106
+            32    %110 = fmul %99, %107
+            32    %111 = fmul %100, %108
+            32    %112 = load_const (0x40c8e06b = 6.277395)
+            32    %113 = fpow %109, %112 (6.277395)
+            32    %114 = fpow %110, %112 (6.277395)
+            32    %115 = fpow %111, %112 (6.277395)
+            32    %116 = ffma %113, %42.y, %42.x
+            32    %117 = ffma %114, %42.y, %42.x
+            32    %118 = ffma %115, %42.y, %42.x
+            32    %119 = fmul %116, %34
+            32    %120 = fmul %117, %34
+            32    %121 = fmul %118, %34
+            32    %122 = fclamp_pos %84 // preserve:inf,nan
+            32    %123 = fclamp_pos %85 // preserve:inf,nan
+            32    %124 = fclamp_pos %86 // preserve:inf,nan
+            32    %125 = load_const (0x400ccccd = 2.200000)
+            32    %126 = fpow %122, %125 (2.200000)
+            32    %127 = fpow %123, %125 (2.200000)
+            32    %128 = fpow %124, %125 (2.200000)
+            32    %129 = ffma %126, %42.y, %42.x
+            32    %130 = ffma %127, %42.y, %42.x
+            32    %131 = ffma %128, %42.y, %42.x
+            32    %132 = fmul %129, %34
+            32    %133 = fmul %130, %34
+            32    %134 = fmul %131, %34
+            32    %135 = ieq32 %37, %40 (0x3)
+            32    %136 = b32csel %135, %132, %31
+            32    %137 = b32csel %135, %133, %32
+            32    %138 = b32csel %135, %134, %33
+            32    %139 = ieq32 %37, %39 (0x2)
+            32    %140 = b32csel %139, %119, %136
+            32    %141 = b32csel %139, %120, %137
+            32    %142 = b32csel %139, %121, %138
+                         // succs: b8
+        }
+        block b8:    // preds: b6 b7
+        32    %143 = phi b6: %79, b7: %140
+        32    %144 = phi b6: %80, b7: %141
+        32    %145 = phi b6: %81, b7: %142
+                     // succs: b9
+    }
+    block b9:    // preds: b4 b8
+    32    %146 = phi b4: %75, b8: %143
+    32    %147 = phi b4: %76, b8: %144
+    32    %148 = phi b4: %77, b8: %145
+    32    %149 = load_const (0x00000054 = 84)
+    32    %150 = @load_ubo (%1 (0x0), %149 (0x54)) (access=none, align_mul=1073741824, align_offset=84, range_base=36, range=64)
+    32    %151 = load_const (0x00000034 = 52)
+    32    %152 = @load_ubo (%1 (0x0), %151 (0x34)) (access=none, align_mul=1073741824, align_offset=52, range_base=36, range=64)
+    32    %153 = ffma %152, %147, %150
+    32    %154 = load_const (0x00000024 = 36)
+    32    %155 = @load_ubo (%1 (0x0), %154 (0x24)) (access=none, align_mul=1073741824, align_offset=36, range_base=36, range=64)
+    32    %156 = ffma %155, %146, %153
+    32    %157 = load_const (0x00000044 = 68)
+    32    %158 = @load_ubo (%1 (0x0), %157 (0x44)) (access=none, align_mul=1073741824, align_offset=68, range_base=36, range=64)
+    32    %159 = ffma %158, %148, %156
+    32    %160 = load_const (0x00000038 = 56)
+    32x2  %161 = @load_ubo (%1 (0x0), %160 (0x38)) (access=none, align_mul=1073741824, align_offset=56, range_base=36, range=64)
+    32    %162 = load_const (0x00000058 = 88)
+    32x2  %163 = @load_ubo (%1 (0x0), %162 (0x58)) (access=none, align_mul=1073741824, align_offset=88, range_base=36, range=64)
+    32    %164 = ffma %161.x, %147, %163.x
+    32    %165 = load_const (0x00000028 = 40)
+    32x2  %166 = @load_ubo (%1 (0x0), %165 (0x28)) (access=none, align_mul=1073741824, align_offset=40, range_base=36, range=64)
+    32    %167 = ffma %166.x, %146, %164
+    32    %168 = load_const (0x00000048 = 72)
+    32x2  %169 = @load_ubo (%1 (0x0), %168 (0x48)) (access=none, align_mul=1073741824, align_offset=72, range_base=36, range=64)
+    32    %170 = ffma %169.x, %148, %167
+    32    %171 = ffma %161.y, %147, %163.y
+    32    %172 = ffma %166.y, %146, %171
+    32    %173 = ffma %169.y, %148, %172
+    32    %174 = load_const (0x3f8147ae = 1.010000)
+    32    %175 = load_const (0x00000084 = 132)
+    32    %176 = @load_ubo (%1 (0x0), %175 (0x84)) (access=none, align_mul=1073741824, align_offset=132, range_base=132, range=4)
+    32    %177 = fmul %176, %174 (1.010000)
+    32    %178 = load_const (0x3f800000 = 1.000000)
+    32    %179 = load_const (0x0000007c = 124)
+    32    %180 = @load_ubo (%1 (0x0), %179 (0x7c)) (access=none, align_mul=1073741824, align_offset=124, range_base=124, range=4)
+    32    %181 = flt32 %180, %177 // preserve:inf
+                 // succs: b10 b11
+    if %181 {
+        block b10:   // preds: b9
+        32    %182 = fclamp_pos %159 // preserve:inf,nan
+        32    %183 = fclamp_pos %170 // preserve:inf,nan
+        32    %184 = fclamp_pos %173 // preserve:inf,nan
+        32    %185 = fmin %182, %176 // preserve:inf,nan
+        32    %186 = fmin %183, %176 // preserve:inf,nan
+        32    %187 = fmin %184, %176 // preserve:inf,nan
+                     // succs: b12
+    } else {
+        block b11:   // preds: b9
+        32    %188 = load_const (0x000000b8 = 184)
+        32x2  %189 = @load_ubo (%1 (0x0), %188 (0xb8)) (access=none, align_mul=1073741824, align_offset=184, range_base=136, range=64)
+        32    %190 = load_const (0x00000098 = 152)
+        32x2  %191 = @load_ubo (%1 (0x0), %190 (0x98)) (access=none, align_mul=1073741824, align_offset=152, range_base=136, range=64)
+        32    %192 = ffma %191.x, %170, %189.x
+        32    %193 = load_const (0x00000088 = 136)
+        32x2  %194 = @load_ubo (%1 (0x0), %193 (0x88)) (access=none, align_mul=1073741824, align_offset=136, range_base=136, range=64)
+        32    %195 = ffma %194.x, %159, %192
+        32    %196 = load_const (0x000000a8 = 168)
+        32x2  %197 = @load_ubo (%1 (0x0), %196 (0xa8)) (access=none, align_mul=1073741824, align_offset=168, range_base=136, range=64)
+        32    %198 = ffma %197.x, %173, %195
+        32    %199 = ffma %191.y, %170, %189.y
+        32    %200 = ffma %194.y, %159, %199
+        32    %201 = ffma %197.y, %173, %200
+        32    %202 = load_const (0x000000a0 = 160)
+        32    %203 = @load_ubo (%1 (0x0), %202 (0xa0)) (access=none, align_mul=1073741824, align_offset=160, range_base=136, range=64)
+        32    %204 = load_const (0x000000c0 = 192)
+        32    %205 = @load_ubo (%1 (0x0), %204 (0xc0)) (access=none, align_mul=1073741824, align_offset=192, range_base=136, range=64)
+        32    %206 = ffma %203, %170, %205
+        32    %207 = load_const (0x00000090 = 144)
+        32    %208 = @load_ubo (%1 (0x0), %207 (0x90)) (access=none, align_mul=1073741824, align_offset=144, range_base=136, range=64)
+        32    %209 = ffma %208, %159, %206
+        32    %210 = load_const (0x000000b0 = 176)
+        32    %211 = @load_ubo (%1 (0x0), %210 (0xb0)) (access=none, align_mul=1073741824, align_offset=176, range_base=136, range=64)
+        32    %212 = ffma %211, %173, %209
+        32    %213 = load_const (0x38d1b717 = 0.000100)
+        32    %214 = fmul %198, %213 (0.000100)
+        32    %215 = fmul %201, %213 (0.000100)
+        32    %216 = fmul %212, %213 (0.000100)
+        32    %217 = fsat %214 // preserve:inf,nan
+        32    %218 = fsat %215 // preserve:inf,nan
+        32    %219 = fsat %216 // preserve:inf,nan
+        32    %220 = load_const (0x3e232000 = 0.159302)
+        32    %221 = fpow %217, %220 (0.159302)
+        32    %222 = fpow %218, %220 (0.159302)
+        32    %223 = fpow %219, %220 (0.159302)
+        32    %224 = load_const (0x3f560000 = 0.835938)
+        32    %225 = load_const (0x4196d000 = 18.851562)
+        32    %226 = ffma %225 (18.851562), %221, %224 (0.835938)
+        32    %227 = ffma %225 (18.851562), %222, %224 (0.835938)
+        32    %228 = ffma %225 (18.851562), %223, %224 (0.835938)
+        32    %229 = load_const (0x41958000 = 18.687500)
+        32    %230 = ffma %229 (18.687500), %221, %178 (1.000000)
+        32    %231 = ffma %229 (18.687500), %222, %178 (1.000000)
+        32    %232 = ffma %229 (18.687500), %223, %178 (1.000000)
+        32    %233 = frcp %230
+        32    %234 = frcp %231
+        32    %235 = frcp %232
+        32    %236 = fmul %226, %233
+        32    %237 = fmul %227, %234
+        32    %238 = fmul %228, %235
+        32    %239 = load_const (0x429db000 = 78.843750)
+        32    %240 = fpow %236, %239 (78.843750)
+        32    %241 = fpow %237, %239 (78.843750)
+        32    %242 = fpow %238, %239 (78.843750)
+        32    %243 = load_const (0xc054b400 = -3.323486)
+        32    %244 = fmul %243 (-3.323486), %241
+        32    %245 = load_const (0xc087dc00 = -4.245605)
+        32    %246 = fmul %245 (-4.245605), %241
+        32    %247 = fadd %240, %241
+        32    %248 = load_const (0x3f000000 = 0.500000)
+        32    %249 = fmul %248 (0.500000), %247
+        32    %250 = load_const (0x3fce9000 = 1.613770)
+        32    %251 = ffma %250 (1.613770), %240, %244
+        32    %252 = load_const (0x408c1a00 = 4.378174)
+        32    %253 = ffma %252 (4.378174), %240, %246
+        32    %254 = load_const (0x3fdad800 = 1.709717)
+        32    %255 = ffma %254 (1.709717), %242, %251
+        32    %256 = load_const (0xbe07c000 = -0.132568)
+        32    %257 = ffma %256 (-0.132568), %242, %253
+        32    %258 = fsat %249 // preserve:inf,nan
+        32    %259 = load_const (0x3c4fcdac = 0.012683)
+        32    %260 = fpow %258, %259 (0.012683)
+        32    %261 = load_const (0xbf560000 = -0.835938)
+        32    %262 = fadd %260, %261 (-0.835938)
+        32    %263 = fclamp_pos %262 // preserve:inf,nan
+        32    %264 = load_const (0xc1958000 = -18.687500)
+        32    %265 = ffma %264 (-18.687500), %260, %225 (18.851562)
+        32    %266 = frcp %265
+        32    %267 = fmul %263, %266
+        32    %268 = load_const (0x40c8e06b = 6.277395)
+        32    %269 = fpow %267, %268 (6.277395)
+        32    %270 = load_const (0x461c4000 = 10000.000000)
+        32    %271 = fmul %269, %270 (10000.000000)
+        32    %272 = load_const (0x00000080 = 128)
+        32    %273 = @load_ubo (%1 (0x0), %272 (0x80)) (access=none, align_mul=1073741824, align_offset=128, range_base=128, range=4)
+        32    %274 = frcp %273
+        32    %275 = fmul %180, %274
+        32    %276 = load_const (0x3fc00000 = 1.500000)
+        32    %277 = fmin %275, %276 (1.500000) // preserve:inf,nan
+        32    %278 = fmul %176, %274
+        32    %279 = frcp %278
+        32    %280 = fmul %277, %279
+        32    %281 = fmax %280, %178 (1.000000) // preserve:inf,nan
+        32    %282 = fmin %281, %277 // preserve:inf,nan
+        32    %283 = frcp %282
+        32    %284 = fmul %273, %283
+        32    %285 = fmul %271, %283
+        32    %286 = fmin %285, %284 // preserve:inf,nan
+        32    %287 = load_const (0xbf800000 = -1.000000)
+        32    %288 = ffma %271, %274, %287 (-1.000000)
+        32    %289 = fadd %275, %287 (-1.000000)
+        32    %290 = frcp %289
+        32    %291 = fmul %288, %290
+        32    %292 = fsat %291 // preserve:inf,nan
+        32    %293 = load_const (0x3fdbf0a8 = 1.718282)
+        32    %294 = ffma %292, %293 (1.718282), %178 (1.000000)
+        32    %295 = flog2 %294
+        32    %296 = load_const (0x3f317218 = 0.693147)
+        32    %297 = fmul %295, %296 (0.693147)
+        32    %298 = fneg %284
+        32    %299 = fadd %176, %298
+        32    %300 = ffma %297, %299, %286
+        32    %301 = fmul %300, %213 (0.000100)
+        32    %302 = fsat %301 // preserve:inf,nan
+        32    %303 = fpow %302, %220 (0.159302)
+        32    %304 = ffma %225 (18.851562), %303, %224 (0.835938)
+        32    %305 = ffma %229 (18.687500), %303, %178 (1.000000)
+        32    %306 = frcp %305
+        32    %307 = fmul %304, %306
+        32    %308 = fpow %307, %239 (78.843750)
+        32    %309 = load_const (0x3c0d0ceb = 0.008609)
+        32    %310 = ffma %309 (0.008609), %255, %308
+        32    %311 = load_const (0xbc0d0ceb = -0.008609)
+        32    %312 = ffma %311 (-0.008609), %255, %308
+        32    %313 = load_const (0x3f0f70b2 = 0.560313)
+        32    %314 = ffma %313 (0.560313), %255, %308
+        32    %315 = load_const (0x3de36380 = 0.111030)
+        32    %316 = ffma %315 (0.111030), %257, %310
+        32    %317 = load_const (0xbde36380 = -0.111030)
+        32    %318 = ffma %317 (-0.111030), %257, %312
+        32    %319 = load_const (0xbea4293f = -0.320627)
+        32    %320 = ffma %319 (-0.320627), %257, %314
+        32    %321 = fsat %316 // preserve:inf,nan
+        32    %322 = fsat %318 // preserve:inf,nan
+        32    %323 = fsat %320 // preserve:inf,nan
+        32    %324 = fpow %321, %259 (0.012683)
+        32    %325 = fpow %322, %259 (0.012683)
+        32    %326 = fpow %323, %259 (0.012683)
+        32    %327 = fadd %324, %261 (-0.835938)
+        32    %328 = fadd %325, %261 (-0.835938)
+        32    %329 = fadd %326, %261 (-0.835938)
+        32    %330 = fclamp_pos %327 // preserve:inf,nan
+        32    %331 = fclamp_pos %328 // preserve:inf,nan
+        32    %332 = fclamp_pos %329 // preserve:inf,nan
+        32    %333 = ffma %264 (-18.687500), %324, %225 (18.851562)
+        32    %334 = ffma %264 (-18.687500), %325, %225 (18.851562)
+        32    %335 = ffma %264 (-18.687500), %326, %225 (18.851562)
+        32    %336 = frcp %333
+        32    %337 = frcp %334
+        32    %338 = frcp %335
+        32    %339 = fmul %330, %336
+        32    %340 = fmul %331, %337
+        32    %341 = fmul %332, %338
+        32    %342 = fpow %339, %268 (6.277395)
+        32    %343 = fpow %340, %268 (6.277395)
+        32    %344 = fpow %341, %268 (6.277395)
+        32    %345 = load_const (0x000000f8 = 248)
+        32x2  %346 = @load_ubo (%1 (0x0), %345 (0xf8)) (access=none, align_mul=1073741824, align_offset=248, range_base=200, range=64)
+        32    %347 = load_const (0x000000d8 = 216)
+        32x2  %348 = @load_ubo (%1 (0x0), %347 (0xd8)) (access=none, align_mul=1073741824, align_offset=216, range_base=200, range=64)
+        32    %349 = ffma %348.x, %343, %346.x
+        32    %350 = load_const (0x000000c8 = 200)
+        32x2  %351 = @load_ubo (%1 (0x0), %350 (0xc8)) (access=none, align_mul=1073741824, align_offset=200, range_base=200, range=64)
+        32    %352 = ffma %351.x, %342, %349
+        32    %353 = load_const (0x000000e8 = 232)
+        32x2  %354 = @load_ubo (%1 (0x0), %353 (0xe8)) (access=none, align_mul=1073741824, align_offset=232, range_base=200, range=64)
+        32    %355 = ffma %354.x, %344, %352
+        32    %356 = ffma %348.y, %343, %346.y
+        32    %357 = ffma %351.y, %342, %356
+        32    %358 = ffma %354.y, %344, %357
+        32    %359 = load_const (0x000000e0 = 224)
+        32    %360 = @load_ubo (%1 (0x0), %359 (0xe0)) (access=none, align_mul=1073741824, align_offset=224, range_base=200, range=64)
+        32    %361 = load_const (0x00000100 = 256)
+        32    %362 = @load_ubo (%1 (0x0), %361 (0x100)) (access=none, align_mul=1073741824, align_offset=256, range_base=200, range=64)
+        32    %363 = ffma %360, %343, %362
+        32    %364 = load_const (0x000000d0 = 208)
+        32    %365 = @load_ubo (%1 (0x0), %364 (0xd0)) (access=none, align_mul=1073741824, align_offset=208, range_base=200, range=64)
+        32    %366 = ffma %365, %342, %363
+        32    %367 = load_const (0x000000f0 = 240)
+        32    %368 = @load_ubo (%1 (0x0), %367 (0xf0)) (access=none, align_mul=1073741824, align_offset=240, range_base=200, range=64)
+        32    %369 = ffma %368, %344, %366
+        32    %370 = fmul %355, %270 (10000.000000)
+        32    %371 = fmul %358, %270 (10000.000000)
+        32    %372 = fmul %369, %270 (10000.000000)
+                     // succs: b12
+    }
+    block b12:   // preds: b10 b11
+    32    %373 = phi b10: %185, b11: %370
+    32    %374 = phi b10: %186, b11: %371
+    32    %375 = phi b10: %187, b11: %372
+    32    %376 = load_const (0x00000020 = 32)
+    32    %377 = @load_ubo (%1 (0x0), %376 (0x20)) (access=none, align_mul=1073741824, align_offset=32, range_base=24, range=12)
+    32    %378 = fmul %375, %377
+    32    %379 = load_const (0x00000010 = 16)
+    32x4  %380 = @load_ubo (%1 (0x0), %379 (0x10)) (access=none, align_mul=1073741824, align_offset=16, range_base=4, range=32)
+    32    %381 = ffma %374, %380.w, %378
+    32    %382 = ffma %373, %380.z, %381
+    32    %383 = fneg %382
+    32    %384 = fadd %373, %383
+    32    %385 = fadd %374, %383
+    32    %386 = fadd %375, %383
+    32    %387 = ffma %380.y, %384, %382
+    32    %388 = ffma %380.y, %385, %382
+    32    %389 = ffma %380.y, %386, %382
+    32    %390 = load_const (0x00000004)
+    32    %391 = @load_ubo (%1 (0x0), %390 (0x4)) (access=none, align_mul=1073741824, align_offset=4, range_base=4, range=16)
+    32    %392 = fmul %387, %391
+    32    %393 = load_const (0x00000008)
+    32x2  %394 = @load_ubo (%1 (0x0), %393 (0x8)) (access=none, align_mul=1073741824, align_offset=8, range_base=4, range=16)
+    32    %395 = fmul %388, %394.x
+    32    %396 = fmul %389, %394.y
+    32    %397 = fmul %34, %380.x
+    32    %398 = load_const (0x00000070 = 112)
+    32x3  %399 = @load_ubo (%1 (0x0), %398 (0x70)) (access=none, align_mul=1073741824, align_offset=112, range_base=112, range=12)
+    32    %400 = ieq32 %399.x, %1 (0x0)
+                 // succs: b13 b14
+    if %400 {
+        block b13:   // preds: b12
+        32    %401 = fmax %397, %35 (0.001000) // preserve:inf,nan
+        32    %402 = frcp %401
+        32    %403 = fneg %399.y
+        32    %404 = ffma %392, %402, %403
+        32    %405 = ffma %395, %402, %403
+        32    %406 = ffma %396, %402, %403
+        32    %407 = frcp %399.z
+        32    %408 = fmul %404, %407
+        32    %409 = fmul %405, %407
+        32    %410 = fmul %406, %407
+        32    %411 = load_const (0x414eb852 = 12.920000)
+        32    %412 = fmul %408, %411 (12.920000)
+        32    %413 = fmul %409, %411 (12.920000)
+        32    %414 = fmul %410, %411 (12.920000)
+        32    %415 = load_const (0x3ed55555 = 0.416667)
+        32    %416 = fpow %408, %415 (0.416667)
+        32    %417 = fpow %409, %415 (0.416667)
+        32    %418 = fpow %410, %415 (0.416667)
+        32    %419 = load_const (0xbd6147ae = -0.055000)
+        32    %420 = load_const (0x3f870a3d = 1.055000)
+        32    %421 = ffma %416, %420 (1.055000), %419 (-0.055000)
+        32    %422 = ffma %417, %420 (1.055000), %419 (-0.055000)
+        32    %423 = ffma %418, %420 (1.055000), %419 (-0.055000)
+        32    %424 = load_const (0x3b4d2e1c = 0.003131)
+        32    %425 = fge32 %424 (0.003131), %408 // preserve:inf
+        32    %426 = b32csel %425, %412, %421
+        32    %427 = fge32 %424 (0.003131), %409 // preserve:inf
+        32    %428 = b32csel %427, %413, %422
+        32    %429 = fge32 %424 (0.003131), %410 // preserve:inf
+        32    %430 = b32csel %429, %414, %423
+        32    %431 = fmul %426, %397
+        32    %432 = fmul %428, %397
+        32    %433 = fmul %430, %397
+                     // succs: b15
+    } else {
+        block b14:   // preds: b12
+        32    %434 = fneg %399.y
+        32    %435 = fadd %392, %434
+        32    %436 = fadd %395, %434
+        32    %437 = fadd %396, %434
+        32    %438 = frcp %399.z
+        32    %439 = fmul %435, %438
+        32    %440 = fmul %436, %438
+        32    %441 = fmul %437, %438
+        32    %442 = fmax %397, %35 (0.001000) // preserve:inf,nan
+        32    %443 = frcp %442
+        32    %444 = ffma %392, %443, %434
+        32    %445 = ffma %395, %443, %434
+        32    %446 = ffma %396, %443, %434
+        32    %447 = fmul %444, %438
+        32    %448 = fmul %445, %438
+        32    %449 = fmul %446, %438
+        32    %450 = fsat %447 // preserve:inf,nan
+        32    %451 = fsat %448 // preserve:inf,nan
+        32    %452 = fsat %449 // preserve:inf,nan
+        32    %453 = load_const (0x3e232000 = 0.159302)
+        32    %454 = fpow %450, %453 (0.159302)
+        32    %455 = fpow %451, %453 (0.159302)
+        32    %456 = fpow %452, %453 (0.159302)
+        32    %457 = load_const (0x3f560000 = 0.835938)
+        32    %458 = load_const (0x4196d000 = 18.851562)
+        32    %459 = ffma %458 (18.851562), %454, %457 (0.835938)
+        32    %460 = ffma %458 (18.851562), %455, %457 (0.835938)
+        32    %461 = ffma %458 (18.851562), %456, %457 (0.835938)
+        32    %462 = load_const (0x41958000 = 18.687500)
+        32    %463 = ffma %462 (18.687500), %454, %178 (1.000000)
+        32    %464 = ffma %462 (18.687500), %455, %178 (1.000000)
+        32    %465 = ffma %462 (18.687500), %456, %178 (1.000000)
+        32    %466 = frcp %463
+        32    %467 = frcp %464
+        32    %468 = frcp %465
+        32    %469 = fmul %459, %466
+        32    %470 = fmul %460, %467
+        32    %471 = fmul %461, %468
+        32    %472 = load_const (0x429db000 = 78.843750)
+        32    %473 = fpow %469, %472 (78.843750)
+        32    %474 = fpow %470, %472 (78.843750)
+        32    %475 = fpow %471, %472 (78.843750)
+        32    %476 = fmul %473, %397
+        32    %477 = fmul %474, %397
+        32    %478 = fmul %475, %397
+        32    %479 = fclamp_pos %447 // preserve:inf,nan
+        32    %480 = fclamp_pos %448 // preserve:inf,nan
+        32    %481 = fclamp_pos %449 // preserve:inf,nan
+        32    %482 = load_const (0x3ee8ba2e = 0.454545)
+        32    %483 = fpow %479, %482 (0.454545)
+        32    %484 = fpow %480, %482 (0.454545)
+        32    %485 = fpow %481, %482 (0.454545)
+        32    %486 = fmul %483, %397
+        32    %487 = fmul %484, %397
+        32    %488 = fmul %485, %397
+        32    %489 = ieq32 %399.x, %40 (0x3)
+        32    %490 = b32csel %489, %486, %392
+        32    %491 = b32csel %489, %487, %395
+        32    %492 = b32csel %489, %488, %396
+        32    %493 = ieq32 %399.x, %39 (0x2)
+        32    %494 = b32csel %493, %476, %490
+        32    %495 = b32csel %493, %477, %491
+        32    %496 = b32csel %493, %478, %492
+        32    %497 = ieq32 %399.x, %38 (0x1)
+        32    %498 = b32csel %497, %439, %494
+        32    %499 = b32csel %497, %440, %495
+        32    %500 = b32csel %497, %441, %496
+                     // succs: b15
+    }
+    block b15:   // preds: b13 b14
+    32    %501 = phi b13: %431, b14: %498
+    32    %502 = phi b13: %432, b14: %499
+    32    %503 = phi b13: %433, b14: %500
+    32    %504 = @load_cumulative_coverage_pan
+    32    %505 = @atest_pan (%504, %397)
+    64    %506 = @load_blend_descriptor_pan (base=0)
+    32x4  %507 = vec4 %501, %502, %503, %397
+                 @blend_pan (%505, %506, %507) (io location=FRAG_RESULT_DATA0 slots=1, src_type=float32)
+                 // succs: b16
+    block b16:
+}
+block0 {
+32      %965 = MOV.i32 r60
+32      %511 = MOV.i32 r61
+32      %3 = ICMP_OR.u32.eq.m1 u12, u256, u256
+32x2    %5 = LD_VAR_IMM.table1.v2.store.f32.center %511, index:0
+32      %512, %513 = SPLIT.i32 %5
+        BRANCHZ.i16.eq %3.h00, u256 -> block2
+} -> block2 block1
+block1 {
+32x2    %514 = COLLECT.i32 %512, %513
+32      %967 = IADD_IMM.i32 u256, index:536877056
+32x2    %515 = TEX_SINGLE.rgba.2d.f16.computed_lod %514, %967, u256, sr_count:2
+32      %516, %517 = SPLIT.i32 %515
+32      %7 = F16_TO_F32 %516.h00
+32      %8 = F16_TO_F32 %516.h11
+32      %9 = F16_TO_F32 %517.h00
+32      %10 = F16_TO_F32 %517.h11
+        BRANCHZ.i16.eq u256, u256 -> block3
+} -> block3  from block0
+block2 {
+32x2    %520 = COLLECT.i32 %512, %513
+32      %968 = IADD_IMM.i32 u256, index:536877056
+32      %521 = TEX_SINGLE.r.2d.f16.computed_lod %520, %968, u256, sr_count:2
+32      %523 = U16_TO_U32 %521.h00
+32      %969 = IADD_IMM.i32 u256, index:2885725184
+32      %13 = FADD.v2f16 %523.h00, %969
+32      %970 = IADD_IMM.i32 u256, index:1017658536
+32      %15 = FMA.v2f16 %970, %13.h00, u256.neg
+32      %16 = F16_TO_F32 %15.h00
+32x2    %527 = COLLECT.i32 %512, %513
+32      %971 = IADD_IMM.i32 u256, index:536942593
+32      %528 = TEX_SINGLE.rg.2d.f16.computed_lod %527, %971, u256, sr_count:2
+32      %19 = FADD_IMM.v2f16 %528, index:3087054848
+32      %20 = F16_TO_F32 %19.h00
+32      %21 = F16_TO_F32 %19.h11
+32      %972 = IADD_IMM.i32 u256, index:1070353051
+32      %23 = FMA.f32 %972, %21, %16
+32      %973 = IADD_IMM.i32 u256, index:3200816401
+32      %25 = FMA.f32 %973, %20, %16
+32      %974 = IADD_IMM.i32 u256, index:3209698982
+32      %27 = FMA.f32 %974, %21, %25
+32      %975 = IADD_IMM.i32 u256, index:1073814101
+32      %29 = FMA.f32 %975, %20, %16
+} -> block3  from block0
+block3 {
+32      %31 = PHI %7, %23
+32      %32 = PHI %8, %27
+32      %33 = PHI %9, %29
+32      %34 = PHI %10, #0x3f800000
+32      %43 = ICMP_OR.u32.eq.m1 u19[1], u256, u256
+        BRANCHZ.i16.eq %43.h00, u256 -> block5
+} -> block5 block4  from block1 block2
+block4 {
+32      %976 = IADD_IMM.i32 u256, index:981668463
+32      %44 = FMAX.f32.nan_suppress %34, %976
+32      %45 = FRCP.f32 %44
+32      %46 = FMA.f32 %31, %45, u256.neg
+32      %47 = FMA.f32 %32, %45, u256.neg
+32      %48 = FMA.f32 %33, %45, u256.neg
+32      %977 = IADD_IMM.i32 u256, index:1033798545
+32      %50 = FMA.f32 %46, %977, u256.neg
+32      %51 = FMA.f32 %47, %977, u256.neg
+32      %52 = FMA.f32 %48, %977, u256.neg
+32      %54 = FADD_IMM.f32 %46, index:1029785518
+32      %55 = FADD_IMM.f32 %47, index:1029785518
+32      %56 = FADD_IMM.f32 %48, index:1029785518
+32      %980 = IADD_IMM.i32 u256, index:1064478575
+32      %58 = FMA.f32 %54, %980, u256.neg
+32      %59 = FMA.f32 %55, %980, u256.neg
+32      %60 = FMA.f32 %56, %980, u256.neg
+32      %552 = FREXPE.f32.log %58
+32      %553 = S32_TO_F32 %552
+32      %554 = FADD_LSCALE.f32 u264.neg, %58
+32      %555 = FLOGD.f32 %58
+32      %551 = FMA.f32 %555, %554, %553
+32      %983 = IADD_IMM.i32 u256, index:1075419546
+32      %984 = IADD_IMM.i32 u256, index:24
+32      %556 = FMA_RSCALE.f32 %983, %551, u256.neg, %984
+32      %557 = F32_TO_S32 %556
+32      %62 = FEXP.f32 %557, %556
+32      %559 = FREXPE.f32.log %59
+32      %560 = S32_TO_F32 %559
+32      %561 = FADD_LSCALE.f32 u264.neg, %59
+32      %562 = FLOGD.f32 %59
+32      %558 = FMA.f32 %562, %561, %560
+32      %563 = FMA_RSCALE.f32 %983, %558, u256.neg, %984
+32      %564 = F32_TO_S32 %563
+32      %63 = FEXP.f32 %564, %563
+32      %566 = FREXPE.f32.log %60
+32      %567 = S32_TO_F32 %566
+32      %568 = FADD_LSCALE.f32 u264.neg, %60
+32      %569 = FLOGD.f32 %60
+32      %565 = FMA.f32 %569, %568, %567
+32      %570 = FMA_RSCALE.f32 %983, %565, u256.neg, %984
+32      %571 = F32_TO_S32 %570
+32      %64 = FEXP.f32 %571, %570
+32      %989 = IADD_IMM.i32 u256, index:1025879782
+32      %66 = FCMP_OR.f32.ge.m1 %989, %46, u256
+32      %67 = CSEL.u32.eq %66, u256, %62, %50
+32      %68 = FCMP_OR.f32.ge.m1 %989, %47, u256
+32      %69 = CSEL.u32.eq %68, u256, %63, %51
+32      %70 = FCMP_OR.f32.ge.m1 %989, %48, u256
+32      %71 = CSEL.u32.eq %70, u256, %64, %52
+32      %72 = FMA.f32 %67, u5[1], u5
+32      %73 = FMA.f32 %69, u5[1], u5
+32      %74 = FMA.f32 %71, u5[1], u5
+32      %75 = FMA.f32 %72, %34, u256.neg
+32      %76 = FMA.f32 %73, %34, u256.neg
+32      %77 = FMA.f32 %74, %34, u256.neg
+        BRANCHZ.i16.eq u256, u256 -> block9
+} -> block9  from block3
+block5 {
+32      %992 = MOV.i32 u256
+32      %78 = ICMP_OR.u32.eq.m1 u19[1], u258.b3, %992
+        BRANCHZ.i16.eq %78.h00, u256 -> block7
+} -> block7 block6  from block3
+block6 {
+32      %79 = FMA.f32 %31, u5[1], u5
+32      %80 = FMA.f32 %32, u5[1], u5
+32      %81 = FMA.f32 %33, u5[1], u5
+        BRANCHZ.i16.eq u256, u256 -> block8
+} -> block8  from block5
+block7 {
+32      %993 = IADD_IMM.i32 u256, index:981668463
+32      %82 = FMAX.f32.nan_suppress %34, %993
+32      %83 = FRCP.f32 %82
+32      %84 = FMA.f32 %31, %83, u256.neg
+32      %85 = FMA.f32 %32, %83, u256.neg
+32      %86 = FMA.f32 %33, %83, u256.neg
+32      %87 = FADD.f32.clamp_0_1 %84, u256.neg
+32      %88 = FADD.f32.clamp_0_1 %85, u256.neg
+32      %89 = FADD.f32.clamp_0_1 %86, u256.neg
+32      %575 = FREXPE.f32.log %87
+32      %576 = S32_TO_F32 %575
+32      %577 = FADD_LSCALE.f32 u264.neg, %87
+32      %578 = FLOGD.f32 %87
+32      %574 = FMA.f32 %578, %577, %576
+32      %994 = IADD_IMM.i32 u256, index:1011862956
+32      %995 = IADD_IMM.i32 u256, index:24
+32      %579 = FMA_RSCALE.f32 %994, %574, u256.neg, %995
+32      %580 = F32_TO_S32 %579
+32      %91 = FEXP.f32 %580, %579
+32      %582 = FREXPE.f32.log %88
+32      %583 = S32_TO_F32 %582
+32      %584 = FADD_LSCALE.f32 u264.neg, %88
+32      %585 = FLOGD.f32 %88
+32      %581 = FMA.f32 %585, %584, %583
+32      %586 = FMA_RSCALE.f32 %994, %581, u256.neg, %995
+32      %587 = F32_TO_S32 %586
+32      %92 = FEXP.f32 %587, %586
+32      %589 = FREXPE.f32.log %89
+32      %590 = S32_TO_F32 %589
+32      %591 = FADD_LSCALE.f32 u264.neg, %89
+32      %592 = FLOGD.f32 %89
+32      %588 = FMA.f32 %592, %591, %590
+32      %593 = FMA_RSCALE.f32 %994, %588, u256.neg, %995
+32      %594 = F32_TO_S32 %593
+32      %93 = FEXP.f32 %594, %593
+32      %1000 = IADD_IMM.i32 u256, index:3210084352
+32      %98 = FADD.f32.clamp_0_inf %91, %1000
+32      %99 = FADD.f32.clamp_0_inf %92, %1000
+32      %100 = FADD.f32.clamp_0_inf %93, %1000
+32      %1003 = IADD_IMM.i32 u256, index:3247800320
+32      %1004 = IADD_IMM.i32 u256, index:1100402688
+32      %103 = FMA.f32 %1003, %91, %1004
+32      %104 = FMA.f32 %1003, %92, %1004
+32      %105 = FMA.f32 %1003, %93, %1004
+32      %106 = FRCP.f32 %103
+32      %107 = FRCP.f32 %104
+32      %108 = FRCP.f32 %105
+32      %109 = FMA.f32 %98, %106, u256.neg
+32      %110 = FMA.f32 %99, %107, u256.neg
+32      %111 = FMA.f32 %100, %108, u256.neg
+32      %600 = FREXPE.f32.log %109
+32      %601 = S32_TO_F32 %600
+32      %602 = FADD_LSCALE.f32 u264.neg, %109
+32      %603 = FLOGD.f32 %109
+32      %599 = FMA.f32 %603, %602, %601
+32      %1009 = IADD_IMM.i32 u256, index:1086906475
+32      %604 = FMA_RSCALE.f32 %1009, %599, u256.neg, %995
+32      %605 = F32_TO_S32 %604
+32      %113 = FEXP.f32 %605, %604
+32      %607 = FREXPE.f32.log %110
+32      %608 = S32_TO_F32 %607
+32      %609 = FADD_LSCALE.f32 u264.neg, %110
+32      %610 = FLOGD.f32 %110
+32      %606 = FMA.f32 %610, %609, %608
+32      %611 = FMA_RSCALE.f32 %1009, %606, u256.neg, %995
+32      %612 = F32_TO_S32 %611
+32      %114 = FEXP.f32 %612, %611
+32      %614 = FREXPE.f32.log %111
+32      %615 = S32_TO_F32 %614
+32      %616 = FADD_LSCALE.f32 u264.neg, %111
+32      %617 = FLOGD.f32 %111
+32      %613 = FMA.f32 %617, %616, %615
+32      %618 = FMA_RSCALE.f32 %1009, %613, u256.neg, %995
+32      %619 = F32_TO_S32 %618
+32      %115 = FEXP.f32 %619, %618
+32      %116 = FMA.f32 %113, u5[1], u5
+32      %117 = FMA.f32 %114, u5[1], u5
+32      %118 = FMA.f32 %115, u5[1], u5
+32      %119 = FMA.f32 %116, %34, u256.neg
+32      %120 = FMA.f32 %117, %34, u256.neg
+32      %121 = FMA.f32 %118, %34, u256.neg
+32      %122 = FADD.f32.clamp_0_inf %84, u256.neg
+32      %123 = FADD.f32.clamp_0_inf %85, u256.neg
+32      %124 = FADD.f32.clamp_0_inf %86, u256.neg
+32      %622 = FREXPE.f32.log %122
+32      %623 = S32_TO_F32 %622
+32      %624 = FADD_LSCALE.f32 u264.neg, %122
+32      %625 = FLOGD.f32 %122
+32      %621 = FMA.f32 %625, %624, %623
+32      %1015 = IADD_IMM.i32 u256, index:1074580685
+32      %626 = FMA_RSCALE.f32 %1015, %621, u256.neg, %995
+32      %627 = F32_TO_S32 %626
+32      %126 = FEXP.f32 %627, %626
+32      %629 = FREXPE.f32.log %123
+32      %630 = S32_TO_F32 %629
+32      %631 = FADD_LSCALE.f32 u264.neg, %123
+32      %632 = FLOGD.f32 %123
+32      %628 = FMA.f32 %632, %631, %630
+32      %633 = FMA_RSCALE.f32 %1015, %628, u256.neg, %995
+32      %634 = F32_TO_S32 %633
+32      %127 = FEXP.f32 %634, %633
+32      %636 = FREXPE.f32.log %124
+32      %637 = S32_TO_F32 %636
+32      %638 = FADD_LSCALE.f32 u264.neg, %124
+32      %639 = FLOGD.f32 %124
+32      %635 = FMA.f32 %639, %638, %637
+32      %640 = FMA_RSCALE.f32 %1015, %635, u256.neg, %995
+32      %641 = F32_TO_S32 %640
+32      %128 = FEXP.f32 %641, %640
+32      %129 = FMA.f32 %126, u5[1], u5
+32      %130 = FMA.f32 %127, u5[1], u5
+32      %131 = FMA.f32 %128, u5[1], u5
+32      %132 = FMA.f32 %129, %34, u256.neg
+32      %133 = FMA.f32 %130, %34, u256.neg
+32      %134 = FMA.f32 %131, %34, u256.neg
+32      %1021 = MOV.i32 u256
+32      %135 = ICMP_OR.u32.eq.m1 u19[1], u260.b3, %1021
+32      %136 = CSEL.u32.eq %135, u256, %31, %132
+32      %137 = CSEL.u32.eq %135, u256, %32, %133
+32      %138 = CSEL.u32.eq %135, u256, %33, %134
+32      %139 = ICMP_OR.u32.eq.m1 u19[1], u260.b2, %1021
+32      %140 = CSEL.u32.eq %139, u256, %136, %119
+32      %141 = CSEL.u32.eq %139, u256, %137, %120
+32      %142 = CSEL.u32.eq %139, u256, %138, %121
+} -> block8  from block5
+block8 {
+32      %143 = PHI %79, %140
+32      %144 = PHI %80, %141
+32      %145 = PHI %81, %142
+} -> block9  from block6 block7
+block9 {
+32      %146 = PHI %75, %143
+32      %147 = PHI %76, %144
+32      %148 = PHI %77, %145
+32      %153 = FMA.f32 u2, %147, u2[1]
+32      %156 = FMA.f32 u16[1], %146, %153
+32      %159 = FMA.f32 u18, %148, %156
+32      %164 = FMA.f32 u3, %147, u3[1]
+32      %167 = FMA.f32 u17, %146, %164
+32      %170 = FMA.f32 u18[1], %148, %167
+32      %171 = FMA.f32 u4, %147, u4[1]
+32      %172 = FMA.f32 u17[1], %146, %171
+32      %173 = FMA.f32 u19, %148, %172
+32      %1023 = IADD_IMM.i32 u256, index:1065437102
+32      %177 = FMA.f32 u22[1], %1023, u256.neg
+32      %181 = FCMP_OR.f32.lt.m1 u21[1], %177, u256
+        BRANCHZ.i16.eq %181.h00, u256 -> block11
+} -> block11 block10  from block4 block8
+block10 {
+32      %182 = FADD.f32.clamp_0_inf %159, u256.neg
+32      %183 = FADD.f32.clamp_0_inf %170, u256.neg
+32      %184 = FADD.f32.clamp_0_inf %173, u256.neg
+32      %185 = FMIN.f32.nan_suppress %182, u22[1]
+32      %186 = FMIN.f32.nan_suppress %183, u22[1]
+32      %187 = FMIN.f32.nan_suppress %184, u22[1]
+        BRANCHZ.i16.eq u256, u256 -> block12
+} -> block12  from block9
+block11 {
+32      %192 = FMA.f32 u6, %170, u6[1]
+32      %195 = FMA.f32 u23, %159, %192
+32      %198 = FMA.f32 u24[1], %173, %195
+32      %199 = FMA.f32 u7, %170, u7[1]
+32      %200 = FMA.f32 u23[1], %159, %199
+32      %201 = FMA.f32 u25, %173, %200
+32      %206 = FMA.f32 u8, %170, u8[1]
+32      %209 = FMA.f32 u24, %159, %206
+32      %212 = FMA.f32 u25[1], %173, %209
+32      %1024 = IADD_IMM.i32 u256, index:953267991
+32      %217 = FMA.f32.clamp_0_1 %198, %1024, u256.neg
+32      %218 = FMA.f32.clamp_0_1 %201, %1024, u256.neg
+32      %219 = FMA.f32.clamp_0_1 %212, %1024, u256.neg
+32      %691 = FREXPE.f32.log %217
+32      %692 = S32_TO_F32 %691
+32      %693 = FADD_LSCALE.f32 u264.neg, %217
+32      %694 = FLOGD.f32 %217
+32      %690 = FMA.f32 %694, %693, %692
+32      %1027 = IADD_IMM.i32 u256, index:1042489344
+32      %1028 = IADD_IMM.i32 u256, index:24
+32      %695 = FMA_RSCALE.f32 %1027, %690, u256.neg, %1028
+32      %696 = F32_TO_S32 %695
+32      %221 = FEXP.f32 %696, %695
+32      %698 = FREXPE.f32.log %218
+32      %699 = S32_TO_F32 %698
+32      %700 = FADD_LSCALE.f32 u264.neg, %218
+32      %701 = FLOGD.f32 %218
+32      %697 = FMA.f32 %701, %700, %699
+32      %702 = FMA_RSCALE.f32 %1027, %697, u256.neg, %1028
+32      %703 = F32_TO_S32 %702
+32      %222 = FEXP.f32 %703, %702
+32      %705 = FREXPE.f32.log %219
+32      %706 = S32_TO_F32 %705
+32      %707 = FADD_LSCALE.f32 u264.neg, %219
+32      %708 = FLOGD.f32 %219
+32      %704 = FMA.f32 %708, %707, %706
+32      %709 = FMA_RSCALE.f32 %1027, %704, u256.neg, %1028
+32      %710 = F32_TO_S32 %709
+32      %223 = FEXP.f32 %710, %709
+32      %1033 = IADD_IMM.i32 u256, index:1100402688
+32      %1034 = IADD_IMM.i32 u256, index:1062600704
+32      %226 = FMA.f32 %1033, %221, %1034
+32      %227 = FMA.f32 %1033, %222, %1034
+32      %228 = FMA.f32 %1033, %223, %1034
+32      %1039 = IADD_IMM.i32 u256, index:1100316672
+32      %230 = FMA.f32 %1039, %221, u264
+32      %231 = FMA.f32 %1039, %222, u264
+32      %232 = FMA.f32 %1039, %223, u264
+32      %233 = FRCP.f32 %230
+32      %234 = FRCP.f32 %231
+32      %235 = FRCP.f32 %232
+32      %236 = FMA.f32 %226, %233, u256.neg
+32      %237 = FMA.f32 %227, %234, u256.neg
+32      %238 = FMA.f32 %228, %235, u256.neg
+32      %716 = FREXPE.f32.log %236
+32      %717 = S32_TO_F32 %716
+32      %718 = FADD_LSCALE.f32 u264.neg, %236
+32      %719 = FLOGD.f32 %236
+32      %715 = FMA.f32 %719, %718, %717
+32      %1042 = IADD_IMM.i32 u256, index:1117630464
+32      %720 = FMA_RSCALE.f32 %1042, %715, u256.neg, %1028
+32      %721 = F32_TO_S32 %720
+32      %240 = FEXP.f32 %721, %720
+32      %723 = FREXPE.f32.log %237
+32      %724 = S32_TO_F32 %723
+32      %725 = FADD_LSCALE.f32 u264.neg, %237
+32      %726 = FLOGD.f32 %237
+32      %722 = FMA.f32 %726, %725, %724
+32      %727 = FMA_RSCALE.f32 %1042, %722, u256.neg, %1028
+32      %728 = F32_TO_S32 %727
+32      %241 = FEXP.f32 %728, %727
+32      %730 = FREXPE.f32.log %238
+32      %731 = S32_TO_F32 %730
+32      %732 = FADD_LSCALE.f32 u264.neg, %238
+32      %733 = FLOGD.f32 %238
+32      %729 = FMA.f32 %733, %732, %731
+32      %734 = FMA_RSCALE.f32 %1042, %729, u256.neg, %1028
+32      %735 = F32_TO_S32 %734
+32      %242 = FEXP.f32 %735, %734
+32      %1048 = IADD_IMM.i32 u256, index:3226776576
+32      %244 = FMA.f32 %1048, %241, u256.neg
+32      %1049 = IADD_IMM.i32 u256, index:3230129152
+32      %246 = FMA.f32 %1049, %241, u256.neg
+32      %247 = FADD.f32 %240, %241
+32      %258 = FMA.f32.clamp_0_1 u269.h11, %247, u256.neg
+32      %1050 = IADD_IMM.i32 u256, index:1070501888
+32      %251 = FMA.f32 %1050, %240, %244
+32      %1051 = IADD_IMM.i32 u256, index:1082923520
+32      %253 = FMA.f32 %1051, %240, %246
+32      %1052 = IADD_IMM.i32 u256, index:1071306752
+32      %255 = FMA.f32 %1052, %242, %251
+32      %1053 = IADD_IMM.i32 u256, index:3188178944
+32      %257 = FMA.f32 %1053, %242, %253
+32      %745 = FREXPE.f32.log %258
+32      %746 = S32_TO_F32 %745
+32      %747 = FADD_LSCALE.f32 u264.neg, %258
+32      %748 = FLOGD.f32 %258
+32      %744 = FMA.f32 %748, %747, %746
+32      %1054 = IADD_IMM.i32 u256, index:1011862956
+32      %749 = FMA_RSCALE.f32 %1054, %744, u256.neg, %1028
+32      %750 = F32_TO_S32 %749
+32      %260 = FEXP.f32 %750, %749
+32      %1056 = IADD_IMM.i32 u256, index:3210084352
+32      %263 = FADD.f32.clamp_0_inf %260, %1056
+32      %1057 = IADD_IMM.i32 u256, index:3247800320
+32      %265 = FMA.f32 %1057, %260, %1033
+32      %266 = FRCP.f32 %265
+32      %267 = FMA.f32 %263, %266, u256.neg
+32      %755 = FREXPE.f32.log %267
+32      %756 = S32_TO_F32 %755
+32      %757 = FADD_LSCALE.f32 u264.neg, %267
+32      %758 = FLOGD.f32 %267
+32      %754 = FMA.f32 %758, %757, %756
+32      %1059 = IADD_IMM.i32 u256, index:1086906475
+32      %759 = FMA_RSCALE.f32 %1059, %754, u256.neg, %1028
+32      %760 = F32_TO_S32 %759
+32      %269 = FEXP.f32 %760, %759
+32      %1061 = IADD_IMM.i32 u256, index:1176256512
+32      %271 = FMA.f32 %269, %1061, u256.neg
+32      %274 = FRCP.f32 u22
+32      %275 = FMA.f32 u21[1], %274, u256.neg
+32      %1062 = IADD_IMM.i32 u256, index:1069547520
+32      %277 = FMIN.f32.nan_suppress %275, %1062
+32      %278 = FMA.f32 u22[1], %274, u256.neg
+32      %279 = FRCP.f32 %278
+32      %280 = FMA.f32 %277, %279, u256.neg
+32      %281 = FMAX.f32.nan_suppress %280, u264
+32      %282 = FMIN.f32.nan_suppress %281, %277
+32      %283 = FRCP.f32 %282
+32      %284 = FMA.f32 u22, %283, u256.neg
+32      %285 = FMA.f32 %271, %283, u256.neg
+32      %286 = FMIN.f32.nan_suppress %285, %284
+32      %288 = FMA.f32 %271, %274, u264.neg
+32      %289 = FADD_IMM.f32 %275, index:3212836864
+32      %290 = FRCP.f32 %289
+32      %292 = FMA.f32.clamp_0_1 %288, %290, u256.neg
+32      %1063 = IADD_IMM.i32 u256, index:1071378600
+32      %294 = FMA.f32 %292, %1063, u264
+32      %767 = FREXPE.f32.log %294
+32      %768 = S32_TO_F32 %767
+32      %769 = FADD_LSCALE.f32 u264.neg, %294
+32      %770 = FLOGD.f32 %294
+32      %295 = FMA.f32 %770, %769, %768
+32      %297 = FMA.f32 %295, u265[1], u256.neg
+32      %299 = FADD.f32 u22[1], %284.neg
+32      %300 = FMA.f32 %297, %299, %286
+32      %302 = FMA.f32.clamp_0_1 %300, %1024, u256.neg
+32      %773 = FREXPE.f32.log %302
+32      %774 = S32_TO_F32 %773
+32      %775 = FADD_LSCALE.f32 u264.neg, %302
+32      %776 = FLOGD.f32 %302
+32      %772 = FMA.f32 %776, %775, %774
+32      %777 = FMA_RSCALE.f32 %1027, %772, u256.neg, %1028
+32      %778 = F32_TO_S32 %777
+32      %303 = FEXP.f32 %778, %777
+32      %304 = FMA.f32 %1033, %303, %1034
+32      %305 = FMA.f32 %1039, %303, u264
+32      %306 = FRCP.f32 %305
+32      %307 = FMA.f32 %304, %306, u256.neg
+32      %780 = FREXPE.f32.log %307
+32      %781 = S32_TO_F32 %780
+32      %782 = FADD_LSCALE.f32 u264.neg, %307
+32      %783 = FLOGD.f32 %307
+32      %779 = FMA.f32 %783, %782, %781
+32      %784 = FMA_RSCALE.f32 %1042, %779, u256.neg, %1028
+32      %785 = F32_TO_S32 %784
+32      %308 = FEXP.f32 %785, %784
+32      %1072 = IADD_IMM.i32 u256, index:1007488235
+32      %310 = FMA.f32 %1072, %255, %308
+32      %1073 = IADD_IMM.i32 u256, index:3154971883
+32      %312 = FMA.f32 %1073, %255, %308
+32      %1074 = IADD_IMM.i32 u256, index:1057976498
+32      %314 = FMA.f32 %1074, %255, %308
+32      %1075 = IADD_IMM.i32 u256, index:1038312320
+32      %321 = FMA.f32.clamp_0_1 %1075, %257, %310
+32      %1076 = IADD_IMM.i32 u256, index:3185795968
+32      %322 = FMA.f32.clamp_0_1 %1076, %257, %312
+32      %1077 = IADD_IMM.i32 u256, index:3198429503
+32      %323 = FMA.f32.clamp_0_1 %1077, %257, %314
+32      %793 = FREXPE.f32.log %321
+32      %794 = S32_TO_F32 %793
+32      %795 = FADD_LSCALE.f32 u264.neg, %321
+32      %796 = FLOGD.f32 %321
+32      %792 = FMA.f32 %796, %795, %794
+32      %797 = FMA_RSCALE.f32 %1054, %792, u256.neg, %1028
+32      %798 = F32_TO_S32 %797
+32      %324 = FEXP.f32 %798, %797
+32      %800 = FREXPE.f32.log %322
+32      %801 = S32_TO_F32 %800
+32      %802 = FADD_LSCALE.f32 u264.neg, %322
+32      %803 = FLOGD.f32 %322
+32      %799 = FMA.f32 %803, %802, %801
+32      %804 = FMA_RSCALE.f32 %1054, %799, u256.neg, %1028
+32      %805 = F32_TO_S32 %804
+32      %325 = FEXP.f32 %805, %804
+32      %807 = FREXPE.f32.log %323
+32      %808 = S32_TO_F32 %807
+32      %809 = FADD_LSCALE.f32 u264.neg, %323
+32      %810 = FLOGD.f32 %323
+32      %806 = FMA.f32 %810, %809, %808
+32      %811 = FMA_RSCALE.f32 %1054, %806, u256.neg, %1028
+32      %812 = F32_TO_S32 %811
+32      %326 = FEXP.f32 %812, %811
+32      %330 = FADD.f32.clamp_0_inf %324, %1056
+32      %331 = FADD.f32.clamp_0_inf %325, %1056
+32      %332 = FADD.f32.clamp_0_inf %326, %1056
+32      %333 = FMA.f32 %1057, %324, %1033
+32      %334 = FMA.f32 %1057, %325, %1033
+32      %335 = FMA.f32 %1057, %326, %1033
+32      %336 = FRCP.f32 %333
+32      %337 = FRCP.f32 %334
+32      %338 = FRCP.f32 %335
+32      %339 = FMA.f32 %330, %336, u256.neg
+32      %340 = FMA.f32 %331, %337, u256.neg
+32      %341 = FMA.f32 %332, %338, u256.neg
+32      %814 = FREXPE.f32.log %339
+32      %815 = S32_TO_F32 %814
+32      %816 = FADD_LSCALE.f32 u264.neg, %339
+32      %817 = FLOGD.f32 %339
+32      %813 = FMA.f32 %817, %816, %815
+32      %818 = FMA_RSCALE.f32 %1059, %813, u256.neg, %1028
+32      %819 = F32_TO_S32 %818
+32      %342 = FEXP.f32 %819, %818
+32      %821 = FREXPE.f32.log %340
+32      %822 = S32_TO_F32 %821
+32      %823 = FADD_LSCALE.f32 u264.neg, %340
+32      %824 = FLOGD.f32 %340
+32      %820 = FMA.f32 %824, %823, %822
+32      %825 = FMA_RSCALE.f32 %1059, %820, u256.neg, %1028
+32      %826 = F32_TO_S32 %825
+32      %343 = FEXP.f32 %826, %825
+32      %828 = FREXPE.f32.log %341
+32      %829 = S32_TO_F32 %828
+32      %830 = FADD_LSCALE.f32 u264.neg, %341
+32      %831 = FLOGD.f32 %341
+32      %827 = FMA.f32 %831, %830, %829
+32      %832 = FMA_RSCALE.f32 %1059, %827, u256.neg, %1028
+32      %833 = F32_TO_S32 %832
+32      %344 = FEXP.f32 %833, %832
+32      %349 = FMA.f32 u9, %343, u9[1]
+32      %352 = FMA.f32 u26, %342, %349
+32      %355 = FMA.f32 u27[1], %344, %352
+32      %356 = FMA.f32 u10, %343, u10[1]
+32      %357 = FMA.f32 u26[1], %342, %356
+32      %358 = FMA.f32 u28, %344, %357
+32      %363 = FMA.f32 u11, %343, u11[1]
+32      %366 = FMA.f32 u27, %342, %363
+32      %369 = FMA.f32 u28[1], %344, %366
+32      %370 = FMA.f32 %355, %1061, u256.neg
+32      %371 = FMA.f32 %358, %1061, u256.neg
+32      %372 = FMA.f32 %369, %1061, u256.neg
+} -> block12  from block9
+block12 {
+32      %373 = PHI %185, %370
+32      %374 = PHI %186, %371
+32      %375 = PHI %187, %372
+32      %378 = FMA.f32 %375, u16, u256.neg
+32      %381 = FMA.f32 %374, u15[1], %378
+32      %382 = FMA.f32 %373, u15, %381
+32      %384 = FADD.f32 %373, %382.neg
+32      %385 = FADD.f32 %374, %382.neg
+32      %386 = FADD.f32 %375, %382.neg
+32      %387 = FMA.f32 u14[1], %384, %382
+32      %388 = FMA.f32 u14[1], %385, %382
+32      %389 = FMA.f32 u14[1], %386, %382
+32      %392 = FMA.f32 %387, u12[1], u256.neg
+32      %395 = FMA.f32 %388, u13, u256.neg
+32      %396 = FMA.f32 %389, u13[1], u256.neg
+32      %397 = FMA.f32 %34, u14, u256.neg
+32      %400 = ICMP_OR.u32.eq.m1 u20, u256, u256
+        BRANCHZ.i16.eq %400.h00, u256 -> block14
+} -> block14 block13  from block10 block11
+block13 {
+32      %1102 = IADD_IMM.i32 u256, index:981668463
+32      %401 = FMAX.f32.nan_suppress %397, %1102
+32      %402 = FRCP.f32 %401
+32      %404 = FMA.f32 %392, %402, u20[1].neg
+32      %405 = FMA.f32 %395, %402, u20[1].neg
+32      %406 = FMA.f32 %396, %402, u20[1].neg
+32      %407 = FRCP.f32 u21
+32      %408 = FMA.f32 %404, %407, u256.neg
+32      %409 = FMA.f32 %405, %407, u256.neg
+32      %410 = FMA.f32 %406, %407, u256.neg
+32      %1103 = IADD_IMM.i32 u256, index:1095678034
+32      %412 = FMA.f32 %408, %1103, u256.neg
+32      %413 = FMA.f32 %409, %1103, u256.neg
+32      %414 = FMA.f32 %410, %1103, u256.neg
+32      %873 = FREXPE.f32.log %408
+32      %874 = S32_TO_F32 %873
+32      %875 = FADD_LSCALE.f32 u264.neg, %408
+32      %876 = FLOGD.f32 %408
+32      %872 = FMA.f32 %876, %875, %874
+32      %1106 = IADD_IMM.i32 u256, index:1054168405
+32      %1107 = IADD_IMM.i32 u256, index:24
+32      %877 = FMA_RSCALE.f32 %1106, %872, u256.neg, %1107
+32      %878 = F32_TO_S32 %877
+32      %416 = FEXP.f32 %878, %877
+32      %880 = FREXPE.f32.log %409
+32      %881 = S32_TO_F32 %880
+32      %882 = FADD_LSCALE.f32 u264.neg, %409
+32      %883 = FLOGD.f32 %409
+32      %879 = FMA.f32 %883, %882, %881
+32      %884 = FMA_RSCALE.f32 %1106, %879, u256.neg, %1107
+32      %885 = F32_TO_S32 %884
+32      %417 = FEXP.f32 %885, %884
+32      %887 = FREXPE.f32.log %410
+32      %888 = S32_TO_F32 %887
+32      %889 = FADD_LSCALE.f32 u264.neg, %410
+32      %890 = FLOGD.f32 %410
+32      %886 = FMA.f32 %890, %889, %888
+32      %891 = FMA_RSCALE.f32 %1106, %886, u256.neg, %1107
+32      %892 = F32_TO_S32 %891
+32      %418 = FEXP.f32 %892, %891
+32      %1112 = IADD_IMM.i32 u256, index:1065814589
+32      %1113 = IADD_IMM.i32 u256, index:3177269166
+32      %421 = FMA.f32 %416, %1112, %1113
+32      %422 = FMA.f32 %417, %1112, %1113
+32      %423 = FMA.f32 %418, %1112, %1113
+32      %1118 = IADD_IMM.i32 u256, index:994913820
+32      %425 = FCMP_OR.f32.ge.m1 %1118, %408, u256
+32      %426 = CSEL.u32.eq %425, u256, %421, %412
+32      %427 = FCMP_OR.f32.ge.m1 %1118, %409, u256
+32      %428 = CSEL.u32.eq %427, u256, %422, %413
+32      %429 = FCMP_OR.f32.ge.m1 %1118, %410, u256
+32      %430 = CSEL.u32.eq %429, u256, %423, %414
+32      %431 = FMA.f32 %426, %397, u256.neg
+32      %432 = FMA.f32 %428, %397, u256.neg
+32      %433 = FMA.f32 %430, %397, u256.neg
+        BRANCHZ.i16.eq u256, u256 -> block15
+} -> block15  from block12
+block14 {
+32      %435 = FADD.f32 %392, u20[1].neg
+32      %436 = FADD.f32 %395, u20[1].neg
+32      %437 = FADD.f32 %396, u20[1].neg
+32      %438 = FRCP.f32 u21
+32      %439 = FMA.f32 %435, %438, u256.neg
+32      %440 = FMA.f32 %436, %438, u256.neg
+32      %441 = FMA.f32 %437, %438, u256.neg
+32      %1121 = IADD_IMM.i32 u256, index:981668463
+32      %442 = FMAX.f32.nan_suppress %397, %1121
+32      %443 = FRCP.f32 %442
+32      %444 = FMA.f32 %392, %443, u20[1].neg
+32      %445 = FMA.f32 %395, %443, u20[1].neg
+32      %446 = FMA.f32 %396, %443, u20[1].neg
+32      %447 = FMA.f32 %444, %438, u256.neg
+32      %448 = FMA.f32 %445, %438, u256.neg
+32      %449 = FMA.f32 %446, %438, u256.neg
+32      %450 = FADD.f32.clamp_0_1 %447, u256.neg
+32      %451 = FADD.f32.clamp_0_1 %448, u256.neg
+32      %452 = FADD.f32.clamp_0_1 %449, u256.neg
+32      %898 = FREXPE.f32.log %450
+32      %899 = S32_TO_F32 %898
+32      %900 = FADD_LSCALE.f32 u264.neg, %450
+32      %901 = FLOGD.f32 %450
+32      %897 = FMA.f32 %901, %900, %899
+32      %1122 = IADD_IMM.i32 u256, index:1042489344
+32      %1123 = IADD_IMM.i32 u256, index:24
+32      %902 = FMA_RSCALE.f32 %1122, %897, u256.neg, %1123
+32      %903 = F32_TO_S32 %902
+32      %454 = FEXP.f32 %903, %902
+32      %905 = FREXPE.f32.log %451
+32      %906 = S32_TO_F32 %905
+32      %907 = FADD_LSCALE.f32 u264.neg, %451
+32      %908 = FLOGD.f32 %451
+32      %904 = FMA.f32 %908, %907, %906
+32      %909 = FMA_RSCALE.f32 %1122, %904, u256.neg, %1123
+32      %910 = F32_TO_S32 %909
+32      %455 = FEXP.f32 %910, %909
+32      %912 = FREXPE.f32.log %452
+32      %913 = S32_TO_F32 %912
+32      %914 = FADD_LSCALE.f32 u264.neg, %452
+32      %915 = FLOGD.f32 %452
+32      %911 = FMA.f32 %915, %914, %913
+32      %916 = FMA_RSCALE.f32 %1122, %911, u256.neg, %1123
+32      %917 = F32_TO_S32 %916
+32      %456 = FEXP.f32 %917, %916
+32      %1128 = IADD_IMM.i32 u256, index:1100402688
+32      %1129 = IADD_IMM.i32 u256, index:1062600704
+32      %459 = FMA.f32 %1128, %454, %1129
+32      %460 = FMA.f32 %1128, %455, %1129
+32      %461 = FMA.f32 %1128, %456, %1129
+32      %1134 = IADD_IMM.i32 u256, index:1100316672
+32      %463 = FMA.f32 %1134, %454, u264
+32      %464 = FMA.f32 %1134, %455, u264
+32      %465 = FMA.f32 %1134, %456, u264
+32      %466 = FRCP.f32 %463
+32      %467 = FRCP.f32 %464
+32      %468 = FRCP.f32 %465
+32      %469 = FMA.f32 %459, %466, u256.neg
+32      %470 = FMA.f32 %460, %467, u256.neg
+32      %471 = FMA.f32 %461, %468, u256.neg
+32      %923 = FREXPE.f32.log %469
+32      %924 = S32_TO_F32 %923
+32      %925 = FADD_LSCALE.f32 u264.neg, %469
+32      %926 = FLOGD.f32 %469
+32      %922 = FMA.f32 %926, %925, %924
+32      %1137 = IADD_IMM.i32 u256, index:1117630464
+32      %927 = FMA_RSCALE.f32 %1137, %922, u256.neg, %1123
+32      %928 = F32_TO_S32 %927
+32      %473 = FEXP.f32 %928, %927
+32      %930 = FREXPE.f32.log %470
+32      %931 = S32_TO_F32 %930
+32      %932 = FADD_LSCALE.f32 u264.neg, %470
+32      %933 = FLOGD.f32 %470
+32      %929 = FMA.f32 %933, %932, %931
+32      %934 = FMA_RSCALE.f32 %1137, %929, u256.neg, %1123
+32      %935 = F32_TO_S32 %934
+32      %474 = FEXP.f32 %935, %934
+32      %937 = FREXPE.f32.log %471
+32      %938 = S32_TO_F32 %937
+32      %939 = FADD_LSCALE.f32 u264.neg, %471
+32      %940 = FLOGD.f32 %471
+32      %936 = FMA.f32 %940, %939, %938
+32      %941 = FMA_RSCALE.f32 %1137, %936, u256.neg, %1123
+32      %942 = F32_TO_S32 %941
+32      %475 = FEXP.f32 %942, %941
+32      %476 = FMA.f32 %473, %397, u256.neg
+32      %477 = FMA.f32 %474, %397, u256.neg
+32      %478 = FMA.f32 %475, %397, u256.neg
+32      %479 = FADD.f32.clamp_0_inf %447, u256.neg
+32      %480 = FADD.f32.clamp_0_inf %448, u256.neg
+32      %481 = FADD.f32.clamp_0_inf %449, u256.neg
+32      %945 = FREXPE.f32.log %479
+32      %946 = S32_TO_F32 %945
+32      %947 = FADD_LSCALE.f32 u264.neg, %479
+32      %948 = FLOGD.f32 %479
+32      %944 = FMA.f32 %948, %947, %946
+32      %1143 = IADD_IMM.i32 u256, index:1055439406
+32      %949 = FMA_RSCALE.f32 %1143, %944, u256.neg, %1123
+32      %950 = F32_TO_S32 %949
+32      %483 = FEXP.f32 %950, %949
+32      %952 = FREXPE.f32.log %480
+32      %953 = S32_TO_F32 %952
+32      %954 = FADD_LSCALE.f32 u264.neg, %480
+32      %955 = FLOGD.f32 %480
+32      %951 = FMA.f32 %955, %954, %953
+32      %956 = FMA_RSCALE.f32 %1143, %951, u256.neg, %1123
+32      %957 = F32_TO_S32 %956
+32      %484 = FEXP.f32 %957, %956
+32      %959 = FREXPE.f32.log %481
+32      %960 = S32_TO_F32 %959
+32      %961 = FADD_LSCALE.f32 u264.neg, %481
+32      %962 = FLOGD.f32 %481
+32      %958 = FMA.f32 %962, %961, %960
+32      %963 = FMA_RSCALE.f32 %1143, %958, u256.neg, %1123
+32      %964 = F32_TO_S32 %963
+32      %485 = FEXP.f32 %964, %963
+32      %486 = FMA.f32 %483, %397, u256.neg
+32      %487 = FMA.f32 %484, %397, u256.neg
+32      %488 = FMA.f32 %485, %397, u256.neg
+32      %1149 = MOV.i32 u256
+32      %489 = ICMP_OR.u32.eq.m1 u20, u260.b3, %1149
+32      %490 = CSEL.u32.eq %489, u256, %392, %486
+32      %491 = CSEL.u32.eq %489, u256, %395, %487
+32      %492 = CSEL.u32.eq %489, u256, %396, %488
+32      %493 = ICMP_OR.u32.eq.m1 u20, u260.b2, %1149
+32      %494 = CSEL.u32.eq %493, u256, %490, %476
+32      %495 = CSEL.u32.eq %493, u256, %491, %477
+32      %496 = CSEL.u32.eq %493, u256, %492, %478
+32      %497 = ICMP_OR.u32.eq.m1 u20, u258.b3, %1149
+32      %498 = CSEL.u32.eq %497, u256, %494, %439
+32      %499 = CSEL.u32.eq %497, u256, %495, %440
+32      %500 = CSEL.u32.eq %497, u256, %496, %441
+} -> block15  from block12
+block15 {
+32      %501 = PHI %431, %498
+32      %502 = PHI %432, %499
+32      %503 = PHI %433, %500
+32      %505 = ATEST %965, %397, atest-param
+32x4    %507 = COLLECT.i32 %501, %502, %503, %397
+32      %966 = BLEND.f32 %507, %505, blend_descriptor_0, blend_descriptor_0[1], _.h00, sr_count:4, sr_count_2:2
+} from block13 block14
+block0 {
+        r0:r1 = LD_VAR_IMM.table1.v2.store.f32.center r61, index:0
+        r2 = ICMP_OR.u32.eq.m1 u12, u256, u256
+        BRANCHZ.i16.eq r2.h00, u256 -> block2
+} -> block2 block1
+block1 {
+        r2 = IADD_IMM.i32 u256, index:536877056
+        r3 = MOV.i32 u256
+        r0:r1 = TEX_SINGLE.skip.rgba.2d.f16.computed_lod r0:r1, r2, r3, sr_count:2
+        r2 = F16_TO_F32 r0.h00
+        r0 = F16_TO_F32 r0.h11
+        r3 = F16_TO_F32 r1.h00
+        r1 = F16_TO_F32 r1.h11
+        BRANCHZ.i16.eq u256, u256 -> block3
+} -> block3  from block0
+block2 {
+        r2 = IADD_IMM.i32 u256, index:536877056
+        r3 = MOV.i32 u256
+        r2 = TEX_SINGLE.skip.r.2d.f16.computed_lod r0:r1, r2, r3, sr_count:2
+        r3 = IADD_IMM.i32 u256, index:536942593
+        r4 = MOV.i32 r3
+        r5 = MOV.i32 u256
+        r0 = TEX_SINGLE.skip.rg.2d.f16.computed_lod r0:r1, r4, r5, sr_count:2
+        r1 = U16_TO_U32 r2.h00
+        r2 = IADD_IMM.i32 u256, index:2885725184
+        r1 = FADD.v2f16 r1.h00, r2
+        r2 = IADD_IMM.i32 u256, index:1017658536
+        r1 = FMA.v2f16 r2, r1.h00, u256.neg
+        r0 = FADD_IMM.v2f16 r0, index:3087054848
+        r1 = F16_TO_F32 r1.h00
+        r2 = F16_TO_F32 r0.h00
+        r3 = IADD_IMM.i32 u256, index:3200816401
+        r4 = FMA.f32 r3, r2, r1
+        r3 = IADD_IMM.i32 u256, index:1073814101
+        r3 = FMA.f32 r3, r2, r1
+        r2 = F16_TO_F32 r0.h11
+        r0 = IADD_IMM.i32 u256, index:3209698982
+        r0 = FMA.f32 r0, r2, r4
+        r4 = IADD_IMM.i32 u256, index:1070353051
+        r2 = FMA.f32 r4, r2, r1
+        r1 = IADD_IMM.i32 u256, index:1065353216
+} -> block3  from block0
+block3 {
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u256, u256
+        BRANCHZ.i16.eq r4.h00, u256 -> block5
+} -> block5 block4  from block1 block2
+block4 {
+        r4 = IADD_IMM.i32 u256, index:981668463
+        r4 = FMAX.f32.nan_suppress r1, r4
+        r4 = FRCP.f32 r4
+        r3 = FMA.f32 r3, r4, u256.neg
+        r5 = IADD_IMM.i32 u256, index:1064478575
+        r6 = FADD_IMM.f32 r3, index:1029785518
+        r6 = FMA.f32 r6, r5, u256.neg
+        r7 = FREXPE.f32.log r6
+        r7 = S32_TO_F32 r7
+        r8 = FADD_LSCALE.f32 u264.neg, r6
+        r6 = FLOGD.f32 r6
+        r6 = FMA.f32 r6, r8, r7
+        r0 = FMA.f32 r0, r4, u256.neg
+        r7 = FADD_IMM.f32 r0, index:1029785518
+        r7 = FMA.f32 r7, r5, u256.neg
+        r8 = FREXPE.f32.log r7
+        r8 = S32_TO_F32 r8
+        r9 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7
+        r7 = FMA.f32 r7, r9, r8
+        r2 = FMA.f32 r2, r4, u256.neg
+        r4 = FADD_IMM.f32 r2, index:1029785518
+        r4 = FMA.f32 r4, r5, u256.neg
+        r5 = FREXPE.f32.log r4
+        r5 = S32_TO_F32 r5
+        r8 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4
+        r4 = FMA.f32 r4, r8, r5
+        r5 = IADD_IMM.i32 u256, index:24
+        r8 = IADD_IMM.i32 u256, index:1075419546
+        r6 = FMA_RSCALE.f32 r8, r6, u256.neg, r5
+        r7 = FMA_RSCALE.f32 r8, r7, u256.neg, r5
+        r4 = FMA_RSCALE.f32 r8, r4, u256.neg, r5
+        r5 = F32_TO_S32 r6
+        r5 = FEXP.f32 r5, r6
+        r6 = IADD_IMM.i32 u256, index:1033798545
+        r8 = IADD_IMM.i32 u256, index:1025879782
+        r9 = FMA.f32 r3, r6, u256.neg
+        r3 = FCMP_OR.f32.ge.m1 r8, r3, u256
+        r3 = CSEL.u32.eq r3, u256, r5, r9
+        r5 = F32_TO_S32 r7
+        r5 = FEXP.f32 r5, r7
+        r7 = FMA.f32 r0, r6, u256.neg
+        r0 = FCMP_OR.f32.ge.m1 r8, r0, u256
+        r0 = CSEL.u32.eq r0, u256, r5, r7
+        r5 = F32_TO_S32 r4
+        r4 = FEXP.f32 r5, r4
+        r5 = FMA.f32 r2, r6, u256.neg
+        r2 = FCMP_OR.f32.ge.m1 r8, r2, u256
+        r2 = CSEL.u32.eq r2, u256, r4, r5
+        r3 = FMA.f32 r3, u5[1], u5
+        r0 = FMA.f32 r0, u5[1], u5
+        r2 = FMA.f32 r2, u5[1], u5
+        r3 = FMA.f32 r3, r1, u256.neg
+        r0 = FMA.f32 r0, r1, u256.neg
+        r2 = FMA.f32 r2, r1, u256.neg
+        BRANCHZ.i16.eq u256, u256 -> block9
+} -> block9  from block3
+block5 {
+        r4 = MOV.i32 u256
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u258.b3, r4
+        BRANCHZ.i16.eq r4.h00, u256 -> block7
+} -> block7 block6  from block3
+block6 {
+        r2 = FMA.f32 r2, u5[1], u5
+        r0 = FMA.f32 r0, u5[1], u5
+        r3 = FMA.f32 r3, u5[1], u5
+        BRANCHZ.i16.eq u256, u256 -> block8
+} -> block8  from block5
+block7 {
+        r4 = IADD_IMM.i32 u256, index:981668463
+        r4 = FMAX.f32.nan_suppress r1, r4
+        r4 = FRCP.f32 r4
+        r5 = FMA.f32 r2, r4, u256.neg
+        r6 = FMA.f32 r0, r4, u256.neg
+        r4 = FMA.f32 r3, r4, u256.neg
+        r7 = FADD.f32.clamp_0_1 r5, u256.neg
+        r8 = FADD.f32.clamp_0_1 r6, u256.neg
+        r9 = FADD.f32.clamp_0_1 r4, u256.neg
+        r10 = FREXPE.f32.log r7
+        r10 = S32_TO_F32 r10
+        r11 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7
+        r7 = FMA.f32 r7, r11, r10
+        r10 = IADD_IMM.i32 u256, index:1011862956
+        r11 = IADD_IMM.i32 u256, index:24
+        r7 = FMA_RSCALE.f32 r10, r7, u256.neg, r11
+        r12 = F32_TO_S32 r7
+        r7 = FEXP.f32 r12, r7
+        r12 = FREXPE.f32.log r8
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8
+        r8 = FMA.f32 r8, r13, r12
+        r8 = FMA_RSCALE.f32 r10, r8, u256.neg, r11
+        r12 = F32_TO_S32 r8
+        r8 = FEXP.f32 r12, r8
+        r12 = FREXPE.f32.log r9
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9
+        r9 = FMA.f32 r9, r13, r12
+        r9 = FMA_RSCALE.f32 r10, r9, u256.neg, r11
+        r10 = F32_TO_S32 r9
+        r9 = FEXP.f32 r10, r9
+        r10 = IADD_IMM.i32 u256, index:3210084352
+        r12 = FADD.f32.clamp_0_inf r7, r10
+        r13 = FADD.f32.clamp_0_inf r8, r10
+        r10 = FADD.f32.clamp_0_inf r9, r10
+        r14 = IADD_IMM.i32 u256, index:3247800320
+        r15 = IADD_IMM.i32 u256, index:1100402688
+        r7 = FMA.f32 r14, r7, r15
+        r8 = FMA.f32 r14, r8, r15
+        r9 = FMA.f32 r14, r9, r15
+        r7 = FRCP.f32 r7
+        r8 = FRCP.f32 r8
+        r9 = FRCP.f32 r9
+        r7 = FMA.f32 r12, r7, u256.neg
+        r8 = FMA.f32 r13, r8, u256.neg
+        r9 = FMA.f32 r10, r9, u256.neg
+        r10 = FREXPE.f32.log r7
+        r10 = S32_TO_F32 r10
+        r12 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7
+        r7 = FMA.f32 r7, r12, r10
+        r10 = IADD_IMM.i32 u256, index:1086906475
+        r7 = FMA_RSCALE.f32 r10, r7, u256.neg, r11
+        r12 = F32_TO_S32 r7
+        r7 = FEXP.f32 r12, r7
+        r12 = FREXPE.f32.log r8
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8
+        r8 = FMA.f32 r8, r13, r12
+        r8 = FMA_RSCALE.f32 r10, r8, u256.neg, r11
+        r12 = F32_TO_S32 r8
+        r8 = FEXP.f32 r12, r8
+        r12 = FREXPE.f32.log r9
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9
+        r9 = FMA.f32 r9, r13, r12
+        r9 = FMA_RSCALE.f32 r10, r9, u256.neg, r11
+        r10 = F32_TO_S32 r9
+        r9 = FEXP.f32 r10, r9
+        r7 = FMA.f32 r7, u5[1], u5
+        r8 = FMA.f32 r8, u5[1], u5
+        r9 = FMA.f32 r9, u5[1], u5
+        r7 = FMA.f32 r7, r1, u256.neg
+        r8 = FMA.f32 r8, r1, u256.neg
+        r9 = FMA.f32 r9, r1, u256.neg
+        r5 = FADD.f32.clamp_0_inf r5, u256.neg
+        r6 = FADD.f32.clamp_0_inf r6, u256.neg
+        r4 = FADD.f32.clamp_0_inf r4, u256.neg
+        r10 = FREXPE.f32.log r5
+        r10 = S32_TO_F32 r10
+        r12 = FADD_LSCALE.f32 u264.neg, r5
+        r5 = FLOGD.f32 r5
+        r5 = FMA.f32 r5, r12, r10
+        r10 = IADD_IMM.i32 u256, index:1074580685
+        r5 = FMA_RSCALE.f32 r10, r5, u256.neg, r11
+        r12 = F32_TO_S32 r5
+        r5 = FEXP.f32 r12, r5
+        r12 = FREXPE.f32.log r6
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r6
+        r6 = FLOGD.f32 r6
+        r6 = FMA.f32 r6, r13, r12
+        r6 = FMA_RSCALE.f32 r10, r6, u256.neg, r11
+        r12 = F32_TO_S32 r6
+        r6 = FEXP.f32 r12, r6
+        r12 = FREXPE.f32.log r4
+        r12 = S32_TO_F32 r12
+        r13 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4
+        r4 = FMA.f32 r4, r13, r12
+        r4 = FMA_RSCALE.f32 r10, r4, u256.neg, r11
+        r10 = F32_TO_S32 r4
+        r4 = FEXP.f32 r10, r4
+        r5 = FMA.f32 r5, u5[1], u5
+        r6 = FMA.f32 r6, u5[1], u5
+        r4 = FMA.f32 r4, u5[1], u5
+        r5 = FMA.f32 r5, r1, u256.neg
+        r6 = FMA.f32 r6, r1, u256.neg
+        r4 = FMA.f32 r4, r1, u256.neg
+        r10 = MOV.i32 u256
+        r11 = ICMP_OR.u32.eq.m1 u19[1], u260.b3, r10
+        r2 = CSEL.u32.eq r11, u256, r2, r5
+        r0 = CSEL.u32.eq r11, u256, r0, r6
+        r3 = CSEL.u32.eq r11, u256, r3, r4
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u260.b2, r10
+        r2 = CSEL.u32.eq r4, u256, r2, r7
+        r0 = CSEL.u32.eq r4, u256, r0, r8
+        r3 = CSEL.u32.eq r4, u256, r3, r9
+} -> block8  from block5
+block8 {
+} -> block9  from block6 block7
+block9 {
+        r4 = FMA.f32 u2, r0, u2[1]
+        r4 = FMA.f32 u16[1], r2, r4
+        r4 = FMA.f32 u18, r3, r4
+        r5 = FMA.f32 u3, r0, u3[1]
+        r5 = FMA.f32 u17, r2, r5
+        r5 = FMA.f32 u18[1], r3, r5
+        r0 = FMA.f32 u4, r0, u4[1]
+        r0 = FMA.f32 u17[1], r2, r0
+        r0 = FMA.f32 u19, r3, r0
+        r2 = IADD_IMM.i32 u256, index:1065437102
+        r2 = FMA.f32 u22[1], r2, u256.neg
+        r2 = FCMP_OR.f32.lt.m1 u21[1], r2, u256
+        BRANCHZ.i16.eq r2.h00, u256 -> block11
+} -> block11 block10  from block4 block8
+block10 {
+        r2 = FADD.f32.clamp_0_inf r4, u256.neg
+        r3 = FADD.f32.clamp_0_inf r5, u256.neg
+        r0 = FADD.f32.clamp_0_inf r0, u256.neg
+        r2 = FMIN.f32.nan_suppress r2, u22[1]
+        r3 = FMIN.f32.nan_suppress r3, u22[1]
+        r0 = FMIN.f32.nan_suppress r0, u22[1]
+        BRANCHZ.i16.eq u256, u256 -> block12
+} -> block12  from block9
+block11 {
+        r2 = FMA.f32 u6, r5, u6[1]
+        r2 = FMA.f32 u23, r4, r2
+        r2 = FMA.f32 u24[1], r0, r2
+        r3 = FMA.f32 u7, r5, u7[1]
+        r3 = FMA.f32 u23[1], r4, r3
+        r3 = FMA.f32 u25, r0, r3
+        r5 = FMA.f32 u8, r5, u8[1]
+        r4 = FMA.f32 u24, r4, r5
+        r0 = FMA.f32 u25[1], r0, r4
+        r4 = IADD_IMM.i32 u256, index:953267991
+        r2 = FMA.f32.clamp_0_1 r2, r4, u256.neg
+        r3 = FMA.f32.clamp_0_1 r3, r4, u256.neg
+        r0 = FMA.f32.clamp_0_1 r0, r4, u256.neg
+        r5 = FREXPE.f32.log r2
+        r5 = S32_TO_F32 r5
+        r6 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r6, r5
+        r5 = IADD_IMM.i32 u256, index:1042489344
+        r6 = IADD_IMM.i32 u256, index:24
+        r2 = FMA_RSCALE.f32 r5, r2, u256.neg, r6
+        r7 = F32_TO_S32 r2
+        r2 = FEXP.f32 r7, r2
+        r7 = FREXPE.f32.log r3
+        r7 = S32_TO_F32 r7
+        r8 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3
+        r3 = FMA.f32 r3, r8, r7
+        r3 = FMA_RSCALE.f32 r5, r3, u256.neg, r6
+        r7 = F32_TO_S32 r3
+        r3 = FEXP.f32 r7, r3
+        r7 = FREXPE.f32.log r0
+        r7 = S32_TO_F32 r7
+        r8 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0
+        r0 = FMA.f32 r0, r8, r7
+        r0 = FMA_RSCALE.f32 r5, r0, u256.neg, r6
+        r7 = F32_TO_S32 r0
+        r0 = FEXP.f32 r7, r0
+        r7 = IADD_IMM.i32 u256, index:1100402688
+        r8 = IADD_IMM.i32 u256, index:1062600704
+        r9 = FMA.f32 r7, r2, r8
+        r10 = FMA.f32 r7, r3, r8
+        r11 = FMA.f32 r7, r0, r8
+        r12 = IADD_IMM.i32 u256, index:1100316672
+        r2 = FMA.f32 r12, r2, u264
+        r3 = FMA.f32 r12, r3, u264
+        r0 = FMA.f32 r12, r0, u264
+        r2 = FRCP.f32 r2
+        r3 = FRCP.f32 r3
+        r0 = FRCP.f32 r0
+        r2 = FMA.f32 r9, r2, u256.neg
+        r3 = FMA.f32 r10, r3, u256.neg
+        r0 = FMA.f32 r11, r0, u256.neg
+        r9 = FREXPE.f32.log r2
+        r9 = S32_TO_F32 r9
+        r10 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r10, r9
+        r9 = IADD_IMM.i32 u256, index:1117630464
+        r2 = FMA_RSCALE.f32 r9, r2, u256.neg, r6
+        r10 = F32_TO_S32 r2
+        r2 = FEXP.f32 r10, r2
+        r10 = FREXPE.f32.log r3
+        r10 = S32_TO_F32 r10
+        r11 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3
+        r3 = FMA.f32 r3, r11, r10
+        r3 = FMA_RSCALE.f32 r9, r3, u256.neg, r6
+        r10 = F32_TO_S32 r3
+        r3 = FEXP.f32 r10, r3
+        r10 = FREXPE.f32.log r0
+        r10 = S32_TO_F32 r10
+        r11 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0
+        r0 = FMA.f32 r0, r11, r10
+        r0 = FMA_RSCALE.f32 r9, r0, u256.neg, r6
+        r10 = F32_TO_S32 r0
+        r0 = FEXP.f32 r10, r0
+        r10 = IADD_IMM.i32 u256, index:3226776576
+        r10 = FMA.f32 r10, r3, u256.neg
+        r11 = IADD_IMM.i32 u256, index:3230129152
+        r11 = FMA.f32 r11, r3, u256.neg
+        r3 = FADD.f32 r2, r3
+        r3 = FMA.f32.clamp_0_1 u269.h11, r3, u256.neg
+        r13 = IADD_IMM.i32 u256, index:1070501888
+        r10 = FMA.f32 r13, r2, r10
+        r13 = IADD_IMM.i32 u256, index:1082923520
+        r2 = FMA.f32 r13, r2, r11
+        r11 = IADD_IMM.i32 u256, index:1071306752
+        r10 = FMA.f32 r11, r0, r10
+        r11 = IADD_IMM.i32 u256, index:3188178944
+        r0 = FMA.f32 r11, r0, r2
+        r2 = FREXPE.f32.log r3
+        r2 = S32_TO_F32 r2
+        r11 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3
+        r2 = FMA.f32 r3, r11, r2
+        r3 = IADD_IMM.i32 u256, index:1011862956
+        r2 = FMA_RSCALE.f32 r3, r2, u256.neg, r6
+        r11 = F32_TO_S32 r2
+        r2 = FEXP.f32 r11, r2
+        r11 = IADD_IMM.i32 u256, index:3210084352
+        r13 = FADD.f32.clamp_0_inf r2, r11
+        r14 = IADD_IMM.i32 u256, index:3247800320
+        r2 = FMA.f32 r14, r2, r7
+        r2 = FRCP.f32 r2
+        r2 = FMA.f32 r13, r2, u256.neg
+        r13 = FREXPE.f32.log r2
+        r13 = S32_TO_F32 r13
+        r15 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r15, r13
+        r13 = IADD_IMM.i32 u256, index:1086906475
+        r2 = FMA_RSCALE.f32 r13, r2, u256.neg, r6
+        r15 = F32_TO_S32 r2
+        r2 = FEXP.f32 r15, r2
+        r15 = IADD_IMM.i32 u256, index:1176256512
+        r2 = FMA.f32 r2, r15, u256.neg
+        r48 = FRCP.f32 u22
+        r49 = FMA.f32 u21[1], r48, u256.neg
+        r50 = IADD_IMM.i32 u256, index:1069547520
+        r50 = FMIN.f32.nan_suppress r49, r50
+        r51 = FMA.f32 u22[1], r48, u256.neg
+        r51 = FRCP.f32 r51
+        r51 = FMA.f32 r50, r51, u256.neg
+        r51 = FMAX.f32.nan_suppress r51, u264
+        r50 = FMIN.f32.nan_suppress r51, r50
+        r50 = FRCP.f32 r50
+        r51 = FMA.f32 u22, r50, u256.neg
+        r50 = FMA.f32 r2, r50, u256.neg
+        r50 = FMIN.f32.nan_suppress r50, r51
+        r2 = FMA.f32 r2, r48, u264.neg
+        r48 = FADD_IMM.f32 r49, index:3212836864
+        r48 = FRCP.f32 r48
+        r2 = FMA.f32.clamp_0_1 r2, r48, u256.neg
+        r48 = IADD_IMM.i32 u256, index:1071378600
+        r2 = FMA.f32 r2, r48, u264
+        r48 = FREXPE.f32.log r2
+        r48 = S32_TO_F32 r48
+        r49 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r49, r48
+        r2 = FMA.f32 r2, u265[1], u256.neg
+        r48 = FADD.f32 u22[1], r51.neg
+        r2 = FMA.f32 r2, r48, r50
+        r2 = FMA.f32.clamp_0_1 r2, r4, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4
+        r48 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r48, r4
+        r2 = FMA_RSCALE.f32 r5, r2, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4, r2
+        r4 = FMA.f32 r7, r2, r8
+        r2 = FMA.f32 r12, r2, u264
+        r2 = FRCP.f32 r2
+        r2 = FMA.f32 r4, r2, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4
+        r5 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r5, r4
+        r2 = FMA_RSCALE.f32 r9, r2, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4, r2
+        r4 = IADD_IMM.i32 u256, index:1007488235
+        r4 = FMA.f32 r4, r10, r2
+        r5 = IADD_IMM.i32 u256, index:3154971883
+        r5 = FMA.f32 r5, r10, r2
+        r8 = IADD_IMM.i32 u256, index:1057976498
+        r2 = FMA.f32 r8, r10, r2
+        r8 = IADD_IMM.i32 u256, index:1038312320
+        r4 = FMA.f32.clamp_0_1 r8, r0, r4
+        r8 = IADD_IMM.i32 u256, index:3185795968
+        r5 = FMA.f32.clamp_0_1 r8, r0, r5
+        r8 = IADD_IMM.i32 u256, index:3198429503
+        r0 = FMA.f32.clamp_0_1 r8, r0, r2
+        r2 = FREXPE.f32.log r4
+        r2 = S32_TO_F32 r2
+        r8 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4
+        r2 = FMA.f32 r4, r8, r2
+        r2 = FMA_RSCALE.f32 r3, r2, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4, r2
+        r4 = FREXPE.f32.log r5
+        r4 = S32_TO_F32 r4
+        r8 = FADD_LSCALE.f32 u264.neg, r5
+        r5 = FLOGD.f32 r5
+        r4 = FMA.f32 r5, r8, r4
+        r4 = FMA_RSCALE.f32 r3, r4, u256.neg, r6
+        r5 = F32_TO_S32 r4
+        r4 = FEXP.f32 r5, r4
+        r5 = FREXPE.f32.log r0
+        r5 = S32_TO_F32 r5
+        r8 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0
+        r0 = FMA.f32 r0, r8, r5
+        r0 = FMA_RSCALE.f32 r3, r0, u256.neg, r6
+        r3 = F32_TO_S32 r0
+        r0 = FEXP.f32 r3, r0
+        r3 = FADD.f32.clamp_0_inf r2, r11
+        r5 = FADD.f32.clamp_0_inf r4, r11
+        r8 = FADD.f32.clamp_0_inf r0, r11
+        r2 = FMA.f32 r14, r2, r7
+        r4 = FMA.f32 r14, r4, r7
+        r0 = FMA.f32 r14, r0, r7
+        r2 = FRCP.f32 r2
+        r4 = FRCP.f32 r4
+        r0 = FRCP.f32 r0
+        r2 = FMA.f32 r3, r2, u256.neg
+        r3 = FMA.f32 r5, r4, u256.neg
+        r0 = FMA.f32 r8, r0, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4
+        r5 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2
+        r2 = FMA.f32 r2, r5, r4
+        r2 = FMA_RSCALE.f32 r13, r2, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4, r2
+        r4 = FREXPE.f32.log r3
+        r4 = S32_TO_F32 r4
+        r5 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3
+        r3 = FMA.f32 r3, r5, r4
+        r3 = FMA_RSCALE.f32 r13, r3, u256.neg, r6
+        r4 = F32_TO_S32 r3
+        r3 = FEXP.f32 r4, r3
+        r4 = FREXPE.f32.log r0
+        r4 = S32_TO_F32 r4
+        r5 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0
+        r0 = FMA.f32 r0, r5, r4
+        r0 = FMA_RSCALE.f32 r13, r0, u256.neg, r6
+        r4 = F32_TO_S32 r0
+        r0 = FEXP.f32 r4, r0
+        r4 = FMA.f32 u9, r3, u9[1]
+        r4 = FMA.f32 u26, r2, r4
+        r4 = FMA.f32 u27[1], r0, r4
+        r5 = FMA.f32 u10, r3, u10[1]
+        r5 = FMA.f32 u26[1], r2, r5
+        r5 = FMA.f32 u28, r0, r5
+        r3 = FMA.f32 u11, r3, u11[1]
+        r2 = FMA.f32 u27, r2, r3
+        r0 = FMA.f32 u28[1], r0, r2
+        r2 = FMA.f32 r4, r15, u256.neg
+        r3 = FMA.f32 r5, r15, u256.neg
+        r0 = FMA.f32 r0, r15, u256.neg
+} -> block12  from block9
+block12 {
+        r4 = FMA.f32 r0, u16, u256.neg
+        r4 = FMA.f32 r3, u15[1], r4
+        r4 = FMA.f32 r2, u15, r4
+        r2 = FADD.f32 r2, r4.neg
+        r3 = FADD.f32 r3, r4.neg
+        r0 = FADD.f32 r0, r4.neg
+        r2 = FMA.f32 u14[1], r2, r4
+        r3 = FMA.f32 u14[1], r3, r4
+        r0 = FMA.f32 u14[1], r0, r4
+        r2 = FMA.f32 r2, u12[1], u256.neg
+        r3 = FMA.f32 r3, u13, u256.neg
+        r0 = FMA.f32 r0, u13[1], u256.neg
+        r4 = FMA.f32 r1, u14, u256.neg
+        r1 = ICMP_OR.u32.eq.m1 u20, u256, u256
+        BRANCHZ.i16.eq r1.h00, u256 -> block14
+} -> block14 block13  from block10 block11
+block13 {
+        r1 = IADD_IMM.i32 u256, index:981668463
+        r1 = FMAX.f32.nan_suppress r4, r1
+        r1 = FRCP.f32 r1
+        r0 = FMA.f32 r0, r1, u20[1].neg
+        r5 = FRCP.f32 u21
+        r0 = FMA.f32 r0, r5, u256.neg
+        r6 = FREXPE.f32.log r0
+        r6 = S32_TO_F32 r6
+        r7 = FADD_LSCALE.f32 u264.neg, r0
+        r8 = FLOGD.f32 r0
+        r6 = FMA.f32 r8, r7, r6
+        r3 = FMA.f32 r3, r1, u20[1].neg
+        r3 = FMA.f32 r3, r5, u256.neg
+        r7 = FREXPE.f32.log r3
+        r7 = S32_TO_F32 r7
+        r8 = FADD_LSCALE.f32 u264.neg, r3
+        r9 = FLOGD.f32 r3
+        r7 = FMA.f32 r9, r8, r7
+        r1 = FMA.f32 r2, r1, u20[1].neg
+        r1 = FMA.f32 r1, r5, u256.neg
+        r2 = FREXPE.f32.log r1
+        r2 = S32_TO_F32 r2
+        r5 = FADD_LSCALE.f32 u264.neg, r1
+        r8 = FLOGD.f32 r1
+        r2 = FMA.f32 r8, r5, r2
+        r5 = IADD_IMM.i32 u256, index:24
+        r8 = IADD_IMM.i32 u256, index:1054168405
+        r6 = FMA_RSCALE.f32 r8, r6, u256.neg, r5
+        r7 = FMA_RSCALE.f32 r8, r7, u256.neg, r5
+        r2 = FMA_RSCALE.f32 r8, r2, u256.neg, r5
+        r5 = F32_TO_S32 r6
+        r5 = FEXP.f32 r5, r6
+        r6 = F32_TO_S32 r7
+        r6 = FEXP.f32 r6, r7
+        r7 = F32_TO_S32 r2
+        r2 = FEXP.f32 r7, r2
+        r7 = IADD_IMM.i32 u256, index:3177269166
+        r8 = IADD_IMM.i32 u256, index:1065814589
+        r5 = FMA.f32 r5, r8, r7
+        r6 = FMA.f32 r6, r8, r7
+        r2 = FMA.f32 r2, r8, r7
+        r7 = IADD_IMM.i32 u256, index:1095678034
+        r8 = IADD_IMM.i32 u256, index:994913820
+        r9 = FMA.f32 r0, r7, u256.neg
+        r0 = FCMP_OR.f32.ge.m1 r8, r0, u256
+        r0 = CSEL.u32.eq r0, u256, r5, r9
+        r5 = FMA.f32 r3, r7, u256.neg
+        r3 = FCMP_OR.f32.ge.m1 r8, r3, u256
+        r3 = CSEL.u32.eq r3, u256, r6, r5
+        r5 = FMA.f32 r1, r7, u256.neg
+        r1 = FCMP_OR.f32.ge.m1 r8, r1, u256
+        r1 = CSEL.u32.eq r1, u256, r2, r5
+        r2 = FMA.f32 r0, r4, u256.neg
+        r3 = FMA.f32 r3, r4, u256.neg
+        r0 = FMA.f32 r1, r4, u256.neg
+        BRANCHZ.i16.eq u256, u256 -> block15
+} -> block15  from block12
+block14 {
+        r1 = FADD.f32 r2, u20[1].neg
+        r5 = FADD.f32 r3, u20[1].neg
+        r6 = FADD.f32 r0, u20[1].neg
+        r7 = FRCP.f32 u21
+        r1 = FMA.f32 r1, r7, u256.neg
+        r5 = FMA.f32 r5, r7, u256.neg
+        r6 = FMA.f32 r6, r7, u256.neg
+        r8 = IADD_IMM.i32 u256, index:981668463
+        r8 = FMAX.f32.nan_suppress r4, r8
+        r8 = FRCP.f32 r8
+        r9 = FMA.f32 r2, r8, u20[1].neg
+        r10 = FMA.f32 r3, r8, u20[1].neg
+        r8 = FMA.f32 r0, r8, u20[1].neg
+        r9 = FMA.f32 r9, r7, u256.neg
+        r10 = FMA.f32 r10, r7, u256.neg
+        r7 = FMA.f32 r8, r7, u256.neg
+        r8 = FADD.f32.clamp_0_1 r9, u256.neg
+        r11 = FADD.f32.clamp_0_1 r10, u256.neg
+        r12 = FADD.f32.clamp_0_1 r7, u256.neg
+        r13 = FREXPE.f32.log r8
+        r13 = S32_TO_F32 r13
+        r14 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8
+        r8 = FMA.f32 r8, r14, r13
+        r13 = IADD_IMM.i32 u256, index:1042489344
+        r14 = IADD_IMM.i32 u256, index:24
+        r8 = FMA_RSCALE.f32 r13, r8, u256.neg, r14
+        r15 = F32_TO_S32 r8
+        r8 = FEXP.f32 r15, r8
+        r15 = FREXPE.f32.log r11
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r11
+        r11 = FLOGD.f32 r11
+        r11 = FMA.f32 r11, r48, r15
+        r11 = FMA_RSCALE.f32 r13, r11, u256.neg, r14
+        r15 = F32_TO_S32 r11
+        r11 = FEXP.f32 r15, r11
+        r15 = FREXPE.f32.log r12
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r12
+        r12 = FLOGD.f32 r12
+        r12 = FMA.f32 r12, r48, r15
+        r12 = FMA_RSCALE.f32 r13, r12, u256.neg, r14
+        r13 = F32_TO_S32 r12
+        r12 = FEXP.f32 r13, r12
+        r13 = IADD_IMM.i32 u256, index:1100402688
+        r15 = IADD_IMM.i32 u256, index:1062600704
+        r48 = FMA.f32 r13, r8, r15
+        r49 = FMA.f32 r13, r11, r15
+        r13 = FMA.f32 r13, r12, r15
+        r15 = IADD_IMM.i32 u256, index:1100316672
+        r8 = FMA.f32 r15, r8, u264
+        r11 = FMA.f32 r15, r11, u264
+        r12 = FMA.f32 r15, r12, u264
+        r8 = FRCP.f32 r8
+        r11 = FRCP.f32 r11
+        r12 = FRCP.f32 r12
+        r8 = FMA.f32 r48, r8, u256.neg
+        r11 = FMA.f32 r49, r11, u256.neg
+        r12 = FMA.f32 r13, r12, u256.neg
+        r13 = FREXPE.f32.log r8
+        r13 = S32_TO_F32 r13
+        r15 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8
+        r8 = FMA.f32 r8, r15, r13
+        r13 = IADD_IMM.i32 u256, index:1117630464
+        r8 = FMA_RSCALE.f32 r13, r8, u256.neg, r14
+        r15 = F32_TO_S32 r8
+        r8 = FEXP.f32 r15, r8
+        r15 = FREXPE.f32.log r11
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r11
+        r11 = FLOGD.f32 r11
+        r11 = FMA.f32 r11, r48, r15
+        r11 = FMA_RSCALE.f32 r13, r11, u256.neg, r14
+        r15 = F32_TO_S32 r11
+        r11 = FEXP.f32 r15, r11
+        r15 = FREXPE.f32.log r12
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r12
+        r12 = FLOGD.f32 r12
+        r12 = FMA.f32 r12, r48, r15
+        r12 = FMA_RSCALE.f32 r13, r12, u256.neg, r14
+        r13 = F32_TO_S32 r12
+        r12 = FEXP.f32 r13, r12
+        r8 = FMA.f32 r8, r4, u256.neg
+        r11 = FMA.f32 r11, r4, u256.neg
+        r12 = FMA.f32 r12, r4, u256.neg
+        r9 = FADD.f32.clamp_0_inf r9, u256.neg
+        r10 = FADD.f32.clamp_0_inf r10, u256.neg
+        r7 = FADD.f32.clamp_0_inf r7, u256.neg
+        r13 = FREXPE.f32.log r9
+        r13 = S32_TO_F32 r13
+        r15 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9
+        r9 = FMA.f32 r9, r15, r13
+        r13 = IADD_IMM.i32 u256, index:1055439406
+        r9 = FMA_RSCALE.f32 r13, r9, u256.neg, r14
+        r15 = F32_TO_S32 r9
+        r9 = FEXP.f32 r15, r9
+        r15 = FREXPE.f32.log r10
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r10
+        r10 = FLOGD.f32 r10
+        r10 = FMA.f32 r10, r48, r15
+        r10 = FMA_RSCALE.f32 r13, r10, u256.neg, r14
+        r15 = F32_TO_S32 r10
+        r10 = FEXP.f32 r15, r10
+        r15 = FREXPE.f32.log r7
+        r15 = S32_TO_F32 r15
+        r48 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7
+        r7 = FMA.f32 r7, r48, r15
+        r7 = FMA_RSCALE.f32 r13, r7, u256.neg, r14
+        r13 = F32_TO_S32 r7
+        r7 = FEXP.f32 r13, r7
+        r9 = FMA.f32 r9, r4, u256.neg
+        r10 = FMA.f32 r10, r4, u256.neg
+        r7 = FMA.f32 r7, r4, u256.neg
+        r13 = MOV.i32 u256
+        r14 = ICMP_OR.u32.eq.m1 u20, u260.b3, r13
+        r2 = CSEL.u32.eq r14, u256, r2, r9
+        r3 = CSEL.u32.eq r14, u256, r3, r10
+        r0 = CSEL.u32.eq r14, u256, r0, r7
+        r7 = ICMP_OR.u32.eq.m1 u20, u260.b2, r13
+        r2 = CSEL.u32.eq r7, u256, r2, r8
+        r3 = CSEL.u32.eq r7, u256, r3, r11
+        r7 = CSEL.u32.eq r7, u256, r0, r12
+        r8 = ICMP_OR.u32.eq.m1 u20, u258.b3, r13
+        r0 = CSEL.u32.eq r8, u256, r2, r1
+        r3 = CSEL.u32.eq r8, u256, r3, r5
+        r2 = CSEL.u32.eq r8, u256, r7, r6
+} -> block15  from block12
+block15 {
+        r60 = ATEST r60, r4, atest-param
+        r1 = MOV.i32 r3
+        r3 = MOV.i32 r4
+        r48 = BLEND.f32 r0:r1:r2:r3, r60, blend_descriptor_0, blend_descriptor_0[1], _.h00, sr_count:4, sr_count_2:2
+} from block13 block14
+block0 {
+        r0:r1 = LD_VAR_IMM.table1.v2.store.f32.center r61^, index:0
+        r2 = ICMP_OR.u32.eq.m1 u12, u256, u256
+        BRANCHZ.i16.flow1.eq r2^.h00, u256 -> block2
+        NOP.flow10
+} -> block2 block1
+block1 {
+        r2 = IADD_IMM.i32 u256, index:536877056
+        r3 = MOV.i32 u256
+        r0:r1 = TEX_SINGLE.flow2.skip.rgba.2d.f16.computed_lod r0:r1, r2^, r3^, sr_count:2
+        r2 = F16_TO_F32.flow13 r0.h00
+        r0 = F16_TO_F32 r0^.h11
+        r3 = F16_TO_F32 r1.h00
+        r1 = F16_TO_F32 r1^.h11
+        BRANCHZ.i16.flow10.eq u256, u256 -> block3
+} -> block3  from block0
+block2 {
+        r2 = IADD_IMM.i32 u256, index:536877056
+        r3 = MOV.i32 u256
+        r2 = TEX_SINGLE.skip.r.2d.f16.computed_lod r0:r1, r2^, r3^, sr_count:2
+        r3 = IADD_IMM.i32 u256, index:536942593
+        r4 = MOV.i32 r3^
+        r5 = MOV.i32 u256
+        r0 = TEX_SINGLE.flow4.skip.rg.2d.f16.computed_lod r0:r1, r4^, r5^, sr_count:2
+        r1 = U16_TO_U32.flow13 r2^.h00
+        r2 = IADD_IMM.i32 u256, index:2885725184
+        r1 = FADD.v2f16 r1.h00, r2^
+        r2 = IADD_IMM.i32 u256, index:1017658536
+        r1 = FMA.v2f16.flow1 r2^, r1.h00, u256.neg
+        r0 = FADD_IMM.v2f16 r0^, index:3087054848
+        r1 = F16_TO_F32 r1^.h00
+        r2 = F16_TO_F32 r0.h00
+        r3 = IADD_IMM.i32 u256, index:3200816401
+        r4 = FMA.f32 r3^, r2, r1
+        r3 = IADD_IMM.i32 u256, index:1073814101
+        r3 = FMA.f32 r3^, r2^, r1
+        r2 = F16_TO_F32 r0^.h11
+        r0 = IADD_IMM.i32 u256, index:3209698982
+        r0 = FMA.f32 r0^, r2, r4^
+        r4 = IADD_IMM.i32 u256, index:1070353051
+        r2 = FMA.f32 r4^, r2^, r1^
+        r1 = IADD_IMM.i32.flow10 u256, index:1065353216
+} -> block3  from block0
+block3 {
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u256, u256
+        BRANCHZ.i16.flow10.eq r4^.h00, u256 -> block5
+} -> block5 block4  from block1 block2
+block4 {
+        r4 = IADD_IMM.i32 u256, index:981668463
+        r4 = FMAX.f32.nan_suppress r1, r4^
+        r4 = FRCP.f32 r4^
+        r3 = FMA.f32 r3^, r4, u256.neg
+        r5 = IADD_IMM.i32 u256, index:1064478575
+        r6 = FADD_IMM.f32 r3, index:1029785518
+        r6 = FMA.f32 r6^, r5, u256.neg
+        r7 = FREXPE.f32.log r6
+        r7 = S32_TO_F32 r7^
+        r8 = FADD_LSCALE.f32 u264.neg, r6
+        r6 = FLOGD.f32 r6^
+        r6 = FMA.f32 r6^, r8^, r7^
+        r0 = FMA.f32 r0^, r4, u256.neg
+        r7 = FADD_IMM.f32 r0, index:1029785518
+        r7 = FMA.f32 r7^, r5, u256.neg
+        r8 = FREXPE.f32.log r7
+        r8 = S32_TO_F32 r8^
+        r9 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7^
+        r7 = FMA.f32 r7^, r9^, r8^
+        r2 = FMA.f32 r2^, r4^, u256.neg
+        r4 = FADD_IMM.f32 r2, index:1029785518
+        r4 = FMA.f32 r4^, r5^, u256.neg
+        r5 = FREXPE.f32.log r4
+        r5 = S32_TO_F32 r5^
+        r8 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4^
+        r4 = FMA.f32 r4^, r8^, r5^
+        r5 = IADD_IMM.i32 u256, index:24
+        r8 = IADD_IMM.i32 u256, index:1075419546
+        r6 = FMA_RSCALE.f32 r8, r6^, u256.neg, r5
+        r7 = FMA_RSCALE.f32 r8, r7^, u256.neg, r5
+        r4 = FMA_RSCALE.f32 r8^, r4^, u256.neg, r5^
+        r5 = F32_TO_S32 r6
+        r5 = FEXP.f32 r5^, r6^
+        r6 = IADD_IMM.i32 u256, index:1033798545
+        r8 = IADD_IMM.i32 u256, index:1025879782
+        r9 = FMA.f32 r3, r6, u256.neg
+        r3 = FCMP_OR.f32.ge.m1 r8, r3^, u256
+        r3 = CSEL.u32.eq r3^, u256, r5^, r9^
+        r5 = F32_TO_S32 r7
+        r5 = FEXP.f32 r5^, r7^
+        r7 = FMA.f32 r0, r6, u256.neg
+        r0 = FCMP_OR.f32.ge.m1 r8, r0^, u256
+        r0 = CSEL.u32.eq r0^, u256, r5^, r7^
+        r5 = F32_TO_S32 r4
+        r4 = FEXP.f32 r5^, r4^
+        r5 = FMA.f32 r2, r6^, u256.neg
+        r2 = FCMP_OR.f32.ge.m1 r8^, r2^, u256
+        r2 = CSEL.u32.eq r2^, u256, r4^, r5^
+        r3 = FMA.f32 r3^, u5[1], u5
+        r0 = FMA.f32 r0^, u5[1], u5
+        r2 = FMA.f32 r2^, u5[1], u5
+        r3 = FMA.f32 r3^, r1, u256.neg
+        r0 = FMA.f32 r0^, r1, u256.neg
+        r2 = FMA.f32 r2^, r1, u256.neg
+        BRANCHZ.i16.flow10.eq u256, u256 -> block9
+} -> block9  from block3
+block5 {
+        r4 = MOV.i32 u256
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u258.b3, r4^
+        BRANCHZ.i16.flow10.eq r4^.h00, u256 -> block7
+} -> block7 block6  from block3
+block6 {
+        r2 = FMA.f32 r2^, u5[1], u5
+        r0 = FMA.f32 r0^, u5[1], u5
+        r3 = FMA.f32 r3^, u5[1], u5
+        BRANCHZ.i16.flow10.eq u256, u256 -> block8
+} -> block8  from block5
+block7 {
+        r4 = IADD_IMM.i32 u256, index:981668463
+        r4 = FMAX.f32.nan_suppress r1, r4^
+        r4 = FRCP.f32 r4^
+        r5 = FMA.f32 r2, r4, u256.neg
+        r6 = FMA.f32 r0, r4, u256.neg
+        r4 = FMA.f32 r3, r4^, u256.neg
+        r7 = FADD.f32.clamp_0_1 r5, u256.neg
+        r8 = FADD.f32.clamp_0_1 r6, u256.neg
+        r9 = FADD.f32.clamp_0_1 r4, u256.neg
+        r10 = FREXPE.f32.log r7
+        r10 = S32_TO_F32 r10^
+        r11 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7^
+        r7 = FMA.f32 r7^, r11^, r10^
+        r10 = IADD_IMM.i32 u256, index:1011862956
+        r11 = IADD_IMM.i32 u256, index:24
+        r7 = FMA_RSCALE.f32 r10, r7^, u256.neg, r11
+        r12 = F32_TO_S32 r7
+        r7 = FEXP.f32 r12^, r7^
+        r12 = FREXPE.f32.log r8
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8^
+        r8 = FMA.f32 r8^, r13^, r12^
+        r8 = FMA_RSCALE.f32 r10, r8^, u256.neg, r11
+        r12 = F32_TO_S32 r8
+        r8 = FEXP.f32 r12^, r8^
+        r12 = FREXPE.f32.log r9
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9^
+        r9 = FMA.f32 r9^, r13^, r12^
+        r9 = FMA_RSCALE.f32 r10^, r9^, u256.neg, r11
+        r10 = F32_TO_S32 r9
+        r9 = FEXP.f32 r10^, r9^
+        r10 = IADD_IMM.i32 u256, index:3210084352
+        r12 = FADD.f32.clamp_0_inf r7, r10
+        r13 = FADD.f32.clamp_0_inf r8, r10
+        r10 = FADD.f32.clamp_0_inf r9, r10^
+        r14 = IADD_IMM.i32 u256, index:3247800320
+        r15 = IADD_IMM.i32 u256, index:1100402688
+        r7 = FMA.f32 r14, r7^, r15
+        r8 = FMA.f32 r14, r8^, r15
+        r9 = FMA.f32 r14^, r9^, r15^
+        r7 = FRCP.f32 r7^
+        r8 = FRCP.f32 r8^
+        r9 = FRCP.f32 r9^
+        r7 = FMA.f32 r12^, r7^, u256.neg
+        r8 = FMA.f32 r13^, r8^, u256.neg
+        r9 = FMA.f32 r10^, r9^, u256.neg
+        r10 = FREXPE.f32.log r7
+        r10 = S32_TO_F32 r10^
+        r12 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7^
+        r7 = FMA.f32 r7^, r12^, r10^
+        r10 = IADD_IMM.i32 u256, index:1086906475
+        r7 = FMA_RSCALE.f32 r10, r7^, u256.neg, r11
+        r12 = F32_TO_S32 r7
+        r7 = FEXP.f32 r12^, r7^
+        r12 = FREXPE.f32.log r8
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8^
+        r8 = FMA.f32 r8^, r13^, r12^
+        r8 = FMA_RSCALE.f32 r10, r8^, u256.neg, r11
+        r12 = F32_TO_S32 r8
+        r8 = FEXP.f32 r12^, r8^
+        r12 = FREXPE.f32.log r9
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9^
+        r9 = FMA.f32 r9^, r13^, r12^
+        r9 = FMA_RSCALE.f32 r10^, r9^, u256.neg, r11
+        r10 = F32_TO_S32 r9
+        r9 = FEXP.f32 r10^, r9^
+        r7 = FMA.f32 r7^, u5[1], u5
+        r8 = FMA.f32 r8^, u5[1], u5
+        r9 = FMA.f32 r9^, u5[1], u5
+        r7 = FMA.f32 r7^, r1, u256.neg
+        r8 = FMA.f32 r8^, r1, u256.neg
+        r9 = FMA.f32 r9^, r1, u256.neg
+        r5 = FADD.f32.clamp_0_inf r5^, u256.neg
+        r6 = FADD.f32.clamp_0_inf r6^, u256.neg
+        r4 = FADD.f32.clamp_0_inf r4^, u256.neg
+        r10 = FREXPE.f32.log r5
+        r10 = S32_TO_F32 r10^
+        r12 = FADD_LSCALE.f32 u264.neg, r5
+        r5 = FLOGD.f32 r5^
+        r5 = FMA.f32 r5^, r12^, r10^
+        r10 = IADD_IMM.i32 u256, index:1074580685
+        r5 = FMA_RSCALE.f32 r10, r5^, u256.neg, r11
+        r12 = F32_TO_S32 r5
+        r5 = FEXP.f32 r12^, r5^
+        r12 = FREXPE.f32.log r6
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r6
+        r6 = FLOGD.f32 r6^
+        r6 = FMA.f32 r6^, r13^, r12^
+        r6 = FMA_RSCALE.f32 r10, r6^, u256.neg, r11
+        r12 = F32_TO_S32 r6
+        r6 = FEXP.f32 r12^, r6^
+        r12 = FREXPE.f32.log r4
+        r12 = S32_TO_F32 r12^
+        r13 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4^
+        r4 = FMA.f32 r4^, r13^, r12^
+        r4 = FMA_RSCALE.f32 r10^, r4^, u256.neg, r11^
+        r10 = F32_TO_S32 r4
+        r4 = FEXP.f32 r10^, r4^
+        r5 = FMA.f32 r5^, u5[1], u5
+        r6 = FMA.f32 r6^, u5[1], u5
+        r4 = FMA.f32 r4^, u5[1], u5
+        r5 = FMA.f32 r5^, r1, u256.neg
+        r6 = FMA.f32 r6^, r1, u256.neg
+        r4 = FMA.f32 r4^, r1, u256.neg
+        r10 = MOV.i32 u256
+        r11 = ICMP_OR.u32.eq.m1 u19[1], u260.b3, r10
+        r2 = CSEL.u32.eq r11, u256, r2^, r5^
+        r0 = CSEL.u32.eq r11, u256, r0^, r6^
+        r3 = CSEL.u32.eq r11^, u256, r3^, r4^
+        r4 = ICMP_OR.u32.eq.m1 u19[1], u260.b2, r10^
+        r2 = CSEL.u32.eq r4, u256, r2^, r7^
+        r0 = CSEL.u32.eq r4, u256, r0^, r8^
+        r3 = CSEL.u32.flow10.eq r4^, u256, r3^, r9^
+} -> block8  from block5
+block8 {
+} -> block9  from block6 block7
+block9 {
+        r4 = FMA.f32 u2, r0, u2[1]
+        r4 = FMA.f32 u16[1], r2, r4^
+        r4 = FMA.f32 u18, r3, r4^
+        r5 = FMA.f32 u3, r0, u3[1]
+        r5 = FMA.f32 u17, r2, r5^
+        r5 = FMA.f32 u18[1], r3, r5^
+        r0 = FMA.f32 u4, r0^, u4[1]
+        r0 = FMA.f32 u17[1], r2^, r0^
+        r0 = FMA.f32 u19, r3^, r0^
+        r2 = IADD_IMM.i32 u256, index:1065437102
+        r2 = FMA.f32 u22[1], r2^, u256.neg
+        r2 = FCMP_OR.f32.lt.m1 u21[1], r2^, u256
+        BRANCHZ.i16.flow10.eq r2^.h00, u256 -> block11
+} -> block11 block10  from block4 block8
+block10 {
+        r2 = FADD.f32.clamp_0_inf r4^, u256.neg
+        r3 = FADD.f32.clamp_0_inf r5^, u256.neg
+        r0 = FADD.f32.clamp_0_inf r0^, u256.neg
+        r2 = FMIN.f32.nan_suppress r2^, u22[1]
+        r3 = FMIN.f32.nan_suppress r3^, u22[1]
+        r0 = FMIN.f32.nan_suppress r0^, u22[1]
+        BRANCHZ.i16.flow10.eq u256, u256 -> block12
+} -> block12  from block9
+block11 {
+        r2 = FMA.f32 u6, r5, u6[1]
+        r2 = FMA.f32 u23, r4, r2^
+        r2 = FMA.f32 u24[1], r0, r2^
+        r3 = FMA.f32 u7, r5, u7[1]
+        r3 = FMA.f32 u23[1], r4, r3^
+        r3 = FMA.f32 u25, r0, r3^
+        r5 = FMA.f32 u8, r5^, u8[1]
+        r4 = FMA.f32 u24, r4^, r5^
+        r0 = FMA.f32 u25[1], r0^, r4^
+        r4 = IADD_IMM.i32 u256, index:953267991
+        r2 = FMA.f32.clamp_0_1 r2^, r4, u256.neg
+        r3 = FMA.f32.clamp_0_1 r3^, r4, u256.neg
+        r0 = FMA.f32.clamp_0_1 r0^, r4, u256.neg
+        r5 = FREXPE.f32.log r2
+        r5 = S32_TO_F32 r5^
+        r6 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r6^, r5^
+        r5 = IADD_IMM.i32 u256, index:1042489344
+        r6 = IADD_IMM.i32 u256, index:24
+        r2 = FMA_RSCALE.f32 r5, r2^, u256.neg, r6
+        r7 = F32_TO_S32 r2
+        r2 = FEXP.f32 r7^, r2^
+        r7 = FREXPE.f32.log r3
+        r7 = S32_TO_F32 r7^
+        r8 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3^
+        r3 = FMA.f32 r3^, r8^, r7^
+        r3 = FMA_RSCALE.f32 r5, r3^, u256.neg, r6
+        r7 = F32_TO_S32 r3
+        r3 = FEXP.f32 r7^, r3^
+        r7 = FREXPE.f32.log r0
+        r7 = S32_TO_F32 r7^
+        r8 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0^
+        r0 = FMA.f32 r0^, r8^, r7^
+        r0 = FMA_RSCALE.f32 r5, r0^, u256.neg, r6
+        r7 = F32_TO_S32 r0
+        r0 = FEXP.f32 r7^, r0^
+        r7 = IADD_IMM.i32 u256, index:1100402688
+        r8 = IADD_IMM.i32 u256, index:1062600704
+        r9 = FMA.f32 r7, r2, r8
+        r10 = FMA.f32 r7, r3, r8
+        r11 = FMA.f32 r7, r0, r8
+        r12 = IADD_IMM.i32 u256, index:1100316672
+        r2 = FMA.f32 r12, r2^, u264
+        r3 = FMA.f32 r12, r3^, u264
+        r0 = FMA.f32 r12, r0^, u264
+        r2 = FRCP.f32 r2^
+        r3 = FRCP.f32 r3^
+        r0 = FRCP.f32 r0^
+        r2 = FMA.f32 r9^, r2^, u256.neg
+        r3 = FMA.f32 r10^, r3^, u256.neg
+        r0 = FMA.f32 r11^, r0^, u256.neg
+        r9 = FREXPE.f32.log r2
+        r9 = S32_TO_F32 r9^
+        r10 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r10^, r9^
+        r9 = IADD_IMM.i32 u256, index:1117630464
+        r2 = FMA_RSCALE.f32 r9, r2^, u256.neg, r6
+        r10 = F32_TO_S32 r2
+        r2 = FEXP.f32 r10^, r2^
+        r10 = FREXPE.f32.log r3
+        r10 = S32_TO_F32 r10^
+        r11 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3^
+        r3 = FMA.f32 r3^, r11^, r10^
+        r3 = FMA_RSCALE.f32 r9, r3^, u256.neg, r6
+        r10 = F32_TO_S32 r3
+        r3 = FEXP.f32 r10^, r3^
+        r10 = FREXPE.f32.log r0
+        r10 = S32_TO_F32 r10^
+        r11 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0^
+        r0 = FMA.f32 r0^, r11^, r10^
+        r0 = FMA_RSCALE.f32 r9, r0^, u256.neg, r6
+        r10 = F32_TO_S32 r0
+        r0 = FEXP.f32 r10^, r0^
+        r10 = IADD_IMM.i32 u256, index:3226776576
+        r10 = FMA.f32 r10^, r3, u256.neg
+        r11 = IADD_IMM.i32 u256, index:3230129152
+        r11 = FMA.f32 r11^, r3, u256.neg
+        r3 = FADD.f32 r2, r3^
+        r3 = FMA.f32.clamp_0_1 u269.h11, r3^, u256.neg
+        r13 = IADD_IMM.i32 u256, index:1070501888
+        r10 = FMA.f32 r13^, r2, r10^
+        r13 = IADD_IMM.i32 u256, index:1082923520
+        r2 = FMA.f32 r13^, r2^, r11^
+        r11 = IADD_IMM.i32 u256, index:1071306752
+        r10 = FMA.f32 r11^, r0, r10^
+        r11 = IADD_IMM.i32 u256, index:3188178944
+        r0 = FMA.f32 r11^, r0^, r2^
+        r2 = FREXPE.f32.log r3
+        r2 = S32_TO_F32 r2^
+        r11 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3^
+        r2 = FMA.f32 r3^, r11^, r2^
+        r3 = IADD_IMM.i32 u256, index:1011862956
+        r2 = FMA_RSCALE.f32 r3, r2^, u256.neg, r6
+        r11 = F32_TO_S32 r2
+        r2 = FEXP.f32 r11^, r2^
+        r11 = IADD_IMM.i32 u256, index:3210084352
+        r13 = FADD.f32.clamp_0_inf r2, r11
+        r14 = IADD_IMM.i32 u256, index:3247800320
+        r2 = FMA.f32 r14, r2^, r7
+        r2 = FRCP.f32 r2^
+        r2 = FMA.f32 r13^, r2^, u256.neg
+        r13 = FREXPE.f32.log r2
+        r13 = S32_TO_F32 r13^
+        r15 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r15^, r13^
+        r13 = IADD_IMM.i32 u256, index:1086906475
+        r2 = FMA_RSCALE.f32 r13, r2^, u256.neg, r6
+        r15 = F32_TO_S32 r2
+        r2 = FEXP.f32 r15^, r2^
+        r15 = IADD_IMM.i32 u256, index:1176256512
+        r2 = FMA.f32 r2^, r15, u256.neg
+        r48 = FRCP.f32 u22
+        r49 = FMA.f32 u21[1], r48, u256.neg
+        r50 = IADD_IMM.i32 u256, index:1069547520
+        r50 = FMIN.f32.nan_suppress r49, r50^
+        r51 = FMA.f32 u22[1], r48, u256.neg
+        r51 = FRCP.f32 r51^
+        r51 = FMA.f32 r50, r51^, u256.neg
+        r51 = FMAX.f32.nan_suppress r51^, u264
+        r50 = FMIN.f32.nan_suppress r51^, r50^
+        r50 = FRCP.f32 r50^
+        r51 = FMA.f32 u22, r50, u256.neg
+        r50 = FMA.f32 r2, r50^, u256.neg
+        r50 = FMIN.f32.nan_suppress r50^, r51
+        r2 = FMA.f32 r2^, r48^, u264.neg
+        r48 = FADD_IMM.f32 r49^, index:3212836864
+        r48 = FRCP.f32 r48^
+        r2 = FMA.f32.clamp_0_1 r2^, r48^, u256.neg
+        r48 = IADD_IMM.i32 u256, index:1071378600
+        r2 = FMA.f32 r2^, r48^, u264
+        r48 = FREXPE.f32.log r2
+        r48 = S32_TO_F32 r48^
+        r49 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r49^, r48^
+        r2 = FMA.f32 r2^, u265[1], u256.neg
+        r48 = FADD.f32 u22[1], r51^.neg
+        r2 = FMA.f32 r2^, r48^, r50^
+        r2 = FMA.f32.clamp_0_1 r2^, r4^, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4^
+        r48 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r48^, r4^
+        r2 = FMA_RSCALE.f32 r5^, r2^, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4^, r2^
+        r4 = FMA.f32 r7, r2, r8^
+        r2 = FMA.f32 r12^, r2^, u264
+        r2 = FRCP.f32 r2^
+        r2 = FMA.f32 r4^, r2^, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4^
+        r5 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r5^, r4^
+        r2 = FMA_RSCALE.f32 r9^, r2^, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4^, r2^
+        r4 = IADD_IMM.i32 u256, index:1007488235
+        r4 = FMA.f32 r4^, r10, r2
+        r5 = IADD_IMM.i32 u256, index:3154971883
+        r5 = FMA.f32 r5^, r10, r2
+        r8 = IADD_IMM.i32 u256, index:1057976498
+        r2 = FMA.f32 r8^, r10^, r2^
+        r8 = IADD_IMM.i32 u256, index:1038312320
+        r4 = FMA.f32.clamp_0_1 r8^, r0, r4^
+        r8 = IADD_IMM.i32 u256, index:3185795968
+        r5 = FMA.f32.clamp_0_1 r8^, r0, r5^
+        r8 = IADD_IMM.i32 u256, index:3198429503
+        r0 = FMA.f32.clamp_0_1 r8^, r0^, r2^
+        r2 = FREXPE.f32.log r4
+        r2 = S32_TO_F32 r2^
+        r8 = FADD_LSCALE.f32 u264.neg, r4
+        r4 = FLOGD.f32 r4^
+        r2 = FMA.f32 r4^, r8^, r2^
+        r2 = FMA_RSCALE.f32 r3, r2^, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4^, r2^
+        r4 = FREXPE.f32.log r5
+        r4 = S32_TO_F32 r4^
+        r8 = FADD_LSCALE.f32 u264.neg, r5
+        r5 = FLOGD.f32 r5^
+        r4 = FMA.f32 r5^, r8^, r4^
+        r4 = FMA_RSCALE.f32 r3, r4^, u256.neg, r6
+        r5 = F32_TO_S32 r4
+        r4 = FEXP.f32 r5^, r4^
+        r5 = FREXPE.f32.log r0
+        r5 = S32_TO_F32 r5^
+        r8 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0^
+        r0 = FMA.f32 r0^, r8^, r5^
+        r0 = FMA_RSCALE.f32 r3^, r0^, u256.neg, r6
+        r3 = F32_TO_S32 r0
+        r0 = FEXP.f32 r3^, r0^
+        r3 = FADD.f32.clamp_0_inf r2, r11
+        r5 = FADD.f32.clamp_0_inf r4, r11
+        r8 = FADD.f32.clamp_0_inf r0, r11^
+        r2 = FMA.f32 r14, r2^, r7
+        r4 = FMA.f32 r14, r4^, r7
+        r0 = FMA.f32 r14^, r0^, r7^
+        r2 = FRCP.f32 r2^
+        r4 = FRCP.f32 r4^
+        r0 = FRCP.f32 r0^
+        r2 = FMA.f32 r3^, r2^, u256.neg
+        r3 = FMA.f32 r5^, r4^, u256.neg
+        r0 = FMA.f32 r8^, r0^, u256.neg
+        r4 = FREXPE.f32.log r2
+        r4 = S32_TO_F32 r4^
+        r5 = FADD_LSCALE.f32 u264.neg, r2
+        r2 = FLOGD.f32 r2^
+        r2 = FMA.f32 r2^, r5^, r4^
+        r2 = FMA_RSCALE.f32 r13, r2^, u256.neg, r6
+        r4 = F32_TO_S32 r2
+        r2 = FEXP.f32 r4^, r2^
+        r4 = FREXPE.f32.log r3
+        r4 = S32_TO_F32 r4^
+        r5 = FADD_LSCALE.f32 u264.neg, r3
+        r3 = FLOGD.f32 r3^
+        r3 = FMA.f32 r3^, r5^, r4^
+        r3 = FMA_RSCALE.f32 r13, r3^, u256.neg, r6
+        r4 = F32_TO_S32 r3
+        r3 = FEXP.f32 r4^, r3^
+        r4 = FREXPE.f32.log r0
+        r4 = S32_TO_F32 r4^
+        r5 = FADD_LSCALE.f32 u264.neg, r0
+        r0 = FLOGD.f32 r0^
+        r0 = FMA.f32 r0^, r5^, r4^
+        r0 = FMA_RSCALE.f32 r13^, r0^, u256.neg, r6^
+        r4 = F32_TO_S32 r0
+        r0 = FEXP.f32 r4^, r0^
+        r4 = FMA.f32 u9, r3, u9[1]
+        r4 = FMA.f32 u26, r2, r4^
+        r4 = FMA.f32 u27[1], r0, r4^
+        r5 = FMA.f32 u10, r3, u10[1]
+        r5 = FMA.f32 u26[1], r2, r5^
+        r5 = FMA.f32 u28, r0, r5^
+        r3 = FMA.f32 u11, r3^, u11[1]
+        r2 = FMA.f32 u27, r2^, r3^
+        r0 = FMA.f32 u28[1], r0^, r2^
+        r2 = FMA.f32 r4^, r15, u256.neg
+        r3 = FMA.f32 r5^, r15, u256.neg
+        r0 = FMA.f32.flow10 r0^, r15^, u256.neg
+} -> block12  from block9
+block12 {
+        r4 = FMA.f32 r0, u16, u256.neg
+        r4 = FMA.f32 r3, u15[1], r4^
+        r4 = FMA.f32 r2, u15, r4^
+        r2 = FADD.f32 r2^, r4.neg
+        r3 = FADD.f32 r3^, r4.neg
+        r0 = FADD.f32 r0^, r4.neg
+        r2 = FMA.f32 u14[1], r2^, r4
+        r3 = FMA.f32 u14[1], r3^, r4
+        r0 = FMA.f32 u14[1], r0^, r4^
+        r2 = FMA.f32 r2^, u12[1], u256.neg
+        r3 = FMA.f32 r3^, u13, u256.neg
+        r0 = FMA.f32 r0^, u13[1], u256.neg
+        r4 = FMA.f32 r1^, u14, u256.neg
+        r1 = ICMP_OR.u32.eq.m1 u20, u256, u256
+        BRANCHZ.i16.flow10.eq r1^.h00, u256 -> block14
+} -> block14 block13  from block10 block11
+block13 {
+        r1 = IADD_IMM.i32 u256, index:981668463
+        r1 = FMAX.f32.nan_suppress r4, r1^
+        r1 = FRCP.f32 r1^
+        r0 = FMA.f32 r0^, r1, u20[1].neg
+        r5 = FRCP.f32 u21
+        r0 = FMA.f32 r0^, r5, u256.neg
+        r6 = FREXPE.f32.log r0
+        r6 = S32_TO_F32 r6^
+        r7 = FADD_LSCALE.f32 u264.neg, r0
+        r8 = FLOGD.f32 r0
+        r6 = FMA.f32 r8^, r7^, r6^
+        r3 = FMA.f32 r3^, r1, u20[1].neg
+        r3 = FMA.f32 r3^, r5, u256.neg
+        r7 = FREXPE.f32.log r3
+        r7 = S32_TO_F32 r7^
+        r8 = FADD_LSCALE.f32 u264.neg, r3
+        r9 = FLOGD.f32 r3
+        r7 = FMA.f32 r9^, r8^, r7^
+        r1 = FMA.f32 r2^, r1^, u20[1].neg
+        r1 = FMA.f32 r1^, r5^, u256.neg
+        r2 = FREXPE.f32.log r1
+        r2 = S32_TO_F32 r2^
+        r5 = FADD_LSCALE.f32 u264.neg, r1
+        r8 = FLOGD.f32 r1
+        r2 = FMA.f32 r8^, r5^, r2^
+        r5 = IADD_IMM.i32 u256, index:24
+        r8 = IADD_IMM.i32 u256, index:1054168405
+        r6 = FMA_RSCALE.f32 r8, r6^, u256.neg, r5
+        r7 = FMA_RSCALE.f32 r8, r7^, u256.neg, r5
+        r2 = FMA_RSCALE.f32 r8^, r2^, u256.neg, r5^
+        r5 = F32_TO_S32 r6
+        r5 = FEXP.f32 r5^, r6^
+        r6 = F32_TO_S32 r7
+        r6 = FEXP.f32 r6^, r7^
+        r7 = F32_TO_S32 r2
+        r2 = FEXP.f32 r7^, r2^
+        r7 = IADD_IMM.i32 u256, index:3177269166
+        r8 = IADD_IMM.i32 u256, index:1065814589
+        r5 = FMA.f32 r5^, r8, r7
+        r6 = FMA.f32 r6^, r8, r7
+        r2 = FMA.f32 r2^, r8^, r7^
+        r7 = IADD_IMM.i32 u256, index:1095678034
+        r8 = IADD_IMM.i32 u256, index:994913820
+        r9 = FMA.f32 r0, r7, u256.neg
+        r0 = FCMP_OR.f32.ge.m1 r8, r0^, u256
+        r0 = CSEL.u32.eq r0^, u256, r5^, r9^
+        r5 = FMA.f32 r3, r7, u256.neg
+        r3 = FCMP_OR.f32.ge.m1 r8, r3^, u256
+        r3 = CSEL.u32.eq r3^, u256, r6^, r5^
+        r5 = FMA.f32 r1, r7^, u256.neg
+        r1 = FCMP_OR.f32.ge.m1 r8^, r1^, u256
+        r1 = CSEL.u32.eq r1^, u256, r2^, r5^
+        r2 = FMA.f32 r0^, r4, u256.neg
+        r3 = FMA.f32 r3^, r4, u256.neg
+        r0 = FMA.f32 r1^, r4, u256.neg
+        BRANCHZ.i16.flow10.eq u256, u256 -> block15
+} -> block15  from block12
+block14 {
+        r1 = FADD.f32 r2, u20[1].neg
+        r5 = FADD.f32 r3, u20[1].neg
+        r6 = FADD.f32 r0, u20[1].neg
+        r7 = FRCP.f32 u21
+        r1 = FMA.f32 r1^, r7, u256.neg
+        r5 = FMA.f32 r5^, r7, u256.neg
+        r6 = FMA.f32 r6^, r7, u256.neg
+        r8 = IADD_IMM.i32 u256, index:981668463
+        r8 = FMAX.f32.nan_suppress r4, r8^
+        r8 = FRCP.f32 r8^
+        r9 = FMA.f32 r2, r8, u20[1].neg
+        r10 = FMA.f32 r3, r8, u20[1].neg
+        r8 = FMA.f32 r0, r8^, u20[1].neg
+        r9 = FMA.f32 r9^, r7, u256.neg
+        r10 = FMA.f32 r10^, r7, u256.neg
+        r7 = FMA.f32 r8^, r7^, u256.neg
+        r8 = FADD.f32.clamp_0_1 r9, u256.neg
+        r11 = FADD.f32.clamp_0_1 r10, u256.neg
+        r12 = FADD.f32.clamp_0_1 r7, u256.neg
+        r13 = FREXPE.f32.log r8
+        r13 = S32_TO_F32 r13^
+        r14 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8^
+        r8 = FMA.f32 r8^, r14^, r13^
+        r13 = IADD_IMM.i32 u256, index:1042489344
+        r14 = IADD_IMM.i32 u256, index:24
+        r8 = FMA_RSCALE.f32 r13, r8^, u256.neg, r14
+        r15 = F32_TO_S32 r8
+        r8 = FEXP.f32 r15^, r8^
+        r15 = FREXPE.f32.log r11
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r11
+        r11 = FLOGD.f32 r11^
+        r11 = FMA.f32 r11^, r48^, r15^
+        r11 = FMA_RSCALE.f32 r13, r11^, u256.neg, r14
+        r15 = F32_TO_S32 r11
+        r11 = FEXP.f32 r15^, r11^
+        r15 = FREXPE.f32.log r12
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r12
+        r12 = FLOGD.f32 r12^
+        r12 = FMA.f32 r12^, r48^, r15^
+        r12 = FMA_RSCALE.f32 r13^, r12^, u256.neg, r14
+        r13 = F32_TO_S32 r12
+        r12 = FEXP.f32 r13^, r12^
+        r13 = IADD_IMM.i32 u256, index:1100402688
+        r15 = IADD_IMM.i32 u256, index:1062600704
+        r48 = FMA.f32 r13, r8, r15
+        r49 = FMA.f32 r13, r11, r15
+        r13 = FMA.f32 r13^, r12, r15^
+        r15 = IADD_IMM.i32 u256, index:1100316672
+        r8 = FMA.f32 r15, r8^, u264
+        r11 = FMA.f32 r15, r11^, u264
+        r12 = FMA.f32 r15^, r12^, u264
+        r8 = FRCP.f32 r8^
+        r11 = FRCP.f32 r11^
+        r12 = FRCP.f32 r12^
+        r8 = FMA.f32 r48^, r8^, u256.neg
+        r11 = FMA.f32 r49^, r11^, u256.neg
+        r12 = FMA.f32 r13^, r12^, u256.neg
+        r13 = FREXPE.f32.log r8
+        r13 = S32_TO_F32 r13^
+        r15 = FADD_LSCALE.f32 u264.neg, r8
+        r8 = FLOGD.f32 r8^
+        r8 = FMA.f32 r8^, r15^, r13^
+        r13 = IADD_IMM.i32 u256, index:1117630464
+        r8 = FMA_RSCALE.f32 r13, r8^, u256.neg, r14
+        r15 = F32_TO_S32 r8
+        r8 = FEXP.f32 r15^, r8^
+        r15 = FREXPE.f32.log r11
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r11
+        r11 = FLOGD.f32 r11^
+        r11 = FMA.f32 r11^, r48^, r15^
+        r11 = FMA_RSCALE.f32 r13, r11^, u256.neg, r14
+        r15 = F32_TO_S32 r11
+        r11 = FEXP.f32 r15^, r11^
+        r15 = FREXPE.f32.log r12
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r12
+        r12 = FLOGD.f32 r12^
+        r12 = FMA.f32 r12^, r48^, r15^
+        r12 = FMA_RSCALE.f32 r13^, r12^, u256.neg, r14
+        r13 = F32_TO_S32 r12
+        r12 = FEXP.f32 r13^, r12^
+        r8 = FMA.f32 r8^, r4, u256.neg
+        r11 = FMA.f32 r11^, r4, u256.neg
+        r12 = FMA.f32 r12^, r4, u256.neg
+        r9 = FADD.f32.clamp_0_inf r9^, u256.neg
+        r10 = FADD.f32.clamp_0_inf r10^, u256.neg
+        r7 = FADD.f32.clamp_0_inf r7^, u256.neg
+        r13 = FREXPE.f32.log r9
+        r13 = S32_TO_F32 r13^
+        r15 = FADD_LSCALE.f32 u264.neg, r9
+        r9 = FLOGD.f32 r9^
+        r9 = FMA.f32 r9^, r15^, r13^
+        r13 = IADD_IMM.i32 u256, index:1055439406
+        r9 = FMA_RSCALE.f32 r13, r9^, u256.neg, r14
+        r15 = F32_TO_S32 r9
+        r9 = FEXP.f32 r15^, r9^
+        r15 = FREXPE.f32.log r10
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r10
+        r10 = FLOGD.f32 r10^
+        r10 = FMA.f32 r10^, r48^, r15^
+        r10 = FMA_RSCALE.f32 r13, r10^, u256.neg, r14
+        r15 = F32_TO_S32 r10
+        r10 = FEXP.f32 r15^, r10^
+        r15 = FREXPE.f32.log r7
+        r15 = S32_TO_F32 r15^
+        r48 = FADD_LSCALE.f32 u264.neg, r7
+        r7 = FLOGD.f32 r7^
+        r7 = FMA.f32 r7^, r48^, r15^
+        r7 = FMA_RSCALE.f32 r13^, r7^, u256.neg, r14^
+        r13 = F32_TO_S32 r7
+        r7 = FEXP.f32 r13^, r7^
+        r9 = FMA.f32 r9^, r4, u256.neg
+        r10 = FMA.f32 r10^, r4, u256.neg
+        r7 = FMA.f32 r7^, r4, u256.neg
+        r13 = MOV.i32 u256
+        r14 = ICMP_OR.u32.eq.m1 u20, u260.b3, r13
+        r2 = CSEL.u32.eq r14, u256, r2^, r9^
+        r3 = CSEL.u32.eq r14, u256, r3^, r10^
+        r0 = CSEL.u32.eq r14^, u256, r0^, r7^
+        r7 = ICMP_OR.u32.eq.m1 u20, u260.b2, r13
+        r2 = CSEL.u32.eq r7, u256, r2^, r8^
+        r3 = CSEL.u32.eq r7, u256, r3^, r11^
+        r7 = CSEL.u32.eq r7^, u256, r0^, r12^
+        r8 = ICMP_OR.u32.eq.m1 u20, u258.b3, r13^
+        r0 = CSEL.u32.eq r8, u256, r2^, r1^
+        r3 = CSEL.u32.eq r8, u256, r3^, r5^
+        r2 = CSEL.u32.flow10.eq r8^, u256, r7^, r6^
+} -> block15  from block12
+block15 {
+        NOP.flow8
+        r60 = ATEST.flow1 r60^, r4, atest-param
+        r1 = MOV.i32 r3^
+        r3 = MOV.i32.flow9 r4^
+        r48 = BLEND.flow15.f32 r0:r1:r2:r3, r60^, blend_descriptor_0, blend_descriptor_0[1], _.h00, sr_count:4, sr_count_2:2
+} from block13 block14
+   LD_VAR_IMM.slot0.v2.f32.center.store @r0:r1, r61^, table:0x1, index:0x0
+   ICMP_OR.u32.eq.m1 r2, u24, 0x0, 0x0
+   BRANCHZ.eq.wait0 r2^.h0, offset:9
+   NOP.reconverge
+   IADD_IMM.i32 r2, 0x0, #0x20001800
+   MOV.i32 r3, 0x0
+   TEX_SINGLE.slot1.skip.reserved.16.2d.computed.wait1 @r0:r1, @r0:r1, r2^
+   F16_TO_F32.discard r2, r0.h0
+   F16_TO_F32 r0, r0^.h1
+   F16_TO_F32 r3, r1.h0
+   F16_TO_F32 r1, r1^.h1
+   BRANCHZ.eq.reconverge 0x0, offset:25
+   IADD_IMM.i32 r2, 0x0, #0x20001800
+   MOV.i32 r3, 0x0
+   TEX_SINGLE.slot2.skip.reserved.16.r.2d.computed @r2, @r0:r1, r2^
+   IADD_IMM.i32 r3, 0x0, #0x20011801
+   MOV.i32 r4, r3^
+   MOV.i32 r5, 0x0
+   TEX_SINGLE.slot0.skip.reserved.16.rg.2d.computed.wait2 @r0, @r0:r1, r4^
+   U16_TO_U32.discard r1, r2^.h0
+   IADD_IMM.i32 r2, 0x0, #0xAC00AC00
+   FADD.v2f16 r1, r1.h00, r2^
+   IADD_IMM.i32 r2, 0x0, #0x3CA83CA8
+   FMA.v2f16.wait0 r1, r2^, r1.h00, 0x0.neg
+   FADD_IMM.v2f16 r0, r0^, #0xB800B800
+   F16_TO_F32 r1, r1^.h0
+   F16_TO_F32 r2, r0.h0
+   IADD_IMM.i32 r3, 0x0, #0xBEC89511
+   FMA.f32 r4, r3^, r2, r1
+   IADD_IMM.i32 r3, 0x0, #0x40011A55
+   FMA.f32 r3, r3^, r2^, r1
+   F16_TO_F32 r2, r0^.h1
+   IADD_IMM.i32 r0, 0x0, #0xBF501EA6
+   FMA.f32 r0, r0^, r2, r4^
+   IADD_IMM.i32 r4, 0x0, #0x3FCC4A9B
+   FMA.f32 r2, r4^, r2^, r1^
+   IADD_IMM.i32.reconverge r1, 0x0, #0x3F800000
+   ICMP_OR.u32.eq.m1 r4, u39, 0x0, 0x0
+   BRANCHZ.eq.reconverge r4^.h0, offset:57
+   IADD_IMM.i32 r4, 0x0, #0x3A83126F
+   FMAX.f32 r4, r1, r4^
+   FRCP.f32 r4, r4^
+   FMA.f32 r3, r3^, r4, 0x0.neg
+   IADD_IMM.i32 r5, 0x0, #0x3F72A76F
+   FADD_IMM.f32 r6, r3, #0x3D6147AE
+   FMA.f32 r6, r6^, r5, 0x0.neg
+   FREXPE.f32.log r7, r6
+   S32_TO_F32 r7, r7^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r6
+   FLOGD.f32 r6, r6^
+   FMA.f32 r6, r6^, r8^, r7^
+   FMA.f32 r0, r0^, r4, 0x0.neg
+   FADD_IMM.f32 r7, r0, #0x3D6147AE
+   FMA.f32 r7, r7^, r5, 0x0.neg
+   FREXPE.f32.log r8, r7
+   S32_TO_F32 r8, r8^
+   FADD_LSCALE.f32 r9, 0x3F800000.neg, r7
+   FLOGD.f32 r7, r7^
+   FMA.f32 r7, r7^, r9^, r8^
+   FMA.f32 r2, r2^, r4^, 0x0.neg
+   FADD_IMM.f32 r4, r2, #0x3D6147AE
+   FMA.f32 r4, r4^, r5^, 0x0.neg
+   FREXPE.f32.log r5, r4
+   S32_TO_F32 r5, r5^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r4
+   FLOGD.f32 r4, r4^
+   FMA.f32 r4, r4^, r8^, r5^
+   IADD_IMM.i32 r5, 0x0, #0x18
+   IADD_IMM.i32 r8, 0x0, #0x4019999A
+   FMA_RSCALE.f32 r6, r8, r6^, 0x0.neg, r5
+   FMA_RSCALE.f32 r7, r8, r7^, 0x0.neg, r5
+   FMA_RSCALE.f32 r4, r8^, r4^, 0x0.neg, r5^
+   F32_TO_S32 r5, r6
+   FEXP.f32 r5, r5^, r6^
+   IADD_IMM.i32 r6, 0x0, #0x3D9E8391
+   IADD_IMM.i32 r8, 0x0, #0x3D25AEE6
+   FMA.f32 r9, r3, r6, 0x0.neg
+   FCMP_OR.f32.ge.m1 r3, r8, r3^, 0x0
+   CSEL.u32.eq r3, r3^, 0x0, r5^, r9^
+   F32_TO_S32 r5, r7
+   FEXP.f32 r5, r5^, r7^
+   FMA.f32 r7, r0, r6, 0x0.neg
+   FCMP_OR.f32.ge.m1 r0, r8, r0^, 0x0
+   CSEL.u32.eq r0, r0^, 0x0, r5^, r7^
+   F32_TO_S32 r5, r4
+   FEXP.f32 r4, r5^, r4^
+   FMA.f32 r5, r2, r6^, 0x0.neg
+   FCMP_OR.f32.ge.m1 r2, r8^, r2^, 0x0
+   CSEL.u32.eq r2, r2^, 0x0, r4^, r5^
+   FMA.f32 r3, r3^, u11, u10
+   FMA.f32 r0, r0^, u11, u10
+   FMA.f32 r2, r2^, u11, u10
+   FMA.f32 r3, r3^, r1, 0x0.neg
+   FMA.f32 r0, r0^, r1, 0x0.neg
+   FMA.f32 r2, r2^, r1, 0x0.neg
+   BRANCHZ.eq.reconverge 0x0, offset:131
+   MOV.i32 r4, 0x0
+   ICMP_OR.u32.eq.m1 r4, u39, 0x1000000.b3, r4^
+   BRANCHZ.eq.reconverge r4^.h0, offset:4
+   FMA.f32 r2, r2^, u11, u10
+   FMA.f32 r0, r0^, u11, u10
+   FMA.f32 r3, r3^, u11, u10
+   BRANCHZ.eq.reconverge 0x0, offset:124
+   IADD_IMM.i32 r4, 0x0, #0x3A83126F
+   FMAX.f32 r4, r1, r4^
+   FRCP.f32 r4, r4^
+   FMA.f32 r5, r2, r4, 0x0.neg
+   FMA.f32 r6, r0, r4, 0x0.neg
+   FMA.f32 r4, r3, r4^, 0x0.neg
+   FADD.f32.clamp_0_1 r7, r5, 0x0.neg
+   FADD.f32.clamp_0_1 r8, r6, 0x0.neg
+   FADD.f32.clamp_0_1 r9, r4, 0x0.neg
+   FREXPE.f32.log r10, r7
+   S32_TO_F32 r10, r10^
+   FADD_LSCALE.f32 r11, 0x3F800000.neg, r7
+   FLOGD.f32 r7, r7^
+   FMA.f32 r7, r7^, r11^, r10^
+   IADD_IMM.i32 r10, 0x0, #0x3C4FCDAC
+   IADD_IMM.i32 r11, 0x0, #0x18
+   FMA_RSCALE.f32 r7, r10, r7^, 0x0.neg, r11
+   F32_TO_S32 r12, r7
+   FEXP.f32 r7, r12^, r7^
+   FREXPE.f32.log r12, r8
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r8
+   FLOGD.f32 r8, r8^
+   FMA.f32 r8, r8^, r13^, r12^
+   FMA_RSCALE.f32 r8, r10, r8^, 0x0.neg, r11
+   F32_TO_S32 r12, r8
+   FEXP.f32 r8, r12^, r8^
+   FREXPE.f32.log r12, r9
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r9
+   FLOGD.f32 r9, r9^
+   FMA.f32 r9, r9^, r13^, r12^
+   FMA_RSCALE.f32 r9, r10^, r9^, 0x0.neg, r11
+   F32_TO_S32 r10, r9
+   FEXP.f32 r9, r10^, r9^
+   IADD_IMM.i32 r10, 0x0, #0xBF560000
+   FADD.f32.clamp_0_inf r12, r7, r10
+   FADD.f32.clamp_0_inf r13, r8, r10
+   FADD.f32.clamp_0_inf r10, r9, r10^
+   IADD_IMM.i32 r14, 0x0, #0xC1958000
+   IADD_IMM.i32 r15, 0x0, #0x4196D000
+   FMA.f32 r7, r14, r7^, r15
+   FMA.f32 r8, r14, r8^, r15
+   FMA.f32 r9, r14^, r9^, r15^
+   FRCP.f32 r7, r7^
+   FRCP.f32 r8, r8^
+   FRCP.f32 r9, r9^
+   FMA.f32 r7, r12^, r7^, 0x0.neg
+   FMA.f32 r8, r13^, r8^, 0x0.neg
+   FMA.f32 r9, r10^, r9^, 0x0.neg
+   FREXPE.f32.log r10, r7
+   S32_TO_F32 r10, r10^
+   FADD_LSCALE.f32 r12, 0x3F800000.neg, r7
+   FLOGD.f32 r7, r7^
+   FMA.f32 r7, r7^, r12^, r10^
+   IADD_IMM.i32 r10, 0x0, #0x40C8E06B
+   FMA_RSCALE.f32 r7, r10, r7^, 0x0.neg, r11
+   F32_TO_S32 r12, r7
+   FEXP.f32 r7, r12^, r7^
+   FREXPE.f32.log r12, r8
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r8
+   FLOGD.f32 r8, r8^
+   FMA.f32 r8, r8^, r13^, r12^
+   FMA_RSCALE.f32 r8, r10, r8^, 0x0.neg, r11
+   F32_TO_S32 r12, r8
+   FEXP.f32 r8, r12^, r8^
+   FREXPE.f32.log r12, r9
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r9
+   FLOGD.f32 r9, r9^
+   FMA.f32 r9, r9^, r13^, r12^
+   FMA_RSCALE.f32 r9, r10^, r9^, 0x0.neg, r11
+   F32_TO_S32 r10, r9
+   FEXP.f32 r9, r10^, r9^
+   FMA.f32 r7, r7^, u11, u10
+   FMA.f32 r8, r8^, u11, u10
+   FMA.f32 r9, r9^, u11, u10
+   FMA.f32 r7, r7^, r1, 0x0.neg
+   FMA.f32 r8, r8^, r1, 0x0.neg
+   FMA.f32 r9, r9^, r1, 0x0.neg
+   FADD.f32.clamp_0_inf r5, r5^, 0x0.neg
+   FADD.f32.clamp_0_inf r6, r6^, 0x0.neg
+   FADD.f32.clamp_0_inf r4, r4^, 0x0.neg
+   FREXPE.f32.log r10, r5
+   S32_TO_F32 r10, r10^
+   FADD_LSCALE.f32 r12, 0x3F800000.neg, r5
+   FLOGD.f32 r5, r5^
+   FMA.f32 r5, r5^, r12^, r10^
+   IADD_IMM.i32 r10, 0x0, #0x400CCCCD
+   FMA_RSCALE.f32 r5, r10, r5^, 0x0.neg, r11
+   F32_TO_S32 r12, r5
+   FEXP.f32 r5, r12^, r5^
+   FREXPE.f32.log r12, r6
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r6
+   FLOGD.f32 r6, r6^
+   FMA.f32 r6, r6^, r13^, r12^
+   FMA_RSCALE.f32 r6, r10, r6^, 0x0.neg, r11
+   F32_TO_S32 r12, r6
+   FEXP.f32 r6, r12^, r6^
+   FREXPE.f32.log r12, r4
+   S32_TO_F32 r12, r12^
+   FADD_LSCALE.f32 r13, 0x3F800000.neg, r4
+   FLOGD.f32 r4, r4^
+   FMA.f32 r4, r4^, r13^, r12^
+   FMA_RSCALE.f32 r4, r10^, r4^, 0x0.neg, r11^
+   F32_TO_S32 r10, r4
+   FEXP.f32 r4, r10^, r4^
+   FMA.f32 r5, r5^, u11, u10
+   FMA.f32 r6, r6^, u11, u10
+   FMA.f32 r4, r4^, u11, u10
+   FMA.f32 r5, r5^, r1, 0x0.neg
+   FMA.f32 r6, r6^, r1, 0x0.neg
+   FMA.f32 r4, r4^, r1, 0x0.neg
+   MOV.i32 r10, 0x0
+   ICMP_OR.u32.eq.m1 r11, u39, 0x3020100.b3, r10
+   CSEL.u32.eq r2, r11, 0x0, r2^, r5^
+   CSEL.u32.eq r0, r11, 0x0, r0^, r6^
+   CSEL.u32.eq r3, r11^, 0x0, r3^, r4^
+   ICMP_OR.u32.eq.m1 r4, u39, 0x3020100.b2, r10^
+   CSEL.u32.eq r2, r4, 0x0, r2^, r7^
+   CSEL.u32.eq r0, r4, 0x0, r0^, r8^
+   CSEL.u32.eq.reconverge r3, r4^, 0x0, r3^, r9^
+   FMA.f32 r4, u4, r0, u5
+   FMA.f32 r4, u33, r2, r4^
+   FMA.f32 r4, u36, r3, r4^
+   FMA.f32 r5, u6, r0, u7
+   FMA.f32 r5, u34, r2, r5^
+   FMA.f32 r5, u37, r3, r5^
+   FMA.f32 r0, u8, r0^, u9
+   FMA.f32 r0, u35, r2^, r0^
+   FMA.f32 r0, u38, r3^, r0^
+   IADD_IMM.i32 r2, 0x0, #0x3F8147AE
+   FMA.f32 r2, u45, r2^, 0x0.neg
+   FCMP_OR.f32.lt.m1 r2, u43, r2^, 0x0
+   BRANCHZ.eq.reconverge r2^.h0, offset:7
+   FADD.f32.clamp_0_inf r2, r4^, 0x0.neg
+   FADD.f32.clamp_0_inf r3, r5^, 0x0.neg
+   FADD.f32.clamp_0_inf r0, r0^, 0x0.neg
+   FMIN.f32 r2, r2^, u45
+   FMIN.f32 r3, r3^, u45
+   FMIN.f32 r0, r0^, u45
+   BRANCHZ.eq.reconverge 0x0, offset:251
+   FMA.f32 r2, u12, r5, u13
+   FMA.f32 r2, u46, r4, r2^
+   FMA.f32 r2, u49, r0, r2^
+   FMA.f32 r3, u14, r5, u15
+   FMA.f32 r3, u47, r4, r3^
+   FMA.f32 r3, u50, r0, r3^
+   FMA.f32 r5, u16, r5^, u17
+   FMA.f32 r4, u48, r4^, r5^
+   FMA.f32 r0, u51, r0^, r4^
+   IADD_IMM.i32 r4, 0x0, #0x38D1B717
+   FMA.f32.clamp_0_1 r2, r2^, r4, 0x0.neg
+   FMA.f32.clamp_0_1 r3, r3^, r4, 0x0.neg
+   FMA.f32.clamp_0_1 r0, r0^, r4, 0x0.neg
+   FREXPE.f32.log r5, r2
+   S32_TO_F32 r5, r5^
+   FADD_LSCALE.f32 r6, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r6^, r5^
+   IADD_IMM.i32 r5, 0x0, #0x3E232000
+   IADD_IMM.i32 r6, 0x0, #0x18
+   FMA_RSCALE.f32 r2, r5, r2^, 0x0.neg, r6
+   F32_TO_S32 r7, r2
+   FEXP.f32 r2, r7^, r2^
+   FREXPE.f32.log r7, r3
+   S32_TO_F32 r7, r7^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r3
+   FLOGD.f32 r3, r3^
+   FMA.f32 r3, r3^, r8^, r7^
+   FMA_RSCALE.f32 r3, r5, r3^, 0x0.neg, r6
+   F32_TO_S32 r7, r3
+   FEXP.f32 r3, r7^, r3^
+   FREXPE.f32.log r7, r0
+   S32_TO_F32 r7, r7^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r0
+   FLOGD.f32 r0, r0^
+   FMA.f32 r0, r0^, r8^, r7^
+   FMA_RSCALE.f32 r0, r5, r0^, 0x0.neg, r6
+   F32_TO_S32 r7, r0
+   FEXP.f32 r0, r7^, r0^
+   IADD_IMM.i32 r7, 0x0, #0x4196D000
+   IADD_IMM.i32 r8, 0x0, #0x3F560000
+   FMA.f32 r9, r7, r2, r8
+   FMA.f32 r10, r7, r3, r8
+   FMA.f32 r11, r7, r0, r8
+   IADD_IMM.i32 r12, 0x0, #0x41958000
+   FMA.f32 r2, r12, r2^, 0x3F800000
+   FMA.f32 r3, r12, r3^, 0x3F800000
+   FMA.f32 r0, r12, r0^, 0x3F800000
+   FRCP.f32 r2, r2^
+   FRCP.f32 r3, r3^
+   FRCP.f32 r0, r0^
+   FMA.f32 r2, r9^, r2^, 0x0.neg
+   FMA.f32 r3, r10^, r3^, 0x0.neg
+   FMA.f32 r0, r11^, r0^, 0x0.neg
+   FREXPE.f32.log r9, r2
+   S32_TO_F32 r9, r9^
+   FADD_LSCALE.f32 r10, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r10^, r9^
+   IADD_IMM.i32 r9, 0x0, #0x429DB000
+   FMA_RSCALE.f32 r2, r9, r2^, 0x0.neg, r6
+   F32_TO_S32 r10, r2
+   FEXP.f32 r2, r10^, r2^
+   FREXPE.f32.log r10, r3
+   S32_TO_F32 r10, r10^
+   FADD_LSCALE.f32 r11, 0x3F800000.neg, r3
+   FLOGD.f32 r3, r3^
+   FMA.f32 r3, r3^, r11^, r10^
+   FMA_RSCALE.f32 r3, r9, r3^, 0x0.neg, r6
+   F32_TO_S32 r10, r3
+   FEXP.f32 r3, r10^, r3^
+   FREXPE.f32.log r10, r0
+   S32_TO_F32 r10, r10^
+   FADD_LSCALE.f32 r11, 0x3F800000.neg, r0
+   FLOGD.f32 r0, r0^
+   FMA.f32 r0, r0^, r11^, r10^
+   FMA_RSCALE.f32 r0, r9, r0^, 0x0.neg, r6
+   F32_TO_S32 r10, r0
+   FEXP.f32 r0, r10^, r0^
+   IADD_IMM.i32 r10, 0x0, #0xC054B400
+   FMA.f32 r10, r10^, r3, 0x0.neg
+   IADD_IMM.i32 r11, 0x0, #0xC087DC00
+   FMA.f32 r11, r11^, r3, 0x0.neg
+   FADD.f32 r3, r2, r3^
+   FMA.f32.clamp_0_1 r3, 0x38000000.h1, r3^, 0x0.neg
+   IADD_IMM.i32 r13, 0x0, #0x3FCE9000
+   FMA.f32 r10, r13^, r2, r10^
+   IADD_IMM.i32 r13, 0x0, #0x408C1A00
+   FMA.f32 r2, r13^, r2^, r11^
+   IADD_IMM.i32 r11, 0x0, #0x3FDAD800
+   FMA.f32 r10, r11^, r0, r10^
+   IADD_IMM.i32 r11, 0x0, #0xBE07C000
+   FMA.f32 r0, r11^, r0^, r2^
+   FREXPE.f32.log r2, r3
+   S32_TO_F32 r2, r2^
+   FADD_LSCALE.f32 r11, 0x3F800000.neg, r3
+   FLOGD.f32 r3, r3^
+   FMA.f32 r2, r3^, r11^, r2^
+   IADD_IMM.i32 r3, 0x0, #0x3C4FCDAC
+   FMA_RSCALE.f32 r2, r3, r2^, 0x0.neg, r6
+   F32_TO_S32 r11, r2
+   FEXP.f32 r2, r11^, r2^
+   IADD_IMM.i32 r11, 0x0, #0xBF560000
+   FADD.f32.clamp_0_inf r13, r2, r11
+   IADD_IMM.i32 r14, 0x0, #0xC1958000
+   FMA.f32 r2, r14, r2^, r7
+   FRCP.f32 r2, r2^
+   FMA.f32 r2, r13^, r2^, 0x0.neg
+   FREXPE.f32.log r13, r2
+   S32_TO_F32 r13, r13^
+   FADD_LSCALE.f32 r15, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r15^, r13^
+   IADD_IMM.i32 r13, 0x0, #0x40C8E06B
+   FMA_RSCALE.f32 r2, r13, r2^, 0x0.neg, r6
+   F32_TO_S32 r15, r2
+   FEXP.f32 r2, r15^, r2^
+   IADD_IMM.i32 r15, 0x0, #0x461C4000
+   FMA.f32 r2, r2^, r15, 0x0.neg
+   FRCP.f32 r48, u44
+   FMA.f32 r49, u43, r48, 0x0.neg
+   IADD_IMM.i32 r50, 0x0, #0x3FC00000
+   FMIN.f32 r50, r49, r50^
+   FMA.f32 r51, u45, r48, 0x0.neg
+   FRCP.f32 r51, r51^
+   FMA.f32 r51, r50, r51^, 0x0.neg
+   FMAX.f32 r51, r51^, 0x3F800000
+   FMIN.f32 r50, r51^, r50^
+   FRCP.f32 r50, r50^
+   FMA.f32 r51, u44, r50, 0x0.neg
+   FMA.f32 r50, r2, r50^, 0x0.neg
+   FMIN.f32 r50, r50^, r51
+   FMA.f32 r2, r2^, r48^, 0x3F800000.neg
+   FADD_IMM.f32 r48, r49^, #0xBF800000
+   FRCP.f32 r48, r48^
+   FMA.f32.clamp_0_1 r2, r2^, r48^, 0x0.neg
+   IADD_IMM.i32 r48, 0x0, #0x3FDBF0A8
+   FMA.f32 r2, r2^, r48^, 0x3F800000
+   FREXPE.f32.log r48, r2
+   S32_TO_F32 r48, r48^
+   FADD_LSCALE.f32 r49, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r49^, r48^
+   FMA.f32 r2, r2^, 0x3F317218, 0x0.neg
+   FADD.f32 r48, u45, r51^.neg
+   FMA.f32 r2, r2^, r48^, r50^
+   FMA.f32.clamp_0_1 r2, r2^, r4^, 0x0.neg
+   FREXPE.f32.log r4, r2
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r48^, r4^
+   FMA_RSCALE.f32 r2, r5^, r2^, 0x0.neg, r6
+   F32_TO_S32 r4, r2
+   FEXP.f32 r2, r4^, r2^
+   FMA.f32 r4, r7, r2, r8^
+   FMA.f32 r2, r12^, r2^, 0x3F800000
+   FRCP.f32 r2, r2^
+   FMA.f32 r2, r4^, r2^, 0x0.neg
+   FREXPE.f32.log r4, r2
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r5, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r5^, r4^
+   FMA_RSCALE.f32 r2, r9^, r2^, 0x0.neg, r6
+   F32_TO_S32 r4, r2
+   FEXP.f32 r2, r4^, r2^
+   IADD_IMM.i32 r4, 0x0, #0x3C0D0CEB
+   FMA.f32 r4, r4^, r10, r2
+   IADD_IMM.i32 r5, 0x0, #0xBC0D0CEB
+   FMA.f32 r5, r5^, r10, r2
+   IADD_IMM.i32 r8, 0x0, #0x3F0F70B2
+   FMA.f32 r2, r8^, r10^, r2^
+   IADD_IMM.i32 r8, 0x0, #0x3DE36380
+   FMA.f32.clamp_0_1 r4, r8^, r0, r4^
+   IADD_IMM.i32 r8, 0x0, #0xBDE36380
+   FMA.f32.clamp_0_1 r5, r8^, r0, r5^
+   IADD_IMM.i32 r8, 0x0, #0xBEA4293F
+   FMA.f32.clamp_0_1 r0, r8^, r0^, r2^
+   FREXPE.f32.log r2, r4
+   S32_TO_F32 r2, r2^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r4
+   FLOGD.f32 r4, r4^
+   FMA.f32 r2, r4^, r8^, r2^
+   FMA_RSCALE.f32 r2, r3, r2^, 0x0.neg, r6
+   F32_TO_S32 r4, r2
+   FEXP.f32 r2, r4^, r2^
+   FREXPE.f32.log r4, r5
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r5
+   FLOGD.f32 r5, r5^
+   FMA.f32 r4, r5^, r8^, r4^
+   FMA_RSCALE.f32 r4, r3, r4^, 0x0.neg, r6
+   F32_TO_S32 r5, r4
+   FEXP.f32 r4, r5^, r4^
+   FREXPE.f32.log r5, r0
+   S32_TO_F32 r5, r5^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r0
+   FLOGD.f32 r0, r0^
+   FMA.f32 r0, r0^, r8^, r5^
+   FMA_RSCALE.f32 r0, r3^, r0^, 0x0.neg, r6
+   F32_TO_S32 r3, r0
+   FEXP.f32 r0, r3^, r0^
+   FADD.f32.clamp_0_inf r3, r2, r11
+   FADD.f32.clamp_0_inf r5, r4, r11
+   FADD.f32.clamp_0_inf r8, r0, r11^
+   FMA.f32 r2, r14, r2^, r7
+   FMA.f32 r4, r14, r4^, r7
+   FMA.f32 r0, r14^, r0^, r7^
+   FRCP.f32 r2, r2^
+   FRCP.f32 r4, r4^
+   FRCP.f32 r0, r0^
+   FMA.f32 r2, r3^, r2^, 0x0.neg
+   FMA.f32 r3, r5^, r4^, 0x0.neg
+   FMA.f32 r0, r8^, r0^, 0x0.neg
+   FREXPE.f32.log r4, r2
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r5, 0x3F800000.neg, r2
+   FLOGD.f32 r2, r2^
+   FMA.f32 r2, r2^, r5^, r4^
+   FMA_RSCALE.f32 r2, r13, r2^, 0x0.neg, r6
+   F32_TO_S32 r4, r2
+   FEXP.f32 r2, r4^, r2^
+   FREXPE.f32.log r4, r3
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r5, 0x3F800000.neg, r3
+   FLOGD.f32 r3, r3^
+   FMA.f32 r3, r3^, r5^, r4^
+   FMA_RSCALE.f32 r3, r13, r3^, 0x0.neg, r6
+   F32_TO_S32 r4, r3
+   FEXP.f32 r3, r4^, r3^
+   FREXPE.f32.log r4, r0
+   S32_TO_F32 r4, r4^
+   FADD_LSCALE.f32 r5, 0x3F800000.neg, r0
+   FLOGD.f32 r0, r0^
+   FMA.f32 r0, r0^, r5^, r4^
+   FMA_RSCALE.f32 r0, r13^, r0^, 0x0.neg, r6^
+   F32_TO_S32 r4, r0
+   FEXP.f32 r0, r4^, r0^
+   FMA.f32 r4, u18, r3, u19
+   FMA.f32 r4, u52, r2, r4^
+   FMA.f32 r4, u55, r0, r4^
+   FMA.f32 r5, u20, r3, u21
+   FMA.f32 r5, u53, r2, r5^
+   FMA.f32 r5, u56, r0, r5^
+   FMA.f32 r3, u22, r3^, u23
+   FMA.f32 r2, u54, r2^, r3^
+   FMA.f32 r0, u57, r0^, r2^
+   FMA.f32 r2, r4^, r15, 0x0.neg
+   FMA.f32 r3, r5^, r15, 0x0.neg
+   FMA.f32.reconverge r0, r0^, r15^, 0x0.neg
+   FMA.f32 r4, r0, u32, 0x0.neg
+   FMA.f32 r4, r3, u31, r4^
+   FMA.f32 r4, r2, u30, r4^
+   FADD.f32 r2, r2^, r4.neg
+   FADD.f32 r3, r3^, r4.neg
+   FADD.f32 r0, r0^, r4.neg
+   FMA.f32 r2, u29, r2^, r4
+   FMA.f32 r3, u29, r3^, r4
+   FMA.f32 r0, u29, r0^, r4^
+   FMA.f32 r2, r2^, u25, 0x0.neg
+   FMA.f32 r3, r3^, u26, 0x0.neg
+   FMA.f32 r0, r0^, u27, 0x0.neg
+   FMA.f32 r4, r1^, u28, 0x0.neg
+   ICMP_OR.u32.eq.m1 r1, u40, 0x0, 0x0
+   BRANCHZ.eq.reconverge r1^.h0, offset:56
+   IADD_IMM.i32 r1, 0x0, #0x3A83126F
+   FMAX.f32 r1, r4, r1^
+   FRCP.f32 r1, r1^
+   FMA.f32 r0, r0^, r1, u41.neg
+   FRCP.f32 r5, u42
+   FMA.f32 r0, r0^, r5, 0x0.neg
+   FREXPE.f32.log r6, r0
+   S32_TO_F32 r6, r6^
+   FADD_LSCALE.f32 r7, 0x3F800000.neg, r0
+   FLOGD.f32 r8, r0
+   FMA.f32 r6, r8^, r7^, r6^
+   FMA.f32 r3, r3^, r1, u41.neg
+   FMA.f32 r3, r3^, r5, 0x0.neg
+   FREXPE.f32.log r7, r3
+   S32_TO_F32 r7, r7^
+   FADD_LSCALE.f32 r8, 0x3F800000.neg, r3
+   FLOGD.f32 r9, r3
+   FMA.f32 r7, r9^, r8^, r7^
+   FMA.f32 r1, r2^, r1^, u41.neg
+   FMA.f32 r1, r1^, r5^, 0x0.neg
+   FREXPE.f32.log r2, r1
+   S32_TO_F32 r2, r2^
+   FADD_LSCALE.f32 r5, 0x3F800000.neg, r1
+   FLOGD.f32 r8, r1
+   FMA.f32 r2, r8^, r5^, r2^
+   IADD_IMM.i32 r5, 0x0, #0x18
+   IADD_IMM.i32 r8, 0x0, #0x3ED55555
+   FMA_RSCALE.f32 r6, r8, r6^, 0x0.neg, r5
+   FMA_RSCALE.f32 r7, r8, r7^, 0x0.neg, r5
+   FMA_RSCALE.f32 r2, r8^, r2^, 0x0.neg, r5^
+   F32_TO_S32 r5, r6
+   FEXP.f32 r5, r5^, r6^
+   F32_TO_S32 r6, r7
+   FEXP.f32 r6, r6^, r7^
+   F32_TO_S32 r7, r2
+   FEXP.f32 r2, r7^, r2^
+   IADD_IMM.i32 r7, 0x0, #0xBD6147AE
+   IADD_IMM.i32 r8, 0x0, #0x3F870A3D
+   FMA.f32 r5, r5^, r8, r7
+   FMA.f32 r6, r6^, r8, r7
+   FMA.f32 r2, r2^, r8^, r7^
+   IADD_IMM.i32 r7, 0x0, #0x414EB852
+   IADD_IMM.i32 r8, 0x0, #0x3B4D2E1C
+   FMA.f32 r9, r0, r7, 0x0.neg
+   FCMP_OR.f32.ge.m1 r0, r8, r0^, 0x0
+   CSEL.u32.eq r0, r0^, 0x0, r5^, r9^
+   FMA.f32 r5, r3, r7, 0x0.neg
+   FCMP_OR.f32.ge.m1 r3, r8, r3^, 0x0
+   CSEL.u32.eq r3, r3^, 0x0, r6^, r5^
+   FMA.f32 r5, r1, r7^, 0x0.neg
+   FCMP_OR.f32.ge.m1 r1, r8^, r1^, 0x0
+   CSEL.u32.eq r1, r1^, 0x0, r2^, r5^
+   FMA.f32 r2, r0^, r4, 0x0.neg
+   FMA.f32 r3, r3^, r4, 0x0.neg
+   FMA.f32 r0, r1^, r4, 0x0.neg
+   BRANCHZ.eq.reconverge 0x0, offset:132
+   FADD.f32 r1, r2, u41.neg
+   FADD.f32 r5, r3, u41.neg
+   FADD.f32 r6, r0, u41.neg
+   FRCP.f32 r7, u42
+   FMA.f32 r1, r1^, r7, 0x0.neg
+   FMA.f32 r5, r5^, r7, 0x0.neg
+   FMA.f32 r6, r6^, r7, 0x0.neg
+   IADD_IMM.i32 r8, 0x0, #0x3A83126F
+   FMAX.f32 r8, r4, r8^
+   FRCP.f32 r8, r8^
+   FMA.f32 r9, r2, r8, u41.neg
+   FMA.f32 r10, r3, r8, u41.neg
+   FMA.f32 r8, r0, r8^, u41.neg
+   FMA.f32 r9, r9^, r7, 0x0.neg
+   FMA.f32 r10, r10^, r7, 0x0.neg
+   FMA.f32 r7, r8^, r7^, 0x0.neg
+   FADD.f32.clamp_0_1 r8, r9, 0x0.neg
+   FADD.f32.clamp_0_1 r11, r10, 0x0.neg
+   FADD.f32.clamp_0_1 r12, r7, 0x0.neg
+   FREXPE.f32.log r13, r8
+   S32_TO_F32 r13, r13^
+   FADD_LSCALE.f32 r14, 0x3F800000.neg, r8
+   FLOGD.f32 r8, r8^
+   FMA.f32 r8, r8^, r14^, r13^
+   IADD_IMM.i32 r13, 0x0, #0x3E232000
+   IADD_IMM.i32 r14, 0x0, #0x18
+   FMA_RSCALE.f32 r8, r13, r8^, 0x0.neg, r14
+   F32_TO_S32 r15, r8
+   FEXP.f32 r8, r15^, r8^
+   FREXPE.f32.log r15, r11
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r11
+   FLOGD.f32 r11, r11^
+   FMA.f32 r11, r11^, r48^, r15^
+   FMA_RSCALE.f32 r11, r13, r11^, 0x0.neg, r14
+   F32_TO_S32 r15, r11
+   FEXP.f32 r11, r15^, r11^
+   FREXPE.f32.log r15, r12
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r12
+   FLOGD.f32 r12, r12^
+   FMA.f32 r12, r12^, r48^, r15^
+   FMA_RSCALE.f32 r12, r13^, r12^, 0x0.neg, r14
+   F32_TO_S32 r13, r12
+   FEXP.f32 r12, r13^, r12^
+   IADD_IMM.i32 r13, 0x0, #0x4196D000
+   IADD_IMM.i32 r15, 0x0, #0x3F560000
+   FMA.f32 r48, r13, r8, r15
+   FMA.f32 r49, r13, r11, r15
+   FMA.f32 r13, r13^, r12, r15^
+   IADD_IMM.i32 r15, 0x0, #0x41958000
+   FMA.f32 r8, r15, r8^, 0x3F800000
+   FMA.f32 r11, r15, r11^, 0x3F800000
+   FMA.f32 r12, r15^, r12^, 0x3F800000
+   FRCP.f32 r8, r8^
+   FRCP.f32 r11, r11^
+   FRCP.f32 r12, r12^
+   FMA.f32 r8, r48^, r8^, 0x0.neg
+   FMA.f32 r11, r49^, r11^, 0x0.neg
+   FMA.f32 r12, r13^, r12^, 0x0.neg
+   FREXPE.f32.log r13, r8
+   S32_TO_F32 r13, r13^
+   FADD_LSCALE.f32 r15, 0x3F800000.neg, r8
+   FLOGD.f32 r8, r8^
+   FMA.f32 r8, r8^, r15^, r13^
+   IADD_IMM.i32 r13, 0x0, #0x429DB000
+   FMA_RSCALE.f32 r8, r13, r8^, 0x0.neg, r14
+   F32_TO_S32 r15, r8
+   FEXP.f32 r8, r15^, r8^
+   FREXPE.f32.log r15, r11
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r11
+   FLOGD.f32 r11, r11^
+   FMA.f32 r11, r11^, r48^, r15^
+   FMA_RSCALE.f32 r11, r13, r11^, 0x0.neg, r14
+   F32_TO_S32 r15, r11
+   FEXP.f32 r11, r15^, r11^
+   FREXPE.f32.log r15, r12
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r12
+   FLOGD.f32 r12, r12^
+   FMA.f32 r12, r12^, r48^, r15^
+   FMA_RSCALE.f32 r12, r13^, r12^, 0x0.neg, r14
+   F32_TO_S32 r13, r12
+   FEXP.f32 r12, r13^, r12^
+   FMA.f32 r8, r8^, r4, 0x0.neg
+   FMA.f32 r11, r11^, r4, 0x0.neg
+   FMA.f32 r12, r12^, r4, 0x0.neg
+   FADD.f32.clamp_0_inf r9, r9^, 0x0.neg
+   FADD.f32.clamp_0_inf r10, r10^, 0x0.neg
+   FADD.f32.clamp_0_inf r7, r7^, 0x0.neg
+   FREXPE.f32.log r13, r9
+   S32_TO_F32 r13, r13^
+   FADD_LSCALE.f32 r15, 0x3F800000.neg, r9
+   FLOGD.f32 r9, r9^
+   FMA.f32 r9, r9^, r15^, r13^
+   IADD_IMM.i32 r13, 0x0, #0x3EE8BA2E
+   FMA_RSCALE.f32 r9, r13, r9^, 0x0.neg, r14
+   F32_TO_S32 r15, r9
+   FEXP.f32 r9, r15^, r9^
+   FREXPE.f32.log r15, r10
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r10
+   FLOGD.f32 r10, r10^
+   FMA.f32 r10, r10^, r48^, r15^
+   FMA_RSCALE.f32 r10, r13, r10^, 0x0.neg, r14
+   F32_TO_S32 r15, r10
+   FEXP.f32 r10, r15^, r10^
+   FREXPE.f32.log r15, r7
+   S32_TO_F32 r15, r15^
+   FADD_LSCALE.f32 r48, 0x3F800000.neg, r7
+   FLOGD.f32 r7, r7^
+   FMA.f32 r7, r7^, r48^, r15^
+   FMA_RSCALE.f32 r7, r13^, r7^, 0x0.neg, r14^
+   F32_TO_S32 r13, r7
+   FEXP.f32 r7, r13^, r7^
+   FMA.f32 r9, r9^, r4, 0x0.neg
+   FMA.f32 r10, r10^, r4, 0x0.neg
+   FMA.f32 r7, r7^, r4, 0x0.neg
+   MOV.i32 r13, 0x0
+   ICMP_OR.u32.eq.m1 r14, u40, 0x3020100.b3, r13
+   CSEL.u32.eq r2, r14, 0x0, r2^, r9^
+   CSEL.u32.eq r3, r14, 0x0, r3^, r10^
+   CSEL.u32.eq r0, r14^, 0x0, r0^, r7^
+   ICMP_OR.u32.eq.m1 r7, u40, 0x3020100.b2, r13
+   CSEL.u32.eq r2, r7, 0x0, r2^, r8^
+   CSEL.u32.eq r3, r7, 0x0, r3^, r11^
+   CSEL.u32.eq r7, r7^, 0x0, r0^, r12^
+   ICMP_OR.u32.eq.m1 r8, u40, 0x1000000.b3, r13^
+   CSEL.u32.eq r0, r8, 0x0, r2^, r1^
+   CSEL.u32.eq r3, r8, 0x0, r3^, r5^
+   CSEL.u32.eq.reconverge r2, r8^, 0x0, r7^, r6^
+   NOP.wait0126
+   ATEST.wait0 @r60, r60^, r4, atest_datum.w0
+   MOV.i32 r1, r3^
+   MOV.i32.wait r3, r4^
+   BLEND.slot1.v4.f32.end @r0:r1:r2:r3, blend_descriptor_0.w0, r60, target:0x0
+   IADD_IMM.i32 r48, 0x0, #0x0
+   BRANCHZI.eq.absolute 0x0, blend_descriptor_0.w1
