@@ -221,3 +221,18 @@ peephole-select options (keeps branches with transcendentals; upstreamable,
 needs a shader-db / benchmark check), and upstream KWin: SDR sRGB clients on
 an SDR gamma22 output differ only in black level (0.2 vs 0.01 nits), so a
 cheaper path or treating it as identity would avoid the shader entirely.
+
+## Patched Mesa on the device (2026-11-26, status)
+
+- gemini-debian 6a3bdb9: Mesa 26.1.6-1~bpo13+1+astro1 (panfrost Bifrost
+  peephole-select `expensive_alu_ok = false`), 8 packages installed on the
+  Astro; deps as Debian's backports build. Stock debs unpacked in
+  ~/mesa-stock for side-by-side gpufill runs only.
+- gpufill, 4 full-screen layers, 748 MHz, stock -> patched: KWin 6.3.6
+  `colormanagement.glsl` verbatim 27.71 -> 12.42 ms; KWin-style imitation
+  22.05 -> 9.46 ms; plain/dmabuf/partial unchanged. (Mesa's GL linker also
+  flattens with limit 8, expensive_alu_ok = true; not the dominant part.)
+- KWin menu trace on patched Mesa: unchanged (fragment jobs > 5 ms: 42 vs
+  39, max 24.2 ms, same histogram). Open: either KWin's live shaders differ
+  from the verbatim test, or the 13-25 ms per-frame jobs are dominated by
+  something other than the colour shader. Not pursued further (user).
