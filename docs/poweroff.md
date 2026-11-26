@@ -33,3 +33,19 @@ power key" flag set (`NONRST_REG2` = `0x40002000`, bit 13, read
 `SYS_OFF_MODE_POWER_OFF` handler (above PSCI): `RG_PWRHOLD` = 0; wait
 11 × 100 ms; still on → the vendor charger reset (bit 13 cleared).
 Read 2026-11-25: `PPCCTL0` = 0x0001, `WDT_MODE` = 0x7D.
+
+## Power-off with USB plugged in (2026-11-26)
+
+`systemctl poweroff` with the charger online (kernel #23, `boot-tp2.img`):
+the board came back up in Debian ~1 min later (user). Not a fault of the
+power-off path. This boot's cmdline has `androidboot.bootreason=usb`, and
+the bootloader's `/chosen/atag,boot` says boot mode **8 =
+KERNEL_POWER_OFF_CHARGING_BOOT** (vendor `mtk_boot_common.h`). So LK did
+what stock does: it saw the charger and started the kernel in off-mode
+charging (KPOC). Stock Android then runs its charger UI. In KPOC the vendor
+kernel powers off when the charger goes away (`mt_kpoc_power_off_check`),
+and Android's charger UI boots normally on a power-key press. We have no
+KPOC handling, so Debian boots normally. Next: an off-mode charging target
+in Debian (design for the user to decide). pstore was empty, so it isn't
+confirmed which half of mt6359-poweroff ran; the outcome (KPOC) is the one
+expected after the fallback reset.
