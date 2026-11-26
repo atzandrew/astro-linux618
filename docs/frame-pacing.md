@@ -95,3 +95,14 @@ tools/frame-pacing, ported to `tools/frame-pacing/` (README there).
   main pass costs 6-10x the raw work of a 4-layer composite. Next: what
   KWin's passes do (shader variants, number and size of render passes,
   load/store of full-size offscreen targets for blur/contrast).
+
+## Kernel #26 (uname #27, boot-k26.img fed48c13…) result
+
+- Boot: 0xa12 0x21e0, DVFS modules at boot, early flip on, KWin GLES +
+  noafbc from /etc/xdg/plasma-workspace/env/astro.sh, kscreen 1080x2340@63.
+- Checks with the 12.5 mV/us ramp: steps 32/32 PASS, vfcheck 2 x 40000
+  samples 0 LOW, stress 120 s at 2.0 GHz 0 md5 mismatches (runs as C4).
+  Transitions 0.46-0.86 ms (5 mV/us: 0.47-1.0 ms).
+- Miss: `clock-latency-ns` was on the OPP table node; opp-v2-base.yaml
+  defines it per OPP node, so transition_latency stayed 0 (rate limit 1000
+  us). Fixed per OPP in boot-k26b.img (DTB only, fcc90910…).
