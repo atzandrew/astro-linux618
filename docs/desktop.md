@@ -146,3 +146,26 @@ PowerKey` after last night's power-off (power-key boot from off works).
 Plasma touch (user, same day): corners and drag correct with
 inverted-x. Still open: power-off with USB
 plugged in, text rendering (user: rougher after mediatek-drm loads).
+
+### Text rendering: panel-side, brightness-dependent (2026-11-26)
+
+User: text looks rougher once mediatek-drm takes over. Findings:
+- SoC path is pixel-exact (register read, panel on, read-only): OVL0 one
+  layer 1080×2340 XRGB, const alpha; OVL_2L0 no layers; RDMA 1080×2340;
+  COLOR bypass; CCORR identity (0x800 = 1.0 on MT6873, vendor shifts the
+  1024-based matrix left by one, as mainline mt8192 data); AAL/GAMMA/
+  POSTMASK relay; DSI command mode, PS word count 3240 (RGB888), 2340 lines.
+  Only deviation: DITHER0 engine on with shift 0 (connector bpc unset →
+  MTK_MAX_BPC 10); stock dithers 10→8. Harmless for 8-bit content; fix:
+  panel reports bpc 8.
+- 1-px test pattern (dumb buffer, user photos): 1-px lines along one axis
+  light grey, along the other darker and blue-tinted; 1-px checkerboard
+  shows as lines; 2-px checker shows diagonal beat. That is the panel's own
+  subpixel mapping (shared subpixels), not the SoC.
+- Brightness: LK leaves 0x3FF; our driver sets the R4 default 512 at
+  takeover. At 1023 the pattern is clearly more accurate and text less
+  blurred (user). So the DDIC processes differently at lower DBV.
+- CPU: no cpufreq; A76 cores measured 772 MHz (PMU cycles), A55 ~half by
+  loop timing. Main cause of KWin/Qt frame drops; needs the cpufreq stage.
+- Fonts for this panel: greyscale AA (as Android) rather than RGB subpixel.
+  Test state on the device: AA/hinting off in ~atzero (.aa backups).
