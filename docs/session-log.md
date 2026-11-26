@@ -1409,7 +1409,8 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
 - **Greeter on KWin** (2026-11-26, rootfs only, gemini-debian `cbf149c`):
   SDDM Wayland greeter with KWin + swayidle idle screen-off at 60 s; user:
   smooth, touch correct, blanks and wakes. Power-key boot after power-off
-  confirmed (bootreason PowerKey). Open: Plasma touch check, poweroff with
+  confirmed (bootreason PowerKey). Plasma touch correct (corners, drag).
+  Open: poweroff with
   USB, text rendering (Plasma uses RGB subpixel AA + hintfull on a rotated
   OLED; console path adds COLOR/CCORR/AAL/GAMMA/POSTMASK/DITHER and stock
   panel gamma after the first off/on).

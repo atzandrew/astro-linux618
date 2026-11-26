@@ -143,5 +143,6 @@ scale 2) and maps touch itself. Burn-in: KWin starts
 reboot): greeter smooth, touch correct, panel blanked within 70 s and woke
 on input; login to Plasma fine. Also this boot: `androidboot.bootreason=
 PowerKey` after last night's power-off (power-key boot from off works).
-Still open: Plasma touch corners/drag with inverted-x, power-off with USB
+Plasma touch (user, same day): corners and drag correct with
+inverted-x. Still open: power-off with USB
 plugged in, text rendering (user: rougher after mediatek-drm loads).
