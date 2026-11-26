@@ -1142,3 +1142,7 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   rewritten: the established escapes stand; PMIC-touching images are
   checked by reading 0xa12 instead. W2 stage A escapes not run. The
   build-boot-img.sh shape guards stay (they keep 0xa12 out of reach).
+- Stage B (kernel #13, 2026-11-25): `modprobe mt6359-regulator` → bound,
+  "Not disabling unused regulators"; vcn18 1.8 V, vcn13 1.3 V,
+  vcn33_1_bt/_1_wifi/_2_wifi 3.5 V, all disabled, 0 users. 35 snapshot
+  PMIC registers identical after probe (0xa12 = 0x21e0): no writes.
