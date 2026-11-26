@@ -152,7 +152,7 @@ API on `vcn18`, `vcn13`, `vcn33_1_bt`, `vcn33_1_wifi`, `vcn33_2_wifi`.
   riskiest part. Regulator late cleanup could switch off rails we do not
   describe (VEMC = UFS VCC, display rails). Needs an audited plan: every
   MT6359P rail always-on at its LK voltage, or only the VCN LDOs
-  described, plus a pre-flash check and both escapes re-observed.
+  described, plus a pre-flash check.
 - MT8192 genpd CONN domain vs stock `mt6873.c` SPM sequence; zinwa needed a
   genpd special case (domain not powered at attach).
 - EMI MPU: stubbed; if the CONN MCU faults on its EMI window, implement
@@ -211,15 +211,15 @@ Test stages (each needs the previous one):
   as `/lib/modules/6.18.58-astro.k12`), `blacklist mt6359-regulator` in
   `/etc/modprobe.d/astro-w2.conf`. Flash `boot-w2.img`. Check: boots,
   0xa12 = 0x21e0, spm probe log (CONN registered, no "default off … ON"),
-  VCN regs = snapshot. **Power-key escape**; then `boot-w2-wdtest.img`
-  **watchdog escape**; back to `boot-w2.img`.
+  VCN regs = snapshot. (Escape re-tests dropped, user 2026-11-25:
+  AGENTS.md rule 5.)
 - B. `modprobe mt6359-regulator`: five rails in /sys/class/regulator,
   register snapshot unchanged, 0xa12 unchanged.
 - C. Firmware from the unit's vendor (Monolith extraction) and NVRAM WIFI
   from nvdata (read-only) into /lib/firmware; insmod btif_drv, connadp,
   wmt_drv (launcher: chip id, patches), wmt_chrdev_wifi,
   wlan_drv_gen4m_6873; NVRAM to /dev/wmtWifi, then "1". Expect wlan0 and a
-  scan. Then power-key escape again with Wi-Fi on.
+  scan. Then read 0xa12 again with Wi-Fi on.
 Failure handling: every stage-B/C step is a manual insmod, nothing
 persists at boot; a hang ends in the watchdog reset (observed under Debian,
 31 s) and the next boot is a plain Debian boot. Rollback: `mtk w boot_a

@@ -150,9 +150,13 @@ builds images and copies them over.
 4. **Never flash something you cannot identify or undo.** P0 backups first
    (`backup/` is gitignored: IMEI/NVRAM/seccfg are device-unique and this
    repo is public).
-5. **Never flash an image that can strand the device.** Every experimental
-   image needs a power-key reset and a watchdog reset that have been
-   **seen to fire**. Status (2026-11-25, `docs/session-log.md`):
+5. **Never flash an image that can strand the device.** The reset escapes
+   (power-key reset, watchdog reset) are established, below; they exist so
+   a hung board can always be rebooted. **No escape re-tests per image**
+   (user, 2026-11-25): their mechanisms are PMIC hardware (STRUP_CON12
+   0xa12) and the TOPRGU watchdog, so a change is checked by reading 0xa12
+   and by keeping the watchdog path unchanged, not by holding the key.
+   Status (2026-11-25, `docs/session-log.md`):
    - **Watchdog: observed** with our kernel (try1c `astro.wdtest=1`, init
      never feeds it: board resets, next boot `lk boot reason = 4`).
    - **Power key ~10 s: observed** with our kernel running (normal image,
@@ -168,8 +172,8 @@ builds images and copies them over.
    `bin/build-boot-img.sh` refuses a DTB with pwrap/mt6359/keys enabled
    and a kernel with the pwrap or PMIC keys driver. Changes touching PMIC
    keys, watchdog, reset path, display/panel or a new kernel config need
-   an explicit yes to a written pre-flash check; a change touching any of
-   these re-opens the matching escape test.
+   an explicit yes to a written pre-flash check. After such a flash: read
+   0xa12 (expect 0x21e0).
 6. After an mtk write the board stays in download mode until reset by hand;
    `mtk reset` may power the board off (it did on the Cosmo).
 

@@ -15,7 +15,7 @@ MT6359 family), **fix** = upstream driver plus a delta, **port** = vendor
 or Cosmo code to carry, **new** = nothing usable anywhere, **check** = not
 confirmed. Order: the number in the last column is the suggested sequence
 (see "Order" at the end); **rule 5** = touches the PMIC or a reset path
-and needs a written pre-flash check and both escapes re-observed.
+and needs a written pre-flash check (no escape re-tests: AGENTS.md rule 5).
 
 ## Core platform
 

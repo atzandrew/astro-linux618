@@ -1137,3 +1137,8 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   0x60000000 4 MiB, wifi pool 0xbe000000 6 MiB. sync_state pending on
   consys and afe-pcm (no drivers bound, expected). No CONSYS or
   regulator module loaded. Next: power-key escape on W2.
+- Escape re-tests dropped from the workflow (user, 2026-11-25: "they are
+  only for making sure we could reboot afterwards"). AGENTS.md rule 5
+  rewritten: the established escapes stand; PMIC-touching images are
+  checked by reading 0xa12 instead. W2 stage A escapes not run. The
+  build-boot-img.sh shape guards stay (they keep 0xa12 out of reach).

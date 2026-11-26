@@ -53,7 +53,8 @@ Copy to Monolith: `scp out/dtbo.img out/boot-wdtest.img out/boot.img atzero@192.
    **no** self-reset for > 2 min. Then hold power ~10 s: the board must
    reset.
 
-Each escape counts only once it has been seen to fire (AGENTS.md rule 5).
+These were the one-time escape proofs for the first boots. Later images
+are not re-tested (AGENTS.md rule 5, user 2026-11-25).
 
 ## Restore stock Android
 
