@@ -78,6 +78,13 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   wifi-stock.md: vendor panel-sh8802b-vdo.c (init, off, DCS 0x51),
   LK's registers (backup/disp-regs-lk.txt), mainline command-mode DSI
   gaps, the DISP power domain (removed from spm in W2), burn-in plan.
+  **Display Stages 0–4 done (2026-11-25, `docs/display-stock.md`)**:
+  mainline mediatek-drm drives the SH8802B in command mode (kernel #19 +
+  modules, blacklisted at boot): takeover without init, console, DCS
+  brightness, stock off, and a full stock screen-on (54-write table) with
+  power mode 0x9C. Reference = stock Android behaviour (user decision).
+  Next: Stage 5 (mediatek-drm by default, idle blanking/DPMS, hang-proof
+  off path, CMA or IOMMU), then GPU (panfrost).
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive

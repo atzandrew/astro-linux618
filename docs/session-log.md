@@ -1224,3 +1224,111 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   PLAYSTATION_FF=y; modules only) registers gamepad, motion sensors and
   touchpad (event2-4, via uhid), hw 0x513 fw 0x0110002a, battery 100 %
   Full, light bar set by the driver. No joydev (js*) built; evdev only.
+
+## 2026-11-25 — D0: display stock research (no flash, no writes)
+
+- Written: `docs/display-stock.md` (stock sequences, NVM hazards, mainline
+  gaps, staged plan, 8 open questions). Nothing built, flashed or written.
+- LK's SH8802B table decoded from `lk_a.bin` (offset 0xbedf8, stride 0xd0,
+  end 0xc15c8): 45 writes byte-identical to vendor `lcm_panel_init`; the
+  vendor kernel adds 12 gamma tables (C3–CE), LK adds `51 05 00` and a final
+  `51 FF 03` (brightness 0x3FF = max). Stock kernel never inits at probe.
+- Sister SH8601A datasheet: 0xD0 = OTP control (MCS_PROG_EN, external 6 V
+  VOTP). Stock sends `D0 80` every boot → allowlist-only driver design.
+- GPIO87/88 ("bias") default to MIPI0_D_SCLK/SDATA (modem RFFE), LK never
+  drives them. No panel supply in any stock source.
+- LK DSI: TXRX 0x27C (no EoT, ext TE, continuous clock), CMDQ0 0x002C3909,
+  PLL PCW 0x50C4EC4E = mainline's at exactly 1050 Mbps (mode clock 175000);
+  mainline D-PHY timings differ from LK's.
+- Stage 0 register reads not done: Debian `sudo` needs a password over SSH.
+- Decision (user, 2026-11-25): reference = stock Android steady state, not
+  LK. Stock kernel: no init at probe or first enable; on idle exit/screen-on
+  it programs vendor-formula PHY timings (0D110A0B 1637102C 0F320103
+  0016130B at 1050 Mbps) and TXRX 0x1023C, and every screen-on runs the
+  57-write table (gamma C3–CE included), GPIO87/88 around reset.
+  `docs/display-stock.md` rewritten to that; open questions 7 and 8 remain.
+  No mainline or other-device trace of the SH8802B (or any Shenghe part).
+- User answers (2026-11-25): Q7 no schematic knowledge of the panel rails;
+  user watches every lit test and will turn the panel off if anything looks
+  wrong (soft-hang guard deferred to shipping, R5). Q8 `D0 80` approved,
+  fixed stock table only, Stage 4 on. No open questions; next = Stage 0.
+- Stage 0 done (read-only, 2026-11-25): sudoers drop-in
+  `/etc/sudoers.d/astro-devmem` on the Astro (user approved; NOPASSWD for
+  `/usr/bin/busybox devmem` only). Reads in `backup/d0-regs.txt`: DISP
+  domain fully on (0x350 = 0xD), GPIO87/88 mode 1, GPIO42 GPIO-high, DSI/
+  mutex equal to LK's dump except two status registers, mipi-tx equal to
+  LK. Bus-protect writes mainline would do at DISP power-on = the vendor
+  MT6873 power-on writes (clk-mt6873-pg.c DIS_PROT_STEP*). No writes.
+- Stage 1 done (2026-11-25, user approved): `bin/d1-dcs-read.sh` (LK's read
+  packets only) under Debian with PATH=/usr/libexec/astro-bb (first run:
+  `devmem: not found` under sudo, script stopped before reading, fallback
+  black frame sent). Reads: 0x0A = 0x9C, DA = 0x5C, DB = 0, DC = 0; RX words
+  identical to LK's log. CMDQ restored, console back. No panel writes but
+  black frames; no kernel/DT change.
+- Stage 2 (2026-11-25): kernel #16 `boot-d2.img` `813fdf5b…cfacf` (DISP
+  domain without children, mmsys + mutex, MTK_MMSYS=y; guard: spm = CONN +
+  DISP only, negative test refused). Pre-flash check approved. #16 module
+  tree installed on the Debian root (old tree kept as
+  /lib/modules/6.18.58-astro.k13bt, depmod done); awaiting the user's flash.
+- User preference: no fallback/undo images in checks and handoffs.
+- Stage 2 result: flashed by the user, kernel #16 boots to Debian, console
+  up (user). genpd disp on (mutex), conn on; SPM/bus-protect/CG/DSI/mutex
+  registers identical to Stage 0; 0xa12 = 0x21e0; Wi-Fi up.
+- Stage 3 built (2026-11-25): kernel #18 `boot-d3.img` `e34f96a3…3833022`.
+  New: panel-shenghe-sh8802b (stock table, takeover, allow_init gate),
+  mtk_dsi command mode + mt6873 compatible (stock D-PHY timing), command-mode
+  CRTC, mutex DSI0 module bit, mt6873 mipi-tx variant (vendor sequence),
+  DT dsi0/panel/mipi_tx/main path without IOMMU, DRM/PHY/panel as modules.
+  Guards extended (negative test refused). Staged on Monolith and in
+  ~/mod-k18 on the Astro; pre-flash check in docs/display-stock.md.
+- Stage 3 first boot (kernel #18, user flashed boot-d3.img): user saw what
+  looked like a crash/recovery and reset with the power key. Cause:
+  /etc/modprobe.d/astro-d3.conf came back **empty** (written ~1 min before
+  the hard reset, not flushed), so udev loaded mediatek-drm + PHY + panel
+  at boot while astro-console kept poking LK's path: two drivers on one
+  DSI. Driver side as designed (takeover, no init, power mode 0x9C), then
+  `polling dsi wait not busy timeout!`; fbcon stayed on simpledrm (fb0)
+  because mainline mediatek-drm never removes the firmware framebuffer.
+  Panel switched off through the driver (fb1 DPMS off: no off-sequence
+  error, GPIO42 low, GPIO87/88 low, PLL off). Fixes: blacklist rewritten
+  + sync; mtk_drm_bind removes conflicting framebuffers (as rockchip,
+  sun4i); always sync after rootfs writes.
+- Stage 3 test 1 (2026-11-25, kernel #18, blacklist fixed, mediatek-drm
+  f3dbe5ab with framebuffer removal): takeover as designed (no init, power
+  mode 0x9C, TXRX 0x1023C, TIMCON 0D110A0B 1637102C 0F320103 0016130B,
+  PLL untouched, GPIO87/88 GPIO high), but no frame ever completed: DSI
+  busy, no OVL frame-done, flip_done timeouts. Off path ran (DSI/PLL off,
+  GPIO42/87/88 low, no off-sequence error). Cause (mmsys read-back after
+  the off): LK's reverse-order OVL routing stays set (OVL_MOUT_EN 0x9 =
+  OVL0_GO_BLEND|OVL0_2L_GO_BG, OVL0_MOUT_EN RDMA0, OVL0 BGCLR_SEL_IN) and
+  mainline's route writes only add their own bits (0xF while running):
+  the two OVLs feed each other's background, nothing flows. Fix: mt8192
+  routes write the whole OVL selectors (and clear OVL0's direct RDMA0
+  route), first OVL's background input off in mtk_crtc. Needs a new kernel.
+- Stage 3 test 2 (kernel #19, routing fixed): frames go through (user:
+  white flash, then the console on mediatek-drm's fb), no flip timeouts.
+  Panel commands at enable timed out (0x0A read, 51 00 02). Test 3 with a
+  DSI state dump on timeout: read: INTSTA 0x80000017 (RD_RDY + CMD_DONE
+  set), STATE6 0x0400 "Waiting SW RACK for RX-read data"; write: STATE6
+  idle, CMD_DONE set. The commands reach the panel; the DSI interrupt is
+  not delivered then (5 DSI IRQs in a whole run), so the IRQ-driven
+  mainline wait never sees them and nobody RACKs. Fix: command-mode
+  transfers poll INTSTA and RACK by hand, as the vendor
+  mtk_dsi_host_send_cmd and LK (module only). Off path ran each time.
+- Stage 3 test 4 (polled transfers, mediatek-drm 176067a7): console on
+  mediatek-drm, brightness write `51 00 02` completed and the user saw the
+  panel get dimmer (first DCS write by Linux: stock byte order confirmed);
+  off sequence completed (no timeout; GPIO42/87/88 low, PLL off). Read of
+  0x0A still timed out: INTSTA 0x80000015 = RD_RDY without CMD_DONE, state
+  "Waiting SW RACK": my poll waited for both before RACK. Fix: RD_RDY ->
+  RACK -> CMD_DONE (vendor order). Test output was lost over SSH (script
+  ran to completion); next runs log to a file on the Astro.
+- **Stage 3 passed** (run 5, mediatek-drm 120c114e): power mode 0x9C read,
+  console on mediatek-drm through command mode, 51 00 02 applied (dimmer),
+  stock off without timeouts (GPIO42/87/88 low, DSI and PLL off), 0xa12
+  0x21e0. Open: DPMS off took ~20 s longer than expected (no log).
+- **Stage 4 passed** (2026-11-25): first Linux screen-on of the SH8802B
+  with the 54-write stock table (D0 80 included, as approved): power mode
+  0x9C, no errors, PHY after power-up equal to LK's, offs 0.21 s each,
+  0xa12 0x21e0. The Stage 3 "slow off" was the script reading gated DSI
+  registers.

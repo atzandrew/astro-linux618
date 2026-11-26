@@ -61,8 +61,8 @@ and needs a written pre-flash check (no escape re-tests: AGENTS.md rule 5).
 | ✅ | Keyboard | AW9523 `@5b` (i2c8 at +0x100) | port (Cosmo driver) | keymap = stock; repeat 500 ms | — |
 | ✅ | Console Fn layer | kernel default keymap | — | Planet US layout = gemini-debian `cosmo(us)`; UK variant possible | — |
 | 🔶 | Keyboard backlight | GPIO28 (vendor PWM0 at 100 %) | yes (`gpio-leds`) | on/off only; used for boot codes | later |
-| ⬜ | Panel (DSI) | SH8802B AMOLED 1080×2340, **command mode**, 4 lanes | port (`panel-sh8802b-vdo.c`) | mediatek DRM + DSI cmd mode; burn-in rules; DCS 0x51 brightness, 0x28/0x10 off | **6** |
-| ⬜ | Display pipeline | OVL/RDMA/DSI (mt8192), IOMMU, mmsys, SCPSYS domains | yes | power domains and M4U first | **6** |
+| 🔶 | Panel (DSI) | SH8802B AMOLED 1080×2340, **command mode**, 4 lanes | new (`panel-shenghe-sh8802b`, stock tables) | Stages 0–4 passed (takeover, brightness, stock off, stock screen-on); modules blacklisted until Stage 5 (`docs/display-stock.md`) | **6** |
+| 🔶 | Display pipeline | OVL/RDMA/DSI (mt8192), IOMMU, mmsys, SCPSYS domains | fix (cmd-mode DSI/CRTC, mt6873 DSI + mipi-tx, mutex DSI0, routing) | DISP domain (no children), mmsys, mutex on; main path without IOMMU (CMA) | **6** |
 | ⬜ | Touch | GT9897 `@5d` (i2c0; GT9896S SPI variant also listed) | check (`goodix-berlin`) | which variant this unit has | 7 |
 | ⬜ | HDMI out | LT8912B `@48` (i2c6), det GPIO98; SiI9022 also listed | yes (`lontium-lt8912b`) | needs DSI | later |
 | ⬜ | Notification LEDs | red/green/blue (`mediatek,red` …) | check (MT6359 ISINK?) | | later |

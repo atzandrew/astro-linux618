@@ -516,12 +516,74 @@
 	status = "disabled";
 };
 
+/*
+ * Display Stage 3 (docs/display-stock.md): mediatek-drm on the main path
+ * OVL0 -> OVL_2L0 -> RDMA0 -> COLOR0 -> CCORR -> AAL0 -> GAMMA -> POSTMASK0
+ * -> DITHER0 -> DSI0 -> SH8802B (command mode). No IOMMU yet: the bootloader
+ * runs the path with M4U off, so the OVL/RDMA "iommus" are dropped and
+ * buffers come from CMA (larbs stay in the bootloader's bypass state).
+ * mediatek-drm, the PHY and the panel are modules, not loaded at boot
+ * (gemini-debian astro: /etc/modprobe.d blacklist) until the stage is
+ * proven. MT6873 compatibles first: stock-Android PHY sequence and D-PHY
+ * timing (docs/display-stock.md "Mainline 6.18 gaps").
+ */
+&mipi_tx0 {
+	compatible = "mediatek,mt6873-mipi-tx", "mediatek,mt8183-mipi-tx";
+	status = "okay";
+};
+
+&dsi0 {
+	compatible = "mediatek,mt6873-dsi", "mediatek,mt8183-dsi";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "shenghe,sh8802b";
+		reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&panel_pins>;
+		/* stock dtbo panel2@0: reset-gpios GPIO42, bias-gpios GPIO87, GPIO88 */
+		reset-gpios = <&pio 42 GPIO_ACTIVE_LOW>;
+		bias-gpios = <&pio 87 GPIO_ACTIVE_HIGH>, <&pio 88 GPIO_ACTIVE_HIGH>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+};
+
+&dsi_out {
+	remote-endpoint = <&panel_in>;
+};
+
+&pio {
+	/* As the bootloader leaves them (stock dtbo lcm_dsi_te, lcm_rst_out*) */
+	panel_pins: panel-pins {
+		pins-te {
+			pinmux = <PINMUX_GPIO41__FUNC_DSI_TE>;
+		};
+
+		pins-rst {
+			pinmux = <PINMUX_GPIO42__FUNC_GPIO42>;
+		};
+	};
+};
+
+/*
+ * Display Stage 2 (docs/display-stock.md): mmsys (clock provider for the
+ * DISP domain clocks, reset controller; probe writes nothing) and the
+ * display mutex (probe writes nothing) are on. No DRM driver in the kernel,
+ * so mmsys's "mediatek-drm" child device stays unbound.
+ */
 &mmsys {
-	status = "disabled";
+	status = "okay";
 };
 
 &mutex {
-	status = "disabled";
+	status = "okay";
 };
 
 &smi_common {
@@ -533,11 +595,13 @@
 };
 
 &ovl0 {
-	status = "disabled";
+	status = "okay";
+	/delete-property/ iommus;
 };
 
 &ovl_2l0 {
-	status = "disabled";
+	status = "okay";
+	/delete-property/ iommus;
 };
 
 &ovl_2l2 {
@@ -545,7 +609,8 @@
 };
 
 &rdma0 {
-	status = "disabled";
+	status = "okay";
+	/delete-property/ iommus;
 };
 
 &rdma4 {
@@ -553,27 +618,27 @@
 };
 
 &color0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &ccorr0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &aal0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &gamma0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &postmask0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dither0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &vcodec_dec {
@@ -983,7 +1048,25 @@
 &spm {
 	/delete-node/ power-domain@MT8192_POWER_DOMAIN_AUDIO;
 	/delete-node/ power-domain@MT8192_POWER_DOMAIN_MFG0;
-	/delete-node/ power-domain@MT8192_POWER_DOMAIN_DISP;
+
+	/*
+	 * Display Stage 2: DISP back, without its children (IPE, ISP, ISP2,
+	 * MDP, VENC, VDEC(+VDEC2), CAM(+RAWA/B/C)): none is KEEP_DEFAULT_OFF,
+	 * so each would be powered on at probe. DISP itself is fully on from
+	 * LK (Stage 0: 0x350 = 0xD, status bit 20 set): scpsys_power_on only
+	 * sets bits already set, clears ISO/CLK_DIS/SRAM_PDN (already clear)
+	 * and clears the DISP bus protection, as the vendor MT6873 power-on
+	 * does (clk-mt6873-pg.c DIS_PROT_STEP*; same registers and masks).
+	 */
+	power-domain@MT8192_POWER_DOMAIN_DISP {
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_IPE;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_ISP;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_ISP2;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_MDP;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_VENC;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_VDEC;
+		/delete-node/ power-domain@MT8192_POWER_DOMAIN_CAM;
+	};
 };
 
 /*

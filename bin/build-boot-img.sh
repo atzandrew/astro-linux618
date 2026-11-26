@@ -71,6 +71,8 @@ AUXADC_SHA=1468d6538002322c80f5847d45e656a728d64036522787d892d524c495342675
 REG6359_SHA=86b9d129c5664aa280fdd7837c7c5bdad96b49096a764bb368b5e1bf97821841
 PMDOM_SHA=5c3bc0d05499bf624ba0dc9f602f81e4f72592719fb5312d38d02efc8b53a04c
 PMDOM8192_SHA=776ce01e0eac0f24a9eb3257b7f13d55af0839410adac69417f6510a0dfe3e6b
+# Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
+PANEL_SHA=b75532375556ced0e99dc121d7908c234fbec9454be2ea7f14d9991946556980
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -95,8 +97,17 @@ LKDTBO="$OUT/astro-lk.dtbo"
 	|| refuse "dtbo/astro-lk overlay does not apply to the boot DTB (LK would stop)"
 OV="$("$DTC" -q -I dtb -O dts "$OUT/boot-overlay-check.dtb")"
 REAL_DSI="$(awk '/^\t\tdsi@14010000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$OV")"
-grep -q 'panel' <<<"$REAL_DSI" && refuse "LK overlay landed on the real DSI node"
-grep -q 'status = "disabled"' <<<"$REAL_DSI" || refuse "real DSI node not disabled after the LK overlay"
+BOOT_DSI="$(awk '/^\t\tdsi@14010000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$DTS_TEXT")"
+[[ "$REAL_DSI" == "$BOOT_DSI" ]] || refuse "LK overlay changed the real DSI node"
+grep -qE 'panel[123]@0|sh8802b,vdo|vt,' <<<"$REAL_DSI" && refuse "stock panel nodes in the real DSI node"
+# Display Stage 3: the real DSI node is either disabled, or enabled with
+# exactly one child, our SH8802B panel (docs/display-stock.md).
+if ! grep -q 'status = "disabled"' <<<"$REAL_DSI"; then
+	[[ "$(grep -cP '^\t\t\t[a-z][^ ]* \{$' <<<"$REAL_DSI")" == 2 ]] \
+		&& grep -qP '^\t\t\tpanel@0 \{$' <<<"$REAL_DSI" \
+		&& grep -q 'compatible = "shenghe,sh8802b";' <<<"$REAL_DSI" \
+		|| refuse "real DSI enabled with something other than panel@0 shenghe,sh8802b"
+fi
 grep -q 'lcm_rst_out' <<<"$(awk '/^\t\tpinctrl@10005000 \{/{f=1} f{print} f&&/^\t\t};$/{exit}' <<<"$OV")" \
 	&& refuse "LK overlay landed on the real pinctrl node"
 echo "LK overlay applies to the boot DTB and lands in /lk-sink only"
@@ -188,14 +199,18 @@ if grep -qE '^CONFIG_REGULATOR_MT6359=' "$KCONF"; then
 fi
 grep -q 'compatible = "mediatek,mt6359-regulator";' <<<"$DTS_TEXT" && [[ -z "${REGS_NODE:-}" ]] \
 	&& refuse "MT6359 regulators outside the checked node"
-# SCPSYS power domains (Wi-Fi W2): only the CONN domain may be listed.
+# SCPSYS power domains (Wi-Fi W2): CONN (KEEP_DEFAULT_OFF). Display Stage 2
+# (docs/display-stock.md): + DISP (MT8192_POWER_DOMAIN_DISP = 9), already
+# on from LK, with no child domain (each child would be powered on at
+# probe). Nothing else may be listed.
 SPM_NODE="$(awk '/^\t\t\tpower-controller \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$DTS_TEXT")"
 if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 	[[ -n "$SPM_NODE" ]] || refuse "SCPSYS power domains on but no spm node"
-	[[ "$(grep -cP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$SPM_NODE")" == 1 ]] \
+	[[ "$(grep -cP '^\t\t\t\t[a-z][^ ]* \{$' <<<"$SPM_NODE")" == 2 ]] \
 		&& grep -qP '^\t\t\t\tpower-domain@1 \{$' <<<"$SPM_NODE" \
-		|| refuse "spm lists power domains other than CONN (MT8192_POWER_DOMAIN_CONN = 1)"
-	[[ "$(grep -c 'power-domain@' <<<"$SPM_NODE")" == 1 ]] || refuse "spm has nested power domains"
+		&& grep -qP '^\t\t\t\tpower-domain@9 \{$' <<<"$SPM_NODE" \
+		|| refuse "spm lists power domains other than CONN (1) and DISP (9)"
+	[[ "$(grep -c 'power-domain@' <<<"$SPM_NODE")" == 2 ]] || refuse "spm has nested power domains (DISP children?)"
 	[[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mtk-pm-domains.c" | cut -d' ' -f1)" == "$PMDOM_SHA" ]] \
 		&& [[ "$(sha256sum < "$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" | cut -d' ' -f1)" == "$PMDOM8192_SHA" ]] \
 		|| refuse "mtk-pm-domains / mt8192 table is not the audited W2 source"
@@ -207,8 +222,16 @@ for c in RTC_DRV_MT6397 SND_SOC_MT6359 \
 	 SND_SOC_MT6359_ACCDET SPMI_MTK_PMIF REGULATOR_MT6315; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
 done
-# Panel rule (AGENTS.md rule 3): no display driver in this kernel.
-grep -qE '^CONFIG_DRM_MEDIATEK=' "$KCONF" && refuse "DRM_MEDIATEK in kernel config (panel rule)"
+# Panel rule (AGENTS.md rule 3), Display Stage 3: mediatek-drm and the
+# SH8802B panel only as modules (blacklisted on the rootfs), and the panel
+# driver pinned to the audited source (stock tables only; any change
+# re-opens the check in docs/display-stock.md).
+grep -qE '^CONFIG_DRM_MEDIATEK=y' "$KCONF" && refuse "DRM_MEDIATEK built in (module only)"
+if grep -qE '^CONFIG_DRM_MEDIATEK=m' "$KCONF"; then
+	grep -qE '^CONFIG_DRM_PANEL_SHENGHE_SH8802B=m$' "$KCONF" || refuse "SH8802B panel not a module"
+	[[ "$(sha256sum < "$ROOT/build/src/drivers/gpu/drm/panel/panel-shenghe-sh8802b.c" | cut -d' ' -f1)" == "$PANEL_SHA" ]] \
+		|| refuse "panel-shenghe-sh8802b.c is not the audited source"
+fi
 # LK applies the dtbo overlay: the base DTB needs __symbols__.
 grep -q '__symbols__' <<<"$DTS_TEXT" || refuse "DTB built without -@ (LK overlay would fail)"
 
