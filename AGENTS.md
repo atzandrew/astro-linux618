@@ -66,6 +66,18 @@ Next session plan (written 2026-11-25, end of the Wi-Fi/BT session):
   once display (DSI panel) is done.
 - Shared prerequisite for CPU DVFS and GPU: SPMI (spmi-mtk-pmif) + MT6315
   regulators, a rule-5-style pre-flash check (CPU rails).
+- **Decided (user, 2026-11-25): next session = real display first (route C),
+  then GPU (route B), towards an accelerated DE.** Why: the panel is
+  command mode (frames only on trigger), so simpledrm writes never reach
+  it, and Mesa pairs panfrost with a KMS driver (mediatek-drm), not with
+  simpledrm. First look (not started): mainline mtk_dsi has CMD_MODE and
+  TE flag definitions but its enable path is video-mode shaped (vm_cmd,
+  vdo timing, start once); mt8192 main path OVL0 → OVL_2L0 → RDMA0 →
+  COLOR0 → CCORR → AAL0 → GAMMA → POSTMASK0 → DITHER0 → DSI0 (LK uses
+  OVL0_2L → OVL0 → RDMA0 → DSI0). Start with a D0 research doc like
+  wifi-stock.md: vendor panel-sh8802b-vdo.c (init, off, DCS 0x51),
+  LK's registers (backup/disp-regs-lk.txt), mainline command-mode DSI
+  gaps, the DISP power domain (removed from spm in W2), burn-in plan.
 
 Next candidates:
 00. ~~Burn-in bug~~ fixed in chg1 (astro-console ignores init's alive
