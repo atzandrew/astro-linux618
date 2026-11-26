@@ -1167,3 +1167,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
     voter write); genpd conn on, consys active.
   - Harmless misses: wifi.cfg, wifi_sigma.cfg, txpowerctrl.cfg (optional),
     GPS LNA pinctrl (not used), thermal zone (none in DT).
+- First association (2026-11-25): NM tried the saved profile on `ap0`
+  (gen4m SoftAP iface) → "association took too long". Fix on the Debian
+  root: /etc/NetworkManager/conf.d/90-astro-wifi.conf
+  `unmanaged-devices=interface-name:ap0;interface-name:wlan1;interface-name:p2p0`,
+  profile pinned to wlan0. Then connected: 5 GHz (5240 MHz), −60 dBm,
+  tx bitrate 468 Mbit/s, DHCP v4 + v6, DNS ok, 0 % loss to the internet;
+  SSH works directly over Wi-Fi. (gemini-debian Astro target needs that
+  NM snippet.)
