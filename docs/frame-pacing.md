@@ -147,3 +147,25 @@ maxTonemappingLuminance, primaryBrightness, modulation), each 40 fpow in
 NIR -> ~160 FEXP.f32 + 164 FLOGD.f32. The other 14 (blur, contrast,
 gradients, copies) have none. Matches gpufill: a per-pixel colour transform
 costs 4x on this GPU (9.99 vs 2.38 ms for 4 full-screen layers).
+
+## Colour power preference and TE (2026-11-26, tr2)
+
+- KWin "prefer efficiency and performance" (set by the user in System
+  Settings): CTM / GAMMA_LUT stay empty, CCORR identity (0x800 = unity in
+  Q2.11, matches mainline mt8192 matrix_bits 11 and the vendor's MT6873 <<1),
+  GAMMA/AAL relay; KWin fragment work unchanged (1430 ms / 55 jobs > 5 ms in
+  6 toggles). No hardware offload because KWin's pipeline for this sRGB
+  output is an identity; its colour shader stays.
+- Gamma LUT format note: mainline mt8192 uses mt8183 data (512 entries,
+  10 bit, lut_diff); the vendor DRM path writes absolute entries, the
+  vendor PQ path compares entries 0 and 510 (consistent with diff mode).
+  Untested with values. mtk_crtc_atomic_flush writes CTM/gamma before the
+  command-mode idle wait (a colour change can hit the frame in flight).
+- **No TE synchronisation.** Menu frames came 22.1 / 23.8 ms apart: not a
+  multiple of any refresh. The panel gets set_tear_on (0x35 VBLANK) and the
+  DSI has EXT_TE_EN (TXRX_CTRL 0x1023C), but the vendor syncs frames by GCE
+  `cmdq_pkt_wfe(EVENT_TE)` ("disp_wait_dsi0_te") before each trigger
+  (mtk_drm_crtc.c trigger loop); our trigger fires at commit time. So the
+  15.87 ms "TE" period measured earlier was the back-to-back transfer time
+  (15.86 ms), not the panel refresh, and the 63.00 Hz mode (HFP 21) rests on
+  that misreading. Vendor vrefresh: 60.
