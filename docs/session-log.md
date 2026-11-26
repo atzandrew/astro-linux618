@@ -1146,3 +1146,24 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   "Not disabling unused regulators"; vcn18 1.8 V, vcn13 1.3 V,
   vcn33_1_bt/_1_wifi/_2_wifi 3.5 V, all disabled, 0 users. 35 snapshot
   PMIC registers identical after probe (0xa12 = 0x21e0): no writes.
+- **Stage C (kernel #13, 2026-11-25): Wi-Fi up.** Firmware from the unit's
+  vendor (Monolith extraction) in /lib/firmware, NVRAM `WIFI` (2050 bytes,
+  nvdata backup) in /var/lib/astro-wifi (root-only, not in the repo).
+  modprobe btif_drv, connadp, wmt_drv (launcher: SoC chip id 0x6873, STP
+  0x23; EMI 0x60000000 cleared + remapped, CONSYS_EMI_MAPPING 0x6000),
+  wmt_chrdev_wifi, wlan_drv_gen4m_6873; NVRAM via "WR-BUF:NVRAM", then "1"
+  to /dev/wmtWifi (3 s).
+  - Power-on: VCN18/VCN13 on (RC mode), pm_runtime_get_sync → genpd conn
+    on, CONSYS HW/FW version 0x8a00, chip 0x6873 E1, A-die 0x6635.
+  - ROM patches into EMI at the header offsets (BT 0x110000, Wi-Fi
+    0x1d0000, MCU 0x0); MCU ROM patch soc2_0_patch_mcu over STP (22
+    frags ok); VCN33_1/_2 on in RC mode (VOSEL 0xd = 3.3 V).
+  - gen4m: NVRAM v2/3, 5G on; N9 RAM code `t-neptune-mp-soc2_0-…MT6635
+    …20211216123102`, "Ready bit asserted", MAC from NVRAM.
+  - wlan0 + wlan1 + p2p0 + ap0 created. NetworkManager scans: 17 BSS on
+    2.4 GHz (ch 1–11) and 5 GHz (ch 36/48/149); iw scan EBUSY while NM
+    scans.
+  - With Wi-Fi on: **0xa12 = 0x21e0**; VS2 0x18b4 0x30 → 0x35 (stock
+    voter write); genpd conn on, consys active.
+  - Harmless misses: wifi.cfg, wifi_sigma.cfg, txpowerctrl.cfg (optional),
+    GPS LNA pinctrl (not used), thermal zone (none in DT).
