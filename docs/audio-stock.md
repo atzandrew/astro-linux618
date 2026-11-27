@@ -418,3 +418,22 @@ card, card but silence, GPIO30 not following playback, any oops.
   Q 0.7071 per channel, target = the UCM Speaker sink only.
 - User (music): cleaner, no clipping at 100 %. Still thin (as stock:
   the HPF removes bass); an opt-in taste EQ is possible later, not stock.
+
+## Speaker EQ (2026-11-26, gemini-debian default)
+
+- Measurement (tools/audio-eq): Blue USB mic on livingwall, sweeps from
+  the Astro, 3 positions (centre, 10 cm left, 10 cm right) x both/L/R/
+  filtered; rec peaks -14..-21 dBFS, noise ~-67 dBFS (traffic outside).
+  Mic gain at maximum clipped (0 dBFS) on the first level check: capture
+  11 of 22.
+- Speaker average (6 single-speaker takes, 1/3 oct, 0 dB = 1-3 kHz):
+  -12.7 dB at 500 Hz, -7.9 at 630, -3.2 at 800 (drivers roll off below
+  ~700 Hz), flat ±2 dB 1-2 kHz, rising to +7.0 at 4 kHz and +9.0 at 5 kHz
+  (spread 0.5-1.6 dB: the drivers, not the room), +5.2 at 6.3 kHz, -11 at
+  10 kHz. 700 Hz-3 kHz dips move with position (L/R interference): not
+  equalised. Filtered vs raw: identical above 300 Hz (filter verified).
+- A/B by the user with music: A stock (HPF only), B HPF + -7 dB at
+  4.8 kHz ("different, losing something"), C = B + 3 dB at 650 Hz Q 1.0
+  and -3 dB overall: "way better" than A and B. C is the gemini-debian
+  default (user decision); the stock-only filter is kept, not loaded.
+  avg + C: within about ±2 dB of the midband from 800 Hz to 6.3 kHz.

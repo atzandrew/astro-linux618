@@ -1541,3 +1541,7 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
 - A5 part (gemini-debian 3b46829): UCM profile (speaker fixed at stock
   -2 dB, earpiece +8 dB) + stock 300 Hz speaker high-pass as a PipeWire
   smart filter. User: cleaner, no clipping at 100 %.
+- Speaker EQ: measured (tools/audio-eq, Blue USB mic on livingwall, 3
+  positions): +7..+9 dB driver peak at 4-5 kHz, roll-off below 700 Hz.
+  A/B: C (stock HPF + 3 dB @650 Hz, -7 dB @4.8 kHz, -3 dB) clearly best;
+  now the gemini-debian default (user), stock-only filter kept.
