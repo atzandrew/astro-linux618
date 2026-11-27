@@ -398,3 +398,23 @@ card, card but silence, GPIO30 not following playback, any oops.
   at -2 dB and a filter-chain with the stock speaker processing (300 Hz
   HPF, low-band cut, loudness DRC); the HPF also removes the bass energy
   that clips first.
+
+## A5 (part): UCM + stock speaker filter (2026-11-26, gemini-debian 3b46829)
+
+- UCM `ucm2/conf.d/mt8192_mt6359/Astro Slide.conf` →
+  `ucm2/MediaTek/mt8192/astro-slide/HiFi.conf`: verb = ADDA_DL ← DL1,
+  DAC In Mux Normal Path; Speaker = Headset Volume 8 (-2 dB, stock
+  speaker_pga 10) + HP Mux Audio Playback + Speakers on, volume in
+  software (no hw volume element: the drive stays at -2 dB at every slider
+  position, checked); Earpiece (profile "HiFi (Earpiece)") = Handset
+  Volume 18 (+8 dB, stock receiver_pga 0) + RCV Mux Voice Playback.
+  Headphones and mics are not listed until A4/A3.
+- Stock speaker processing as found in vendor_a: Aurisys runs
+  mtk_bessound on playback; the speaker ACF is a 2nd-order 300 Hz
+  high-pass only. `MTK_BESLOUDNESS_SUPPORT = no`, so the 8-band "Music"
+  DRC profile is most likely an unused template (not reproduced).
+  Reproduced: PipeWire filter-chain smart filter
+  (`filter-chain.conf.d/astro-speaker.conf`), bq_highpass 300 Hz
+  Q 0.7071 per channel, target = the UCM Speaker sink only.
+- User (music): cleaner, no clipping at 100 %. Still thin (as stock:
+  the HPF removes bass); an opt-in taste EQ is possible later, not stock.

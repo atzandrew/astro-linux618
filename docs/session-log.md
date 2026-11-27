@@ -1538,3 +1538,6 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   vendor 0 dB default), module only: fixed, ZCD_CON2 0x050a at -2 dB =
   stock. Clean up to ~70 % (= stock -2 dB), thin (no stock HAL
   processing: 300 Hz HPF + 8-band loudness DRC, docs/audio-stock.md).
+- A5 part (gemini-debian 3b46829): UCM profile (speaker fixed at stock
+  -2 dB, earpiece +8 dB) + stock 300 Hz speaker high-pass as a PipeWire
+  smart filter. User: cleaner, no clipping at 100 %.
