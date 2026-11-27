@@ -118,6 +118,18 @@ modules-load.d). Schedutil rate limit 1.5 ms from per-OPP
 delta reads it as cpufreq-dt does). DRAM already at 4266 Mbps and UFS at
 HS-G3B x2 (read only, no speed pass needed).
 
+**Audio A1 (2026-11-26, `docs/audio-stock.md`)**: boot-a1.img (uname #29;
+Image/DTB unchanged since, later fixes are modules): AUDIO domain, mainline
+mt8192 AFE + MT6359 codec, MT6359-only card variant `mediatek,mt8192-mt6359`
+(card "Astro Slide"), speaker = HP buffer into the GPIO30 amp
+(`simple-audio-amplifier` as `aux-devs`), earpiece = receiver. Deltas: AFE
+runtime-PM clock-gate order (Cosmo bug again), MT6359 DL gain controls
+inverted (code 0 = +8 dB), aux-devs in mtk-soundcard-driver. Speaker
+stereo + earpiece PASS; stock gain -2 dB = clean max. Guard extended
+(AUDIO domain, audio-codec node, pinned codec/machine sources, AFE reset =
+TOPRGU bit 17); ACCDET still refused. Next: UCM + stock 300 Hz HPF
+filter-chain (gemini-debian), mics, headphones, ACCDET.
+
 **Frame pacing (2026-11-26, `docs/frame-pacing.md`)**: kernel #26
 (`boot-k26b.img`, uname #27) = C4 + command-mode early flip (mtk_crtc
 `cmd_early_flip`: page-flip event at frame trigger, vblank count at frame

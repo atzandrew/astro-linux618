@@ -510,6 +510,23 @@
 			compatible = "mediatek,mt6359-pwrc";
 			mediatek,toprgu = <&watchdog>;
 		};
+
+		/*
+		 * Audio A1 (docs/audio-stock.md): properties for the MT6359
+		 * codec cell (mainline mt6359.c). Mic types per ADC: 0 = main
+		 * mic AIN0 and 2 = back mic AIN3, analog (stock MicInfo AMIC
+		 * SPH1642HT5H), ACC to start with; 1 = headset mic AIN1, DCC
+		 * (stock ACCDET mic-mode 2 = "DCC, low cost without internal
+		 * bias"). Register writes: docs/audio-stock.md "What the PMIC
+		 * sees"; nothing in STRUP, keys, regulators or RTC.
+		 */
+		mt6359codec: audio-codec {
+			compatible = "mediatek,mt6359-codec";
+			mediatek,dmic-mode = <0>;
+			mediatek,mic-type-0 = <1>;
+			mediatek,mic-type-1 = <3>;
+			mediatek,mic-type-2 = <1>;
+		};
 	};
 };
 
@@ -1262,7 +1279,14 @@
  * BIT10; domain clock infra_pmic_conn (sw_cg_0 bit 3 in both).
  */
 &spm {
-	/delete-node/ power-domain@MT8192_POWER_DOMAIN_AUDIO;
+	/*
+	 * Audio A1 (docs/audio-stock.md): AUDIO back (no children, no
+	 * domain-supply). Mainline MT8192 AUDIO = vendor MT6873
+	 * spm_mtcmos_ctrl_audio: PWR_CON 0x354, status bit 21 at 0x16c/0x170,
+	 * SRAM_PDN bit 8 / ack bit 12, bus protect INFRA PROTECTEN_2 bit 4
+	 * (0x714/0x718/0x724). Not KEEP_DEFAULT_OFF: powered on at probe, then
+	 * the AFE's runtime PM switches it.
+	 */
 	/*
 	 * GPU G-S2 (docs/gpu-stock.md): MFG0 (+MFG1-6) back. All off at
 	 * handover; scpsys powers them on at probe with the stock MT6873 MTCMOS
@@ -1762,4 +1786,168 @@
 	proc-supply = <&mt6315_6_vbuck1>;
 	sram-supply = <&mt6359_vsram_proc1_ldo_reg>;
 	mediatek,cci = <&cci>;
+};
+
+/*
+ * Audio A1 (docs/audio-stock.md). MT6359 is the only codec: speaker =
+ * MT6359 HP buffer (stock SPK_PATH_HP / int_hp_buf) into an analog amp
+ * switched by GPIO30 (stock mt6873-mt6359.c: high at POST_PMU, low at
+ * PRE_PMD; no pulses), earpiece = MT6359 receiver driver, headphones =
+ * HP buffer. Mics: main AIN0, back AIN3, headset AIN1 (stock
+ * audio_device.xml). The stock i2c6 speaker_amp@34 is a smart-PA probe
+ * that always falls back to a dummy codec: not described.
+ */
+&pio {
+	speaker_amp_pins: speaker-amp-pins {
+		pins-en {
+			pinmux = <PINMUX_GPIO30__FUNC_GPIO30>;
+			output-low;
+		};
+	};
+
+	/* MTKAIF pins: stock pinctrl states (on = mode 1, off = mode 0) */
+	aud_clk_mosi_off_pins: aud-clk-mosi-off-pins {
+		pins-mosi-off {
+			pinmux = <PINMUX_GPIO214__FUNC_GPIO214>,
+				 <PINMUX_GPIO215__FUNC_GPIO215>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+
+	aud_clk_mosi_on_pins: aud-clk-mosi-on-pins {
+		pins-mosi-on {
+			pinmux = <PINMUX_GPIO214__FUNC_AUD_CLK_MOSI>,
+				 <PINMUX_GPIO215__FUNC_AUD_SYNC_MOSI>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+
+	aud_dat_mosi_off_pins: aud-dat-mosi-off-pins {
+		pins-mosi-off {
+			pinmux = <PINMUX_GPIO216__FUNC_GPIO216>,
+				 <PINMUX_GPIO217__FUNC_GPIO217>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+
+	aud_dat_mosi_on_pins: aud-dat-mosi-on-pins {
+		pins-mosi-on {
+			pinmux = <PINMUX_GPIO216__FUNC_AUD_DAT_MOSI0>,
+				 <PINMUX_GPIO217__FUNC_AUD_DAT_MOSI1>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+
+	aud_dat_miso_off_pins: aud-dat-miso-off-pins {
+		pins-miso0-off {
+			pinmux = <PINMUX_GPIO218__FUNC_GPIO218>;
+			input-enable;
+			bias-pull-down;
+		};
+
+		pins-miso1-off {
+			pinmux = <PINMUX_GPIO219__FUNC_GPIO219>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
+	aud_dat_miso_on_pins: aud-dat-miso-on-pins {
+		pins-miso-on {
+			pinmux = <PINMUX_GPIO218__FUNC_AUD_DAT_MISO0>,
+				 <PINMUX_GPIO219__FUNC_AUD_DAT_MISO1>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+
+	aud_dat_mosi_ch34_off_pins: aud-dat-mosi-ch34-off-pins {
+		pins-mosi-off {
+			pinmux = <PINMUX_GPIO196__FUNC_GPIO196>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+
+	aud_dat_mosi_ch34_on_pins: aud-dat-mosi-ch34-on-pins {
+		pins-mosi-on {
+			pinmux = <PINMUX_GPIO196__FUNC_AUD_DAT_MOSI2>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+
+	aud_dat_miso_ch34_off_pins: aud-dat-miso-ch34-off-pins {
+		pins-miso-off {
+			pinmux = <PINMUX_GPIO199__FUNC_GPIO199>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+
+	aud_dat_miso_ch34_on_pins: aud-dat-miso-ch34-on-pins {
+		pins-miso-on {
+			pinmux = <PINMUX_GPIO199__FUNC_AUD_DAT_MISO2>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+};
+
+/ {
+	/* Second codec of the mainline Primary Codec link; no DMIC fitted. */
+	dmic_codec: dmic-codec {
+		compatible = "dmic-codec";
+		#sound-dai-cells = <0>;
+	};
+
+	speaker_amp: audio-amplifier {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&pio 30 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&speaker_amp_pins>;
+		sound-name-prefix = "Speaker Amp";
+	};
+
+	sound: sound {
+		compatible = "mediatek,mt8192-mt6359";
+		model = "Astro Slide";
+		mediatek,platform = <&afe>;
+		aux-devs = <&speaker_amp>;
+		pinctrl-names = "aud_clk_mosi_off",
+				"aud_clk_mosi_on",
+				"aud_dat_mosi_off",
+				"aud_dat_mosi_on",
+				"aud_dat_miso_off",
+				"aud_dat_miso_on",
+				"aud_dat_mosi_ch34_off",
+				"aud_dat_mosi_ch34_on",
+				"aud_dat_miso_ch34_off",
+				"aud_dat_miso_ch34_on";
+		pinctrl-0 = <&aud_clk_mosi_off_pins>;
+		pinctrl-1 = <&aud_clk_mosi_on_pins>;
+		pinctrl-2 = <&aud_dat_mosi_off_pins>;
+		pinctrl-3 = <&aud_dat_mosi_on_pins>;
+		pinctrl-4 = <&aud_dat_miso_off_pins>;
+		pinctrl-5 = <&aud_dat_miso_on_pins>;
+		pinctrl-6 = <&aud_dat_mosi_ch34_off_pins>;
+		pinctrl-7 = <&aud_dat_mosi_ch34_on_pins>;
+		pinctrl-8 = <&aud_dat_miso_ch34_off_pins>;
+		pinctrl-9 = <&aud_dat_miso_ch34_on_pins>;
+		audio-routing =
+			"Speaker Amp INL", "Headphone L Ext Spk Amp",
+			"Speaker Amp INR", "Headphone R Ext Spk Amp",
+			"Speakers", "Speaker Amp OUTL",
+			"Speakers", "Speaker Amp OUTR",
+			"Headphone Jack", "Headphone L",
+			"Headphone Jack", "Headphone R",
+			"Earpiece", "Receiver",
+			"AIN0", "Built-in Mic",
+			"AIN3", "Built-in Mic 2",
+			"AIN1", "Headset Mic";
+	};
 };

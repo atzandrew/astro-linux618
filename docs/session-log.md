@@ -1491,3 +1491,50 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   Wi-Fi. Livingwall got the lease and stays connected. Monolith's
   astro-usb profile is still `shared` (user will change it if needed).
 
+
+## 2026-11-26 — Audio step 1: stock inventory (no flash, no writes)
+
+- New `docs/audio-stock.md`. Reads only: `super` LP metadata + `vendor_a`
+  copied with `dd` (ext4, sha256 28bdfe41…; audio configs kept in
+  gitignored `backup/vendor-audio/`), pinctrl + pwrap debugfs single reads.
+- Speaker amp answered: stock machine driver `mt6873-mt6359.c:114` drives
+  GPIO30 as a plain level (`aeon_spk_en1` high at POST_PMU, `aeon_spk_en0`
+  low at PRE_PMD, skipped while HDMI); no pulse mode. `speaker_amp@34`
+  (i2c6) is the generic MTK probe that falls back to the dummy codec (no
+  smart-PA driver built). Mainline equivalent: `simple-audio-amplifier`.
+  GPIO30 reads output-low now (amp off).
+- HAL: `SPK_PATH_HP` / `int_hp_buf` (speaker from the HP buffer, as the
+  Cosmo), `RCV_PATH_INT`, 2 speakers, 2 mics (AIN0 bottom, AIN3 back),
+  headset mic AIN1.
+- AUDIO domain data = vendor MTCMOS sequence. Mainline AFE probe pulses
+  TOPRGU SWSYSRST bit 17 = vendor `MTK_WDT_SWSYS_RST_AUDIO_RST` (stock
+  never does): goes into the A1 pre-flash check.
+- Mainline codec/ACCDET register sets resolved: nothing in STRUP, keys,
+  regulators or RTC. VAUD18 already on (0x1c9a = 0x0001, 0x1c9e = 0x0003).
+  0xa12 = 0x21e0.
+- Next: A1 (speaker) as planned in the doc.
+
+## 2026-11-26 — Audio A1: speaker — PRE-FLASH CHECK
+
+- Pre-flash check, changes, guard and test plan: `docs/audio-stock.md`
+  "A1 pre-flash check". Image `boot-a1.img`
+  f5d4af51384123511478bc89511cd51202253a5a760fe55b89250414fb732c93
+  (Image.gz f6375358…, DTB c422d256…), release 6.18.58-astro (#28),
+  modules installed on the rootfs (#26 tree kept as .k26), alsa-utils
+  installed (apt), sync done. Copied to livingwall, sha256 matches.
+- Boot-image packing is not byte-reproducible (initramfs re-gzipped with
+  new timestamps each run); kernel and DTB inputs are.
+
+## 2026-11-26 — Audio A1 result: speaker PASS (after an AFE fix)
+
+- boot-a1.img booted (#29, 0xa12 0x21e0), card "Astro Slide" up. First
+  playback: EIO / hw_ptr err; AUDIO_TOP_CON0 bit 2 still set with aud_afe
+  enabled = the Cosmo A1 regmap cache-only bug, here in mt8192-afe-pcm.c.
+  Delta fix (leave cache-only before clocks on, gate before cache-only),
+  module only, reboot. Then the tone played from the speakers (user),
+  GPIO30 followed the stream. Details: docs/audio-stock.md "A1 result".
+- Earpiece PASS (user). Music test: volume folded over at 50 % — mainline
+  mt6359.c DL gain controls inverted (code 0 = +8 dB); A1c delta (invert +
+  vendor 0 dB default), module only: fixed, ZCD_CON2 0x050a at -2 dB =
+  stock. Clean up to ~70 % (= stock -2 dB), thin (no stock HAL
+  processing: 300 Hz HPF + 8-band loudness DRC, docs/audio-stock.md).

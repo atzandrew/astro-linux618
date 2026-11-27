@@ -89,6 +89,14 @@ GOODIX_CORE_SHA=aa897b60353dce96be21273f841debde6fa4536f964e5006d6991153860413ff
 LVTS_SHA=de9e97ac7450d4edccd0af06010a67c9ae9df5679b4cf1dab815ea8ab83572fd
 # Display Stage 3: audited SH8802B panel driver (stock init/off/brightness only).
 PANEL_SHA=63780c0ef6443beb5b0d8c25f00a24dd603486b2b69162a01a0735ae6318d97d  # frame pacing (2026-11-26): mode HFP 59 -> 21 only (63.00 Hz, porches not sent in command mode)
+# Audio A1 (docs/audio-stock.md "What the PMIC sees"): the MT6359 codec
+# (v6.18.58 + A1c volume delta: probe and DAPM write only the audio block
+# 0x2300-0x26ff plus pad/GPIO-mode 0x32-0xe8 and DCXO_CW12 0x7a8) and the
+# MT8192 machine driver with the MT6359-only variant (MTKAIF calibration
+# through the codec's exported helpers).
+MT6359_CODEC_SHA=11e15219569beb898a255125b6f9ecec6fc8f06a4bcd58242903b345f57a77f7  # A1c: playback volume controls inverted to match the TLV, HP gain default 0 dB (vendor)
+MT6359_CODEC_H_SHA=c172b55ade7ebb396e531e4469d7d838b1452287171225887a1224508b0542d2
+MT8192_MACH_SHA=00dcb5754a7bc78f382c00e366ece31a16fd17aeb45e785b5e8e0f808e670033
 refuse() { echo "REFUSING ($1): AGENTS.md rule 5" >&2; exit 1; }
 
 # LK applies dtbo_a to this DTB too (display test 1): dtbo/astro-lk.dts
@@ -157,6 +165,17 @@ else
 		[[ "$(grep -oP '^\t\t\t\t\t\K.*;$' <<<"$PWRC_NODE" | tr '\n' '|')" == "compatible = \"mediatek,mt6359-pwrc\";|mediatek,toprgu = $WDT_PH;|" ]] \
 			|| refuse "pwrc node is not exactly compatible + toprgu = watchdog"
 		KIDS="${KIDS/pwrc \{ /}"
+	fi
+	# Audio A1: audio-codec holds properties only (the codec cell binds
+	# by name): exactly the compatible, two-wire DMIC mode and the three
+	# mic types (ACC, DCC, ACC).
+	if [[ "$KIDS" == *"audio-codec { "* ]]; then
+		CODEC_NODE="$(awk '/^\t\t\t\taudio-codec \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$PWRAP_NODE")"
+		[[ "$(grep -oP '^\t\t\t\t\t\K.*;$' <<<"$CODEC_NODE" | grep -v '^phandle = ' | tr '\n' '|')" \
+			== 'compatible = "mediatek,mt6359-codec";|mediatek,dmic-mode = <0x00>;|mediatek,mic-type-0 = <0x01>;|mediatek,mic-type-1 = <0x03>;|mediatek,mic-type-2 = <0x01>;|' ]] \
+			|| refuse "audio-codec node is not exactly the A1 one"
+		grep -qP '^\t\t\t\t\t[a-z][^ ]* \{$' <<<"$CODEC_NODE" && refuse "audio-codec has child nodes"
+		KIDS="${KIDS/audio-codec \{ /}"
 	fi
 	case "$KIDS" in
 	""|"keys { "|"adc { "|"adc { keys { "|"adc { keys { regulators { "|"keys { regulators { "|"regulators { "|"adc { regulators { ") ;;
@@ -247,10 +266,14 @@ if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 	# GPU G-S2 (docs/gpu-stock.md): + MFG0 (2) with MFG1 (3) and MFG2-6
 	# (4-8) under it, no domain-supply (rails stay as LK left them).
 	TOP="$(grep -oP '^\t\t\t\t\K[a-z][^ ]*(?= \{$)' <<<"$SPM_NODE" | sort | tr '\n' ' ')"
-	[[ "$TOP" == "power-domain@1 power-domain@2 power-domain@9 " ]] \
-		|| refuse "spm top-level domains are not CONN (1), MFG0 (2), DISP (9): $TOP"
+	# Audio A1: + AUDIO (0), no child, no domain-supply (checked below).
+	[[ "$TOP" == "power-domain@0 power-domain@1 power-domain@2 power-domain@9 " ]] \
+		|| refuse "spm top-level domains are not AUDIO (0), CONN (1), MFG0 (2), DISP (9): $TOP"
 	ALL="$(grep -oP 'power-domain@\K[0-9a-f]+(?= \{$)' <<<"$SPM_NODE" | sort | tr '\n' ' ')"
-	[[ "$ALL" == "1 2 3 4 5 6 7 8 9 " ]] || refuse "spm domains are not exactly CONN, MFG0-6, DISP: $ALL"
+	[[ "$ALL" == "0 1 2 3 4 5 6 7 8 9 " ]] || refuse "spm domains are not exactly AUDIO, CONN, MFG0-6, DISP: $ALL"
+	AUD_NODE="$(awk '/^\t\t\t\tpower-domain@0 \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$SPM_NODE")"
+	grep -q 'power-domain@[0-9a-f]* {' <<<"$(tail -n +2 <<<"$AUD_NODE")" && refuse "AUDIO has child domains"
+	grep -q 'domain-supply' <<<"$AUD_NODE" && refuse "AUDIO has a domain-supply"
 	DISP_NODE="$(awk '/^\t\t\t\tpower-domain@9 \{$/{f=1} f{print} f&&/^\t\t\t\t};$/{exit}' <<<"$SPM_NODE")"
 	grep -q 'power-domain@[0-9a-f]* {' <<<"$(tail -n +2 <<<"$DISP_NODE")" && refuse "DISP has child domains"
 	# G-S3: one domain-supply, on MFG0 (power-domain@2 at the top level),
@@ -266,10 +289,26 @@ if grep -qE '^CONFIG_MTK_SCPSYS_PM_DOMAINS=y' "$KCONF"; then
 		"$ROOT/build/src/drivers/pmdomain/mediatek/mt8192-pm-domains.h" \
 		| grep -q 'MTK_SCPD_KEEP_DEFAULT_OFF' || refuse "CONN domain is not KEEP_DEFAULT_OFF"
 fi
-for c in RTC_DRV_MT6397 SND_SOC_MT6359 \
-	 SND_SOC_MT6359_ACCDET; do
+for c in RTC_DRV_MT6397 SND_SOC_MT6359_ACCDET; do
 	grep -qE "^CONFIG_$c=" "$KCONF" && refuse "CONFIG_$c set (MT6359 function driver)"
 done
+grep -q '"mediatek,mt6359-accdet"' <<<"$DTS_TEXT" && refuse "mt6359-accdet node (ACCDET not audited yet)"
+# Audio A1: the MT6359 codec only as a module, with its properties node,
+# pinned sources, and the AFE's only TOPRGU use = SWSYSRST bit 17 (vendor
+# MTK_WDT_SWSYS_RST_AUDIO_RST).
+if grep -qE '^CONFIG_SND_SOC_MT6359=' "$KCONF"; then
+	grep -qE '^CONFIG_SND_SOC_MT6359=m$' "$KCONF" || refuse "SND_SOC_MT6359 built in (module only)"
+	[[ -n "${CODEC_NODE:-}" ]] || refuse "MT6359 codec driver without the checked audio-codec node"
+	[[ "$(sha256sum < "$ROOT/build/src/sound/soc/codecs/mt6359.c" | cut -d' ' -f1)" == "$MT6359_CODEC_SHA" ]] \
+		&& [[ "$(sha256sum < "$ROOT/build/src/sound/soc/codecs/mt6359.h" | cut -d' ' -f1)" == "$MT6359_CODEC_H_SHA" ]] \
+		&& [[ "$(sha256sum < "$ROOT/build/src/sound/soc/mediatek/mt8192/mt8192-mt6359-rt1015-rt5682.c" | cut -d' ' -f1)" == "$MT8192_MACH_SHA" ]] \
+		|| refuse "mt6359 codec / mt8192 machine driver is not the audited A1 source"
+	AFE_NODE="$(awk '/^\t\t\tmt8192-afe-pcm \{$/{f=1} f{print} f&&/^\t\t\t};$/{exit}' <<<"$DTS_TEXT")"
+	AFE_WDT_PH="$(awk '/^\t\twatchdog@10007000 \{$/{f=1} f&&/phandle = /{print $3; exit}' <<<"$DTS_TEXT" | tr -d ';<>')"
+	grep -qF "resets = <$AFE_WDT_PH 0x11>;" <<<"$AFE_NODE" || refuse "AFE resets is not TOPRGU bit 17 (audio)"
+fi
+grep -q 'compatible = "mediatek,mt6359-codec";' <<<"$DTS_TEXT" && [[ -z "${CODEC_NODE:-}" ]] \
+	&& refuse "MT6359 codec node outside the checked one"
 # GPU G-S1 (docs/gpu-stock.md): SPMI + MT6315 for reading only. The MT6315s
 # carry the CPU and GPU rails: sources pinned (unmodified mainline, audited:
 # probe only reads, shutdown = the stock driver's power-off-sequence bit),
