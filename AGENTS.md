@@ -228,7 +228,8 @@ that does ADB/MTP/download mode). The user runs every `mtk w` there. Before
 that it was **Monolith** (192.168.0.235), which still holds the older
 images and is the route for `bin/astro-sh` / USB networking. This build
 machine (aarch64) builds images and copies them over. Day-to-day access is
-Wi-Fi SSH: `ssh atzero@192.168.0.138` (DHCP; may change).
+Wi-Fi SSH: `ssh atzero@192.168.0.138` (DHCP; may change). The USB link is
+SSH-only (Astro 10.15.21.1 leases the host 10.15.21.2, no router/DNS/NAT).
 
 ## Rules (inherited from cosmo-linux618 — read its AGENTS.md for history)
 

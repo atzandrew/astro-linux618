@@ -1483,4 +1483,11 @@ the P0 backup on Monolith with lpunpack + debugfs). Details:
   cpufreq-cpu0 / cpufreq-cpu4 registered, 0xa12 0x21e0, SDDM up. One
   `mtk-ccifreq cci: failed to add devfreq device: -517` at 7.7 s (passive
   governor not ready yet), retried and bound.
+- USB link (2026-11-26, rootfs only, gemini-debian 88edc3a): hosts flapped
+  "disconnected" every 45 s because nothing answered DHCP on usb0 after the
+  initramfs (design assumed Monolith's NAT/shared profile). Now
+  astro-usb-dhcp.service (busybox udhcpd) leases 10.15.21.2 with no router
+  or DNS; usb0 static, never-default, no DNS: SSH only, no NAT, internet is
+  Wi-Fi. Livingwall got the lease and stays connected. Monolith's
+  astro-usb profile is still `shared` (user will change it if needed).
 
